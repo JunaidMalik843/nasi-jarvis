@@ -1,0 +1,6 @@
+{
+  "name": "NASI",
+  "description": "Futuristic personal AI operating experience and autonomous multi-agent ecosystem.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
