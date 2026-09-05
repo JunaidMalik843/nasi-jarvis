@@ -29,6 +29,9 @@ import {
   Zap,
 } from 'lucide-react';
 import './styles.css';
+import './components/VoicePanel.css';
+import { VoicePanel } from './components/VoicePanel';
+import type { CoreState } from './hooks/useVoice';
 
 type Agent = {
   name: string;
@@ -59,8 +62,11 @@ const headlines = [
 
 function App() {
   const [activeNav, setActiveNav] = useState('Today');
+  const [coreState, setCoreState] = useState<CoreState>('IDLE');
   const [isListening, setIsListening] = useState(false);
   const [isCoreActive, setIsCoreActive] = useState(false);
+  const [voiceTranscript, setVoiceTranscript] = useState('');
+  const [isVoiceSending, setIsVoiceSending] = useState(false);
   const [command, setCommand] = useState('');
   const [messages, setMessages] = useState<Message[]>([
     { from: 'nasi', text: 'NASI core online. Your command center is synchronized.' },
@@ -71,30 +77,67 @@ function App() {
 
   const localTime = useMemo(() => new Intl.DateTimeFormat('en', { hour: '2-digit', minute: '2-digit' }).format(new Date()), []);
 
+  // Keep the legacy demo timer for the old listening toggle behavior.
+  // Real voice uses the VoicePanel + useVoice hook.
   useEffect(() => {
     if (!isListening) return;
     const timer = window.setTimeout(() => setIsListening(false), 5000);
     return () => window.clearTimeout(timer);
   }, [isListening]);
 
-  async function sendCommand() {
-    const prompt = command.trim();
+  function setCoreIdle() {
+    setCoreState('IDLE');
+  }
+
+  async function sendCommand(prompt: string, isVoice = false) {
     if (!prompt || isSending) return;
     setMessages((current) => [...current, { from: 'user', text: prompt }]);
-    setCommand('');
-    setIsSending(true);
+    if (isVoice) {
+      setIsVoiceSending(true);
+      setCoreState('THINKING');
+    } else {
+      setIsSending(true);
+      setCoreState('THINKING');
+    }
     try {
       const response = await fetch('/api/gemini/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, systemInstruction: 'You are NASI, a concise futuristic personal AI operating system. Answer clearly and helpfully.' }),
+        body: JSON.stringify({ prompt, systemInstruction: 'You are NASI, an advanced autonomous cybernetic AI personal operating system and multi-agent orchestrator. Provide concise, tactical, and informative responses. You speak naturally and support English and Urdu (Urdu script and Roman Urdu).' }),
       });
-      const data = (await response.json()) as { text?: string };
-      setMessages((current) => [...current, { from: 'nasi', text: data.text || 'Command received. I am ready for your next directive.' }]);
+      const data = (await response.json()) as { text?: string; provider?: string; status?: string };
+      const responseText = data.text || 'Command received. I am ready for your next directive.';
+      setMessages((current) => [...current, { from: 'nasi', text: responseText }]);
+      if (isVoice) {
+        // Speak the response via the VoicePanel's speak() once it resolves.
+        // We expose speakResponse so VoicePanel can call it after the response arrives.
+        speakResponse(responseText);
+      }
     } catch {
-      setMessages((current) => [...current, { from: 'nasi', text: 'The command channel is temporarily unavailable. Local systems remain active.' }]);
+      const fallback = 'The command channel is temporarily unavailable. Local systems remain active.';
+      setMessages((current) => [...current, { from: 'nasi', text: fallback }]);
+      if (isVoice) speakResponse(fallback);
     } finally {
-      setIsSending(false);
+      if (isVoice) setIsVoiceSending(false);
+      else setIsSending(false);
+      setCoreState('IDLE');
+    }
+  }
+
+  function speakResponse(text: string) {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.98;
+      utterance.pitch = 1.0;
+      const voices = window.speechSynthesis.getVoices();
+      const preferFemale = voices.find((v) => /female/i.test(v.name) && v.lang.startsWith('en'));
+      const preferEnglish = voices.find((v) => v.lang.startsWith('en'));
+      utterance.voice = preferFemale || preferEnglish || voices[0] || null;
+      utterance.onstart = () => setCoreState('SPEAKING');
+      utterance.onend = () => setCoreState('IDLE');
+      utterance.onerror = () => setCoreState('IDLE');
+      window.speechSynthesis.speak(utterance);
     }
   }
 
@@ -130,7 +173,7 @@ function App() {
             <PanelHeader label="Sat-link feed" icon={<Radar size={13} />} action={<button className="icon-button"><MoreHorizontal size={14} /></button>} />
             <div className="feed-title"><span className="live-dot" /> Satellite stream <span className="feed-time">UTC {localTime}</span></div>
             <div className="map-preview">
-              <img src="/assets/themes/stonic-theme-cyan-1200.webp" alt="Satellite command map" />
+              <img src="/assets/themes/nasi-radar-cyan.svg" alt="NASI satellite command map" />
               <div className="map-overlay" />
               <div className="map-label label-one">NORTH ATLANTIC <span>●</span></div>
               <div className="map-label label-two">PACIFIC ARRAY <span>●</span></div>
@@ -147,15 +190,23 @@ function App() {
         </aside>
 
         <section className="center-column">
-          <section className={`panel core-panel ${isCoreActive ? 'core-active' : ''}`}>
-            <div className="core-status"><span className="thinking-dot" /> {isCoreActive ? 'LISTENING' : 'STANDBY'} <span className="status-toggle" /></div>
+          <section className={`panel core-panel ${coreState !== 'IDLE' ? 'core-active' : ''}`}>
+            <div className="core-status">
+              <span className={`thinking-dot ${coreState === 'LISTENING' ? 'listening-dot' : coreState === 'THINKING' ? 'thinking-dot' : coreState === 'SPEAKING' ? 'speaking-dot' : coreState === 'ERROR' ? 'error-dot' : ''}`} />
+              {coreState === 'IDLE' ? 'STANDBY' : coreState === 'LISTENING' ? 'LISTENING' : coreState === 'THINKING' ? 'THINKING' : coreState === 'SPEAKING' ? 'SPEAKING' : coreState === 'ERROR' ? 'ERROR' : 'STANDBY'}
+              <span className="status-toggle" />
+            </div>
             <div className="core-visual">
               <div className="core-ring ring-one" /><div className="core-ring ring-two" /><div className="core-ring ring-three" />
               <div className="core-glow"><BrainCircuit size={40} /></div>
               <div className="core-particles">{Array.from({ length: 18 }, (_, i) => <span key={i} style={{ '--i': i } as CSSProperties} />)}</div>
             </div>
-            <button className="start-button" onClick={() => { setIsCoreActive(!isCoreActive); setIsListening(!isListening); }}><Mic size={15} /> {isListening ? 'Listening...' : 'Start AI'} <span className="button-arrow">→</span></button>
-            <div className="core-caption"><Sparkles size={12} /> Your living AI core <span>·</span> Speak naturally</div>
+            <VoicePanel
+              onVoiceInput={(transcript) => { if (transcript.trim()) void sendCommand(transcript, true); }}
+              isThinking={isVoiceSending}
+              command={command}
+            />
+            <div className="core-caption"><Sparkles size={12} /> Your living AI core <span>·</span> Speak naturally in English or Urdu</div>
           </section>
 
           <section className="panel circuits-panel">
@@ -183,8 +234,9 @@ function App() {
             <div className="chat-stream">
               {messages.map((message, index) => <div className={`message ${message.from}`} key={`${message.text}-${index}`}><div className="message-label">{message.from === 'nasi' ? 'NASI CORE' : 'COMMANDER'} <span>· now</span></div><div className="message-text">{message.text}</div></div>)}
               {isSending && <div className="typing"><span /><span /><span /> NASI is thinking</div>}
+              {isVoiceSending && <div className="typing"><span /><span /><span /> NASI is processing your voice</div>}
             </div>
-            <div className="command-bar"><input value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void sendCommand(); }} placeholder="Type an instruction or command for NASI..." /><button className={isListening ? 'listening' : ''} onClick={() => { setIsListening(!isListening); setIsCoreActive(!isListening); }}><Mic size={16} /></button><button className="send-button" onClick={() => void sendCommand()}><Send size={15} /></button></div>
+            <div className="command-bar"><input value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void sendCommand(command); }} placeholder="Type an instruction or command for NASI..." /><button className={isListening ? 'listening' : ''} onClick={() => { setIsListening(!isListening); setIsCoreActive(!isListening); }}><Mic size={16} /></button><button className="send-button" onClick={() => void sendCommand(command)}><Send size={15} /></button></div>
           </section>
           <section className="panel telemetry-panel"><PanelHeader label="System telemetry" icon={<Cpu size={13} />} /><div className="telemetry-row"><span>Neural load</span><strong>34%</strong><div className="meter"><i style={{ width: '34%' }} /></div></div><div className="telemetry-row"><span>Memory cache</span><strong>78%</strong><div className="meter orange-meter"><i style={{ width: '78%' }} /></div></div><div className="telemetry-row"><span>Agent network</span><strong className="green-text">Stable</strong><div className="pulse-line"><i /><i /><i /><i /><i /><i /><i /></div></div><div className="telemetry-footer"><span><span className="status-dot" /> Encrypted</span><span>v1.0.52</span></div></section>
         </aside>

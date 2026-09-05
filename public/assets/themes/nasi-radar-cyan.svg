@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <radialGradient id="globeGlow" cx="50%" cy="42%" r="55%">
+      <stop offset="0%" stop-color="#16424a"/>
+      <stop offset="45%" stop-color="#0a2228"/>
+      <stop offset="100%" stop-color="#050a0c"/>
+    </radialGradient>
+    <radialGradient id="satelliteHighlight" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#3ee0d6" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#3ee0d6" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="orbitPath" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#26c7db" stop-opacity="0.5"/>
+      <stop offset="50%" stop-color="#26c7db" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#26c7db" stop-opacity="0.5"/>
+    </linearGradient>
+    <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
+      <path d="M 60 0 L 0 0 0 60" fill="none" stroke="#1f4a52" stroke-width="0.6" opacity="0.4"/>
+    </pattern>
+    <filter id="scanGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="600" fill="#050a0c"/>
+  <rect width="1200" height="600" fill="url(#globeGlow)"/>
+
+  <!-- Grid -->
+  <rect width="1200" height="600" fill="url(#grid)"/>
+
+  <!-- Lat/Lon lines -->
+  <g stroke="#1a3a42" stroke-width="0.8" fill="none" opacity="0.6">
+    <ellipse cx="600" cy="300" rx="480" ry="140"/>
+    <ellipse cx="600" cy="300" rx="360" ry="105"/>
+    <ellipse cx="600" cy="300" rx="220" ry="65"/>
+    <line x1="120" y1="300" x2="1080" y2="300"/>
+    <line x1="600" y1="60" x2="600" y2="540"/>
+  </g>
+
+  <!-- Outer orbital rings -->
+  <ellipse cx="600" cy="300" rx="520" ry="175" fill="none" stroke="url(#orbitPath)" stroke-width="1.2"/>
+  <ellipse cx="600" cy="300" rx="420" ry="135" fill="none" stroke="#26c7db" stroke-width="0.7" stroke-dasharray="4 6" opacity="0.55"/>
+  <ellipse cx="600" cy="300" rx="300" ry="95" fill="none" stroke="#26c7db" stroke-width="0.6" stroke-dasharray="2 5" opacity="0.4"/>
+
+  <!-- Satellites -->
+  <g>
+    <!-- Satellite 1 -->
+    <g transform="translate(180 190)">
+      <circle r="6" fill="#0a2228" stroke="#3ee0d6" stroke-width="1.2"/>
+      <circle r="10" fill="url(#satelliteHighlight)" opacity="0.7"/>
+      <line x1="-14" y1="0" x2="-34" y2="0" stroke="#7cf5ec" stroke-width="1.4"/>
+      <line x1="14" y1="0" x2="34" y2="0" stroke="#7cf5ec" stroke-width="1.4"/>
+      <line x1="0" y1="-14" x2="0" y2="-34" stroke="#7cf5ec" stroke-width="1.4"/>
+      <line x1="0" y1="14" x2="0" y2="34" stroke="#7cf5ec" stroke-width="1.4"/>
+    </g>
+    <!-- Satellite 2 -->
+    <g transform="translate(1000 360) rotate(35)">
+      <circle r="5" fill="#0a2228" stroke="#3fe5a9" stroke-width="1.2"/>
+      <circle r="9" fill="url(#satelliteHighlight)" opacity="0.6"/>
+      <line x1="-12" y1="0" x2="-26" y2="0" stroke="#3fe5a9" stroke-width="1.2"/>
+      <line x1="12" y1="0" x2="26" y2="0" stroke="#3fe5a9" stroke-width="1.2"/>
+    </g>
+    <!-- Satellite 3 -->
+    <g transform="translate(900 150) rotate(-20)">
+      <circle r="4.5" fill="#0a2228" stroke="#e9954c" stroke-width="1.2"/>
+      <circle r="8" fill="url(#satelliteHighlight)" opacity="0.5"/>
+      <line x1="-10" y1="0" x2="-22" y2="0" stroke="#e9954c" stroke-width="1.1"/>
+      <line x1="10" y1="0" x2="22" y2="0" stroke="#e9954c" stroke-width="1.1"/>
+    </g>
+  </g>
+
+  <!-- Ground stations / radar sites -->
+  <g filter="url(#scanGlow)">
+    <g transform="translate(220 420)">
+      <circle r="10" fill="none" stroke="#3ee0d6" stroke-width="1.3" opacity="0.85"/>
+      <circle r="3.5" fill="#3ee0d6"/>
+      <path d="M -26 0 L -10 0 M 10 0 L 26 0" stroke="#3ee0d6" stroke-width="1" opacity="0.7"/>
+    </g>
+    <g transform="translate(980 470)">
+      <circle r="10" fill="none" stroke="#3fe5a9" stroke-width="1.3" opacity="0.85"/>
+      <circle r="3.5" fill="#3fe5a9"/>
+      <path d="M -26 0 L -10 0 M 10 0 L 26 0" stroke="#3fe5a9" stroke-width="1" opacity="0.7"/>
+    </g>
+    <g transform="translate(600 500)">
+      <circle r="10" fill="none" stroke="#e9954c" stroke-width="1.3" opacity="0.85"/>
+      <circle r="3.5" fill="#e9954c"/>
+      <path d="M -26 0 L -10 0 M 10 0 L 26 0" stroke="#e9954c" stroke-width="1" opacity="0.7"/>
+    </g>
+  </g>
+
+  <!-- Coverage arcs / sweeps -->
+  <g fill="none" stroke-width="1" opacity="0.5">
+    <path d="M 220 420 Q 400 200 600 300" stroke="#3ee0d6"/>
+    <path d="M 980 470 Q 820 240 600 300" stroke="#3fe5a9"/>
+    <path d="M 600 500 Q 560 360 600 300" stroke="#e9954c"/>
+  </g>
+
+  <!-- Scan line -->
+  <line x1="0" y1="300" x2="1200" y2="300" stroke="#3ee0d6" stroke-width="0.8" opacity="0.25"/>
+
+  <!-- HUD markers / labels -->
+  <g fill="#9eeef1" font-family="monospace" font-size="18" opacity="0.85">
+    <text x="120" y="60">SAT-LINK RADAR</text>
+    <text x="120" y="90" opacity="0.6" font-size="14" fill="#7cf5ec">MODE: ACTIVE</text>
+    <text x="1030" y="60" text-anchor="end" fill="#3fe5a9" font-size="20">●</text>
+    <text x="1045" y="64" text-anchor="start" fill="#3fe5a9" font-size="14" opacity="0.7">ACTIVE ARRAY</text>
+  </g>
+
+  <!-- Corner HUD brackets -->
+  <g stroke="#3ee0d6" stroke-width="1.4" fill="none" opacity="0.7">
+    <path d="M 30 30 L 70 30 M 30 30 L 30 70"/>
+    <path d="M 1170 30 L 1130 30 M 1170 30 L 1170 70"/>
+    <path d="M 30 570 L 70 570 M 30 570 L 30 530"/>
+    <path d="M 1170 570 L 1130 570 M 1170 570 L 1170 530"/>
+  </g>
+
+  <!-- Corner HUD readings -->
+  <g fill="#7cf5ec" font-family="monospace" font-size="14" opacity="0.75">
+    <text x="35" y="55">04:21:08Z</text>
+    <text x="35" y="74" opacity="0.6" font-size="11">SENSOR LOCK</text>
+    <text x="1165" y="55" text-anchor="end">ITER 04</text>
+    <text x="1165" y="74" text-anchor="end" opacity="0.6" font-size="11">LINK OK</text>
+  </g>
+</svg>
