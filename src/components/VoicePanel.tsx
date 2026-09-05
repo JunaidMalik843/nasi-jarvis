@@ -11,9 +11,11 @@ interface VoicePanelProps {
   /** Current chat command text (optional, used to render the last heard command). */
   command?: string;
   config?: VoiceConfig;
+  /** Compact mode - minimize text, maximize visual impact */
+  compact?: boolean;
 }
 
-export function VoicePanel({ onVoiceInput, isThinking = false, command = '', config }: VoicePanelProps) {
+export function VoicePanel({ onVoiceInput, isThinking = false, command = '', config, compact = false }: VoicePanelProps) {
   const {
     coreState,
     micStatus,
@@ -91,30 +93,41 @@ export function VoicePanel({ onVoiceInput, isThinking = false, command = '', con
         </div>
       </div>
 
-      <div className="voice-transcript-box">
-        <div className="voice-transcript-label">
-          {coreState === 'LISTENING' && 'HEARD'}
-          {coreState === 'THINKING' && 'PROCESSING'}
-          {coreState === 'SPEAKING' && 'PLAYING'}
-          {coreState === 'ERROR' && 'FAILED'}
-          {coreState === 'IDLE' && lastTranscript && 'LAST HEARD'}
-          {coreState === 'IDLE' && !lastTranscript && 'VOICE INPUT'}
-          <span className="voice-transcript-sep" />
-          <span className="voice-transcript-language">
-            {transcript && (isUrdu(transcript) ? 'URDU' : 'ENGLISH')}
-          </span>
-        </div>
-        <div className="voice-transcript-text">
-          {transcript || (
-            <span className="voice-transcript-placeholder">
-              {coreState === 'ERROR'
-                ? 'Voice input could not be completed. Check microphone access and try again.'
-                : 'Activate Voice to speak naturally in English or Urdu.'}
+      {!compact && (
+        <div className="voice-transcript-box">
+          <div className="voice-transcript-label">
+            {coreState === 'LISTENING' && 'HEARD'}
+            {coreState === 'THINKING' && 'PROCESSING'}
+            {coreState === 'SPEAKING' && 'PLAYING'}
+            {coreState === 'ERROR' && 'FAILED'}
+            {coreState === 'IDLE' && lastTranscript && 'LAST HEARD'}
+            {coreState === 'IDLE' && !lastTranscript && 'VOICE INPUT'}
+            <span className="voice-transcript-sep" />
+            <span className="voice-transcript-language">
+              {transcript && (isUrdu(transcript) ? 'URDU' : 'ENGLISH')}
             </span>
-          )}
+          </div>
+          <div className="voice-transcript-text">
+            {transcript || (
+              <span className="voice-transcript-placeholder">
+                {coreState === 'ERROR'
+                  ? 'Voice input could not be completed. Check microphone access and try again.'
+                  : 'Activate Voice to speak naturally in English or Urdu.'}
+              </span>
+            )}
+          </div>
+          {speechEnabledWarning && <div className="voice-tts-warning"><AlertCircle size={12} /> {speechEnabledWarning}</div>}
         </div>
-        {speechEnabledWarning && <div className="voice-tts-warning"><AlertCircle size={12} /> {speechEnabledWarning}</div>}
-      </div>
+      )}
+      {compact && (
+        <div className="voice-compact-status">
+          {coreState === 'IDLE' && <span className="voice-idle-text">READY</span>}
+          {coreState === 'LISTENING' && <span className="voice-listening-text">LISTENING</span>}
+          {coreState === 'THINKING' && <span className="voice-thinking-text">PROCESSING</span>}
+          {coreState === 'SPEAKING' && <span className="voice-speaking-text">SPEAKING</span>}
+          {coreState === 'ERROR' && <span className="voice-error-text">ERROR</span>}
+        </div>
+      )}
 
       <div className="voice-controls">
         <button

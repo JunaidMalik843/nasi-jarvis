@@ -1,9 +1,26 @@
 .voice-panel {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 16px;
+  gap: 10px;
+  padding: 12px;
 }
+.voice-compact-status {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+.voice-idle-text, .voice-listening-text, .voice-thinking-text, .voice-speaking-text, .voice-error-text {
+  font: 8px 'DM Mono', monospace;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border-radius: 3px;
+}
+.voice-idle-text { color: #6e9da1; background: rgba(110, 157, 161, .1); border: 1px solid #1a2a30; }
+.voice-listening-text { color: #4ce7df; background: rgba(76, 231, 223, .1); border: 1px solid #2a6a6e; animation: pulse 1s infinite; }
+.voice-thinking-text { color: #eaa247; background: rgba(234, 162, 71, .1); border: 1px solid #3a3a1a; }
+.voice-speaking-text { color: #4ce7df; background: rgba(76, 231, 223, .1); border: 1px solid #2a6a6e; }
+.voice-error-text { color: #eb6e69; background: rgba(235, 110, 105, .1); border: 1px solid #5a2a2a; }
 
 .voice-status-bar {
   display: flex;
