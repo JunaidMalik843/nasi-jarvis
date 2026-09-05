@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { StrictMode, useEffect, useMemo, useState, type CSSProperties, type ReactNode, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   Activity,
@@ -24,14 +24,23 @@ import {
   ShieldCheck,
   Sparkles,
   Terminal,
+  Trash2,
   Volume2,
   X,
   Zap,
+  Bookmark,
+  RefreshCw,
 } from 'lucide-react';
 import './styles.css';
 import './components/VoicePanel.css';
+import './components/StorageComponents.css';
 import { VoicePanel } from './components/VoicePanel';
+import { ConversationManager } from './components/ConversationManager';
+import { MemoryManager } from './components/MemoryManager';
+import { useConversations, useMemories } from './hooks/useStorage';
 import type { CoreState } from './hooks/useVoice';
+import type { Conversation, ConversationMessage, Memory } from './lib/storage';
+import { generateId } from './lib/storage';
 
 type Agent = {
   name: string;
@@ -44,6 +53,7 @@ type Agent = {
 type Message = {
   from: 'user' | 'nasi';
   text: string;
+  timestamp?: number;
 };
 
 const agents: Agent[] = [
@@ -68,12 +78,48 @@ function App() {
   const [voiceTranscript, setVoiceTranscript] = useState('');
   const [isVoiceSending, setIsVoiceSending] = useState(false);
   const [command, setCommand] = useState('');
-  const [messages, setMessages] = useState<Message[]>([
-    { from: 'nasi', text: 'NASI core online. Your command center is synchronized.' },
-  ]);
   const [isSending, setIsSending] = useState(false);
   const [showPanel, setShowPanel] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+  const [showMemoryPanel, setShowMemoryPanel] = useState(false);
+  const [newConversationDialog, setNewConversationDialog] = useState(false);
+  const [newConversationTitle, setNewConversationTitle] = useState('');
+
+  const {
+    conversations,
+    activeConversation,
+    activeConversationId,
+    createConversation,
+    selectConversation,
+    addMessage,
+    deleteConversation,
+    newConversation: clearConversationSelection,
+  } = useConversations();
+
+  const { memories, createMemory, deleteMemory, clearMemories, updateMemory } = useMemories();
+
+  const [messages, setMessages] = useState<Message[]>([
+    { from: 'nasi', text: 'NASI core online. Your command center is synchronized.' },
+  ]);
+
+  // Convert messages to conversation format when saving
+  const convertToConversationMessages = useCallback((msgs: Message[]): ConversationMessage[] => {
+    return msgs.map((m, i) => ({
+      id: generateId(),
+      role: m.from === 'user' ? 'user' : 'assistant',
+      text: m.text,
+      timestamp: m.timestamp ?? Date.now() - i * 1000,
+      source: m.from === 'nasi' ? undefined : 'text',
+    }));
+  }, []);
+
+  const convertToMessage = useCallback((msg: ConversationMessage): Message => {
+    return {
+      from: msg.role === 'user' ? 'user' : 'nasi',
+      text: msg.text,
+      timestamp: msg.timestamp,
+    };
+  }, []);
 
   const localTime = useMemo(() => new Intl.DateTimeFormat('en', { hour: '2-digit', minute: '2-digit' }).format(new Date()), []);
 
@@ -91,7 +137,23 @@ function App() {
 
   async function sendCommand(prompt: string, isVoice = false) {
     if (!prompt || isSending) return;
-    setMessages((current) => [...current, { from: 'user', text: prompt }]);
+
+    // Create or get conversation if none active
+    let conversationId = activeConversationId;
+    if (!conversationId) {
+      const conv = await createConversation(prompt);
+      if (conv) {
+        conversationId = conv.id;
+      }
+    }
+
+    const userMessage: Message = { from: 'user', text: prompt };
+    const prevMessages = activeConversation ? activeConversation.messages.map(convertToMessage) : [
+      { from: 'nasi', text: 'NASI core online. Your command center is synchronized.' },
+    ];
+    const currentMessages = [...prevMessages, userMessage];
+    setMessages(currentMessages);
+
     if (isVoice) {
       setIsVoiceSending(true);
       setCoreState('THINKING');
@@ -99,29 +161,146 @@ function App() {
       setIsSending(true);
       setCoreState('THINKING');
     }
+
     try {
       const response = await fetch('/api/gemini/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, systemInstruction: 'You are NASI, an advanced autonomous cybernetic AI personal operating system and multi-agent orchestrator. Provide concise, tactical, and informative responses. You speak naturally and support English and Urdu (Urdu script and Roman Urdu).' }),
+        body: JSON.stringify({
+          prompt,
+          systemInstruction: 'You are NASI, an advanced autonomous cybernetic AI personal operating system and multi-agent orchestrator. Provide concise, tactical, and informative responses. You speak naturally and support English and Urdu (Urdu script and Roman Urdu).',
+          conversationId,
+        }),
       });
       const data = (await response.json()) as { text?: string; provider?: string; status?: string };
       const responseText = data.text || 'Command received. I am ready for your next directive.';
-      setMessages((current) => [...current, { from: 'nasi', text: responseText }]);
+
+      const assistantMessage: Message = { from: 'nasi', text: responseText };
+      const updatedMessages = [...currentMessages, assistantMessage];
+      setMessages(updatedMessages);
+
+      // Save to conversation
+      if (conversationId) {
+        await addMessage(conversationId, 'user', prompt, isVoice ? 'voice' : 'text');
+        await addMessage(conversationId, 'assistant', responseText, undefined);
+      }
+
+      // Check for memory commands
+      await handleMemoryCommands(prompt, responseText, conversationId);
+
       if (isVoice) {
-        // Speak the response via the VoicePanel's speak() once it resolves.
-        // We expose speakResponse so VoicePanel can call it after the response arrives.
         speakResponse(responseText);
       }
     } catch {
       const fallback = 'The command channel is temporarily unavailable. Local systems remain active.';
-      setMessages((current) => [...current, { from: 'nasi', text: fallback }]);
+      const fallbackMsg: Message = { from: 'nasi', text: fallback };
+      const updatedMessages = [...currentMessages, fallbackMsg];
+      setMessages(updatedMessages);
+      if (conversationId) {
+        await addMessage(conversationId, 'user', prompt, isVoice ? 'voice' : 'text');
+        await addMessage(conversationId, 'assistant', fallback, undefined);
+      }
       if (isVoice) speakResponse(fallback);
     } finally {
       if (isVoice) setIsVoiceSending(false);
       else setIsSending(false);
       setCoreState('IDLE');
     }
+  }
+
+  async function handleMemoryCommands(userPrompt: string, responseText: string, conversationId?: string) {
+    const lower = userPrompt.toLowerCase();
+    const convId = conversationId;
+
+    // "Remember that..." commands
+    if (/(remember|save|keep|store)\s+(that\s+)?/i.test(lower)) {
+      const match = lower.match(/^(?:remember|save|keep|store)(?:\s+that\s+)?(.+)$/i);
+      if (match) {
+        const value = match[1].trim();
+        if (value) {
+          const category = determineMemoryCategory(value);
+          await createMemory(category, extractMemoryKey(value), value, 7, convId);
+          const confirmation = `I'll remember that, Commander. Added to long-term memory.`;
+          setMessages((current) => {
+            const msgs = [...current];
+            msgs[msgs.length - 1] = { from: 'nasi', text: confirmation };
+            return msgs;
+          });
+          if (convId) await addMessage(convId, 'assistant', confirmation);
+        }
+      }
+    }
+
+    // "Forget that..." or "Delete..." commands
+    if (/\b(forget|delete|remove)\b/i.test(lower)) {
+      const searchMatch = lower.match(/\b(forget|delete|remove)\s+(?:that|this|[\s\S]+)$/i);
+      if (searchMatch) {
+        const searchTerm = searchMatch[2]?.trim() ?? '';
+        if (searchTerm) {
+          const matchingMemories = memories.filter(
+            (m) => m.key.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                   m.value.toLowerCase().includes(searchTerm.toLowerCase())
+          );
+          if (matchingMemories.length > 0) {
+            for (const m of matchingMemories) {
+              await deleteMemory(m.id);
+            }
+            const confirmation = `I've forgotten that, Commander. Removed from memory.`;
+            setMessages((current) => {
+              const msgs = [...current];
+              msgs[msgs.length - 1] = { from: 'nasi', text: confirmation };
+              return msgs;
+            });
+            if (convId) await addMessage(convId, 'assistant', confirmation);
+            return;
+          }
+        }
+      }
+    }
+
+    // "What do you remember about me?"
+    if (/(?:what\s+(?:do|does|are)\s+)?(?:you\s+)?(?:remember|know|k) (?:about|of|regarding)?\s+(?:me|my|commander|myself)/i.test(lower)) {
+      if (memories.length > 0) {
+        const memorySummary = memories
+          .slice(0, 10)
+          .map((m) => `  - ${m.key}: ${m.value}`)
+          .join('\n');
+        const memoryResponse = `Here's what I remember about you, Commander:\n\n${memorySummary}\n\nI retain ${memories.length} personal memories. Say "Forget that..." to remove any of them.`;
+        setMessages((current) => {
+          const msgs = [...current];
+          msgs[msgs.length - 1] = { from: 'nasi', text: memoryResponse };
+          return msgs;
+        });
+        if (convId) await addMessage(convId, 'assistant', memoryResponse);
+      } else {
+        const noMemoryResponse = `I don't have any specific memories about you yet, Commander. Say "Remember that..." to save something important.`;
+        setMessages((current) => {
+          const msgs = [...current];
+          msgs[msgs.length - 1] = { from: 'nasi', text: noMemoryResponse };
+          return msgs;
+        });
+        if (convId) await addMessage(convId, 'assistant', noMemoryResponse);
+      }
+    }
+  }
+
+  function determineMemoryCategory(text: string): string {
+    const lower = text.toLowerCase();
+    if (/(\bprefer(?:ence)?(?:s)?\b|\balways(?:\s+answer)?\b|\bshort(?:\s+answer)?\b|\bformal(?:\s+language)?\b|\bcasual(?:\s+language)?\b|\bstyle\b)/i.test(lower)) {
+      return 'preference';
+    }
+    if (/\b(todo|task|remember to|need to|scheduled|appointment|deadline|meeting)\b/i.test(lower)) {
+      return 'task';
+    }
+    if (/(\bproject(?:s)?\b|working on|developing|building|creating)\b/i.test(lower)) {
+      return 'project';
+    }
+    return 'fact';
+  }
+
+  function extractMemoryKey(text: string): string {
+    const firstSentence = text.split(/[.!?]+/)[0]?.trim() ?? text;
+    return firstSentence.slice(0, 50);
   }
 
   function speakResponse(text: string) {
@@ -167,6 +346,17 @@ function App() {
               <div className="media-orbit"><div className="orbit-core" /></div>
               <div className="media-controls"><button><Volume2 size={14} /></button><button><Maximize2 size={14} /></button></div>
             </div>
+          </section>
+
+          <section className="panel conversations-panel">
+            <ConversationManager
+              conversations={conversations}
+              activeConversationId={activeConversationId}
+              onSelect={selectConversation}
+              onCreate={() => setNewConversationDialog(true)}
+              onDelete={deleteConversation}
+              onNewConversation={() => { clearConversationSelection(); setNewConversationDialog(true); }}
+            />
           </section>
 
           <section className="panel radar-panel">
@@ -217,7 +407,7 @@ function App() {
           </section>
 
           <section className="panel agent-panel">
-            <PanelHeader label="Agent town" icon={<Bot size={13} />} action={<div className="segmented"><button className="active">Agents</button><button>Visual hub</button><button>Gesture</button></div>} />
+            <PanelHeader label="Agent town" icon={<Bot size={13} />} action={<div className="segmented"><button className="active">Agents</button><button>Visual hub</button><button>Gesture</button></div>} actionRight={<button className="icon-button" onClick={() => setShowMemoryPanel(true)} title="View memories"><Database size={13} /></button>} />
             <div className="agent-scene">
               <div className="scene-grid" />
               <div className="scene-window window-one" /><div className="scene-window window-two" />
@@ -230,9 +420,24 @@ function App() {
 
         <aside className="right-column">
           <section className="panel chat-panel">
-            <div className="chat-tabs"><button className="active"><Mic size={12} /> Voice</button><button><Terminal size={12} /> Agent</button><button><MessageSquare size={12} /> Notes</button><button className="chat-plus"><Plus size={14} /></button></div>
+            <div className="chat-tabs">
+              <button className={activeConversationId ? '' : 'active'} onClick={() => clearConversationSelection()}><MessageSquare size={12} /> All</button>
+              {conversations.slice(0, 5).map((conv) => (
+                <button
+                  key={conv.id}
+                  className={activeConversationId === conv.id ? 'active' : ''}
+                  onClick={() => selectConversation(conv.id)}
+                >
+                  <span className="conv-title">{conv.title}</span>
+                </button>
+              ))}
+              <button className="chat-plus" onClick={() => setNewConversationDialog(true)}><Plus size={14} /></button>
+            </div>
             <div className="chat-stream">
-              {messages.map((message, index) => <div className={`message ${message.from}`} key={`${message.text}-${index}`}><div className="message-label">{message.from === 'nasi' ? 'NASI CORE' : 'COMMANDER'} <span>· now</span></div><div className="message-text">{message.text}</div></div>)}
+              {messages.map((message, index) => {
+                const timeStr = message.timestamp ? new Date(message.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : 'now';
+                return <div className={`message ${message.from}`} key={`${message.text}-${index}-${message.timestamp ?? ''}`}><div className="message-label">{message.from === 'nasi' ? 'NASI CORE' : 'COMMANDER'} <span>· {timeStr}</span></div><div className="message-text">{message.text}</div></div>;
+              })}
               {isSending && <div className="typing"><span /><span /><span /> NASI is thinking</div>}
               {isVoiceSending && <div className="typing"><span /><span /><span /> NASI is processing your voice</div>}
             </div>
@@ -246,12 +451,14 @@ function App() {
 
       {showPanel && <div className="modal-backdrop" onClick={() => setShowPanel(false)}><div className="modal-card" onClick={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setShowPanel(false)}><X size={16} /></button><div className="modal-kicker"><Command size={14} /> NASI CONTROL</div><h2>Personal AI, made tangible.</h2><p>Talk to your living core, delegate work to your agents, and keep the whole world within reach from one focused command center.</p><div className="modal-stats"><div><strong>04</strong><span>agents online</span></div><div><strong>24</strong><span>skills loaded</span></div><div><strong>30d</strong><span>memory depth</span></div></div></div></div>}
       {selectedAgent && <div className="modal-backdrop" onClick={() => setSelectedAgent(null)}><div className="agent-modal" onClick={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setSelectedAgent(null)}><X size={16} /></button><div className="agent-modal-avatar" style={{ background: selectedAgent.color }}>{selectedAgent.initials}</div><div className="modal-kicker" style={{ color: selectedAgent.color }}><span className="status-dot" /> {selectedAgent.status.toUpperCase()}</div><h2>{selectedAgent.name}</h2><p>{selectedAgent.role} agent is active in Agent Town and ready to receive a delegated task.</p><button className="delegate-button" onClick={() => setSelectedAgent(null)}><MessageSquare size={14} /> Delegate a task</button></div></div>}
+      {showMemoryPanel && <div className="modal-backdrop" onClick={() => setShowMemoryPanel(false)}><div className="memory-modal" onClick={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setShowMemoryPanel(false)}><X size={16} /></button><div className="modal-kicker"><Database size={14} /> NASI MEMORY</div><MemoryManager memories={memories} onDelete={deleteMemory} onClear={clearMemories} /></div></div>}
+      {newConversationDialog && <div className="modal-backdrop" onClick={() => setNewConversationDialog(false)}><div className="new-conv-modal" onClick={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setNewConversationDialog(false)}><X size={16} /></button><div className="modal-kicker"><Plus size={14} /> NEW CONVERSATION</div><h2>Start a new conversation</h2><p>Begin a fresh conversation thread with NASI. Previous conversations will be preserved.</p><div className="new-conv-form"><input value={newConversationTitle} onChange={(e) => setNewConversationTitle(e.target.value)} placeholder="Conversation title (optional)" className="new-conv-input" /></div><div className="new-conv-actions"><button className="new-conv-cancel" onClick={() => setNewConversationDialog(false)}>Cancel</button><button className="new-conv-start" onClick={() => { setNewConversationDialog(false); setNewConversationTitle(''); }}><Plus size={12} /> Start new</button></div></div></div>}
     </div>
   );
 }
 
-function PanelHeader({ label, icon, action }: { label: string; icon: ReactNode; action?: ReactNode }) {
-  return <div className="panel-header"><div className="panel-label">{icon}<span>{label}</span></div>{action || <span className="panel-menu"><MoreHorizontal size={13} /></span>}</div>;
+function PanelHeader({ label, icon, action, actionRight }: { label: string; icon: ReactNode; action?: ReactNode; actionRight?: ReactNode }) {
+  return <div className="panel-header"><div className="panel-label">{icon}<span>{label}</span></div><div>{action}{actionRight}</div></div>;
 }
 
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);

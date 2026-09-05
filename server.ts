@@ -4,6 +4,26 @@ import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import 'dotenv/config';
+import {
+  loadConversations,
+  saveConversations,
+  loadConversation,
+  createConversation as dbCreateConversation,
+  updateConversation as dbUpdateConversation,
+  deleteConversation as dbDeleteConversation,
+  loadMemories,
+  saveMemories,
+  createMemory as dbCreateMemory,
+  updateMemory as dbUpdateMemory,
+  deleteMemory as dbDeleteMemory,
+  clearMemories as dbClearMemories,
+  generateId,
+  Conversation,
+  ConversationMessage,
+  Memory,
+  buildMemoryContext,
+  extractTitleFromMessages,
+} from './src/lib/storage';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -127,15 +147,216 @@ async function startServer() {
     }
   });
 
-  // Server-side Gemini generation proxy
+  // ============================================================================
+  // CONVERSATION APIs
+  // ============================================================================
+
+  app.get('/api/conversations', async (req, res) => {
+    try {
+      const conversations = await loadConversations();
+      res.json({ conversations, count: conversations.length });
+    } catch (err: any) {
+      console.warn('[Conversations] List error:', err?.message);
+      res.status(500).json({ error: 'Failed to load conversations' });
+    }
+  });
+
+  app.get('/api/conversations/:id', async (req, res) => {
+    try {
+      const conversation = await loadConversation(req.params.id);
+      if (!conversation) {
+        return res.status(404).json({ error: 'Conversation not found' });
+      }
+      res.json({ conversation });
+    } catch (err: any) {
+      console.warn('[Conversations] Load error:', err?.message);
+      res.status(500).json({ error: 'Failed to load conversation' });
+    }
+  });
+
+  app.post('/api/conversations', async (req, res) => {
+    try {
+      const { initialMessage, title } = req.body || {};
+      if (!initialMessage) {
+        return res.status(400).json({ error: 'Initial message required' });
+      }
+      const id = generateId();
+      const now = Date.now();
+      const conversation: Conversation = {
+        id,
+        title: title || extractTitleFromMessages([
+          { id: 'm1', role: 'user' as const, text: initialMessage, timestamp: now },
+        ]),
+        createdAt: now,
+        updatedAt: now,
+        messages: [
+          {
+            id: generateId(),
+            role: 'user',
+            text: initialMessage,
+            timestamp: now,
+            source: 'text',
+          },
+        ],
+      };
+      await dbCreateConversation(conversation);
+      res.status(201).json({ conversation, created: true });
+    } catch (err: any) {
+      console.warn('[Conversations] Create error:', err?.message);
+      res.status(500).json({ error: 'Failed to create conversation' });
+    }
+  });
+
+  app.post('/api/conversations/:id/messages', async (req, res) => {
+    try {
+      const { role, text, source } = req.body || {};
+      if (!req.params.id || !role || !text) {
+        return res.status(400).json({ error: 'Conversation ID, role, and text required' });
+      }
+      const conversation = await loadConversation(req.params.id);
+      if (!conversation) {
+        return res.status(404).json({ error: 'Conversation not found' });
+      }
+      const now = Date.now();
+      const message: ConversationMessage = {
+        id: generateId(),
+        role: role as 'user' | 'assistant',
+        text,
+        timestamp: now,
+        source: source as 'voice' | 'text' | 'system' | undefined,
+      };
+      conversation.messages.push(message);
+      conversation.updatedAt = now;
+      if (role === 'user' && conversation.messages.filter((m) => m.role === 'user').length === 1) {
+        conversation.title = extractTitleFromMessages(conversation.messages);
+      }
+      await dbUpdateConversation(conversation);
+      res.json({ conversation, messageAdded: true });
+    } catch (err: any) {
+      console.warn('[Conversations] Add message error:', err?.message);
+      res.status(500).json({ error: 'Failed to add message' });
+    }
+  });
+
+  app.delete('/api/conversations/:id', async (req, res) => {
+    try {
+      await dbDeleteConversation(req.params.id);
+      res.json({ deleted: true });
+    } catch (err: any) {
+      console.warn('[Conversations] Delete error:', err?.message);
+      res.status(500).json({ error: 'Failed to delete conversation' });
+    }
+  });
+
+  // ============================================================================
+  // MEMORY APIs
+  // ============================================================================
+
+  app.get('/api/memories', async (req, res) => {
+    try {
+      const memories = await loadMemories();
+      res.json({ memories, count: memories.length });
+    } catch (err: any) {
+      console.warn('[Memory] List error:', err?.message);
+      res.status(500).json({ error: 'Failed to load memories' });
+    }
+  });
+
+  app.post('/api/memories', async (req, res) => {
+    try {
+      const { category, key, value, importance, sourceConversationId } = req.body || {};
+      if (!category || !key || !value) {
+        return res.status(400).json({ error: 'Category, key, and value required' });
+      }
+      if (importance !== undefined && (importance < 1 || importance > 10)) {
+        return res.status(400).json({ error: 'Importance must be between 1 and 10' });
+      }
+      const id = generateId();
+      const now = Date.now();
+      const memory: Memory = {
+        id,
+        category: category as string,
+        key: key.trim(),
+        value: value.trim(),
+        importance: (importance ?? 5) as number,
+        createdAt: now,
+        updatedAt: now,
+        sourceConversationId: sourceConversationId as string | undefined,
+      };
+      await dbCreateMemory(memory);
+      res.status(201).json({ memory, created: true });
+    } catch (err: any) {
+      console.warn('[Memory] Create error:', err?.message);
+      res.status(500).json({ error: 'Failed to create memory' });
+    }
+  });
+
+  app.delete('/api/memories/:id', async (req, res) => {
+    try {
+      await dbDeleteMemory(req.params.id);
+      res.json({ deleted: true });
+    } catch (err: any) {
+      console.warn('[Memory] Delete error:', err?.message);
+      res.status(500).json({ error: 'Failed to delete memory' });
+    }
+  });
+
+  app.post('/api/memories/clear', async (req, res) => {
+    try {
+      await dbClearMemories();
+      res.json({ cleared: true });
+    } catch (err: any) {
+      console.warn('[Memory] Clear error:', err?.message);
+      res.status(500).json({ error: 'Failed to clear memories' });
+    }
+  });
+
+  // ============================================================================
+  // MEMORY-AWARE GEMINI GENERATION
+  // ============================================================================
+
   app.post('/api/gemini/generate', async (req, res) => {
-    const { prompt, systemInstruction, temperature, model } = req.body || {};
+    const { prompt, systemInstruction, temperature, model, conversationId } = req.body || {};
     const modelName = model || 'gemini-3.8-flash';
     const ai = getAI();
 
+    // Build memory context if conversation exists
+    let memoryContext = '';
+    let conversation = null;
+    if (conversationId) {
+      try {
+        conversation = await loadConversation(conversationId);
+        if (conversation) {
+          // Add previous messages as context
+          const recentMessages = conversation.messages.slice(-20);
+          const historyText = recentMessages
+            .filter((m) => m.role === 'user')
+            .map((m) => m.text)
+            .join('\n');
+          if (historyText) {
+            memoryContext += `Recent conversation context:\n${historyText}\n\n`;
+          }
+        }
+      } catch {
+        // Ignore load errors
+      }
+    }
+
+    // Add relevant memories
+    try {
+      const memories = await loadMemories();
+      const context = buildMemoryContext(memories);
+      if (context) {
+        memoryContext += context;
+      }
+    } catch {
+      // Ignore memory load errors
+    }
+
     if (!ai) {
+      const tacticalPrompt = memoryContext ? `${memoryContext}\n\n${prompt}` : prompt;
       return res.json({
-        text: getTacticalResponse(prompt),
+        text: getTacticalResponse(tacticalPrompt),
         provider: 'gemini',
         model: modelName,
         status: 'simulated',
@@ -149,9 +370,11 @@ async function startServer() {
 
     for (const candidate of candidateModels) {
       try {
+        const fullPrompt = memoryContext ? `${memoryContext}\n\n${prompt}` : prompt;
+
         const response = await ai.models.generateContent({
           model: candidate,
-          contents: prompt || '',
+          contents: fullPrompt || '',
           config: {
             systemInstruction:
               systemInstruction ||
