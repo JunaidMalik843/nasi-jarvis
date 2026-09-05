@@ -1,103 +1,118 @@
-import { Mic, Terminal, MessageSquare, Plus, ChevronLeft, ChevronRight, Settings2 } from 'lucide-react';
+import { Terminal, MessageSquare, Settings2, Database, Globe2, BrainCircuit, Shield, Zap, Wrench, FileText, Server, Radar } from 'lucide-react';
 import { useState } from 'react';
+import type { CSSProperties } from 'react';
 
-const tabItems = [
-  { id: 'voice', label: 'VOICE', icon: Mic },
-  { id: 'agent', label: 'AGENT', icon: Terminal },
-  { id: 'notes', label: 'NOTES', icon: MessageSquare },
+const tabs = [
+  { id: 'tools', label: 'Tools', icon: Wrench },
+  { id: 'agents', label: 'Agents', icon: Terminal },
+  { id: 'world', label: 'World', icon: Globe2 },
+  { id: 'security', label: 'Security', icon: Shield },
 ];
 
-export function RightPanel({ onNewTab }: { onNewTab: () => void }) {
-  const [activeTab, setActiveTab] = useState('agent');
+const toolList = [
+  { icon: Database, label: 'Memory', color: '#3ad6ea' },
+  { icon: Zap, label: 'Skills', color: '#f09b47' },
+  { icon: BrainCircuit, label: 'Core', color: '#9babb0' },
+  { icon: Globe2, label: 'World', color: '#5a9cff' },
+  { icon: Shield, label: 'Security', color: '#e9675f' },
+  { icon: FileText, label: 'Notes', color: '#5fe0c8' },
+  { icon: Server, label: 'System', color: '#eab458' },
+];
+
+export function RightPanel() {
+  const [activeTab, setActiveTab] = useState<'tools' | 'agents' | 'world' | 'security'>('tools');
 
   return (
-    <section className="stonic-right-panel">
-      <div className="stonic-tabs-header">
-        <div className="stonic-tab-buttons">
-          {tabItems.map((tab) => (
-            <button
-              key={tab.id}
-              className={`stonic-tab ${activeTab === tab.id ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              <tab.icon size={11} />
-              <span>{tab.label}</span>
-            </button>
-          ))}
-          <button className="stonic-tab-add" onClick={onNewTab}>
-            <Plus size={12} />
+    <section className="right-panel">
+      <div className="right-tabs">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            className={`right-tab ${activeTab === tab.id ? 'active' : ''}`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            <tab.icon size={11} />
+            <span>{tab.label}</span>
           </button>
-        </div>
-        <div className="stonic-tab-history">
-          <button className="stonic-tab-history-btn"><ChevronLeft size={10} /></button>
-          <button className="stonic-tab-history-btn"><ChevronRight size={10} /></button>
-          <button className="stonic-tab-history-btn"><Settings2 size={10} /></button>
-        </div>
+        ))}
       </div>
-      <div className="stonic-panel-content">
-        {activeTab === 'voice' && <VoiceTabContent />}
-        {activeTab === 'agent' && <AgentTabContent />}
-        {activeTab === 'notes' && <NotesTabContent />}
+      <div className="right-content">
+        {activeTab === 'tools' && (
+          <div className="right-tools">
+            {toolList.map((tool) => (
+              <button
+                key={tool.label}
+                className="right-tool"
+                style={{ '--tool-color': tool.color } as CSSProperties}
+              >
+                <tool.icon size={12} />
+                <span>{tool.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {activeTab === 'agents' && (
+          <div className="right-agents">
+            <div className="right-agent" style={{ '--agent-color': '#3ad6ea' } as CSSProperties}>
+              <div className="right-agent-dot" />
+              <span>Alice</span>
+              <span className="right-agent-role">Intelligence</span>
+            </div>
+            <div className="right-agent" style={{ '--agent-color': '#f09b47' } as CSSProperties}>
+              <div className="right-agent-dot" />
+              <span>Bob</span>
+              <span className="right-agent-role">Engineering</span>
+            </div>
+            <div className="right-agent" style={{ '--agent-color': '#3fe0b8' } as CSSProperties}>
+              <div className="right-agent-dot" />
+              <span>Carol</span>
+              <span className="right-agent-role">Memory</span>
+            </div>
+            <div className="right-agent" style={{ '--agent-color': '#a9b5c4' } as CSSProperties}>
+              <div className="right-agent-dot" />
+              <span>Dave</span>
+              <span className="right-agent-role">Telemetry</span>
+            </div>
+          </div>
+        )}
+        {activeTab === 'world' && (
+          <div className="right-world">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <span className="right-world-label"><Radar size={11} /> MONITOR</span>
+              <span className="right-world-status"><span className="right-world-dot" /> LIVE</span>
+            </div>
+            <div className="right-world-regions">
+              <div className="right-region"><span>NA</span><span className="right-region-dot" /></div>
+              <div className="right-region"><span>EU</span><span className="right-region-dot emerald" /></div>
+              <div className="right-region"><span>AS</span><span className="right-region-dot gold" /></div>
+            </div>
+          </div>
+        )}
+        {activeTab === 'security' && (
+          <div className="right-security">
+            <div className="right-security-item">
+              <Shield size={12} />
+              <span>Voice encryption</span>
+              <span className="right-security-badge active" />
+            </div>
+            <div className="right-security-item">
+              <Shield size={12} />
+              <span>Payments</span>
+              <span className="right-security-badge" />
+            </div>
+            <div className="right-security-item">
+              <Shield size={12} />
+              <span>PC control</span>
+              <span className="right-security-badge" />
+            </div>
+            <div className="right-security-item">
+              <Shield size={12} />
+              <span>Web access</span>
+              <span className="right-security-badge pending" />
+            </div>
+          </div>
+        )}
       </div>
     </section>
-  );
-}
-
-function VoiceTabContent() {
-  return (
-    <div className="stonic-tab-content">
-      <div className="stonic-tab-content-header">VOICE INPUT</div>
-      <div className="stonic-voice-status">
-        <span className="stonic-voice-state-pill">STANDBY</span>
-      </div>
-      <div className="stonic-voice-visual">
-        <div className="stonic-voice-ring ring-one" />
-        <div className="stonic-voice-ring ring-two" />
-        <div className="stonic-voice-ring ring-three" />
-        <div className="stonic-voice-core">
-          <Mic size={22} />
-        </div>
-      </div>
-      <button className="stonic-start-voice-btn">
-        <Mic size={11} />
-        <span>START VOICE</span>
-      </button>
-    </div>
-  );
-}
-
-function AgentTabContent() {
-  return (
-    <div className="stonic-tab-content">
-      <div className="stonic-tab-content-header">AGENT OUTPUT</div>
-      <div className="stonic-code-block">
-        <div className="stonic-code-header">
-          <span className="stonic-code-lang">Python</span>
-          <span className="stonic-code-filename">scraper.py</span>
-        </div>
-        <pre className="stonic-code"><code>{`.exec(rate|price|gold', re.I)):
-    text = div.get_text(strip=True)
-    if any(k in text.lower() for k in ['tola', '10 gram', '24k']) and any(c.isdigit() for c in text):
-        print(f"Div: {text[:150]}\n")
-`}</code></pre>
-      </div>
-      <div className="stonic-output-section">
-        <div className="stonic-output-header">OUTPUT</div>
-        <div className="stonic-output-content">
-          {"{\"status\": \"success\", \"output\": \"Found 3 tables\\r\\n\\r\\n-- Table 8 --\\r\\nGold Purity | Ounce\\r\\n\\r\\n24K Ounce | $4,872\\r\\n\", \"duration_seconds\": 1.84}"}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function NotesTabContent() {
-  return (
-    <div className="stonic-tab-content">
-      <div className="stonic-tab-content-header">NOTES</div>
-      <div className="stonic-notes-empty">
-        No notes yet
-      </div>
-    </div>
   );
 }

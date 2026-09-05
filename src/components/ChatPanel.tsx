@@ -13,21 +13,19 @@ export function ChatPanel({
   return (
     <section className="stonic-chat-panel">
       <div className="stonic-chat-tabs">
-        <button className="active"><Mic size={11} /> Voice</button>
-        <button><Terminal size={11} /> Agent</button>
-        <button><MessageSquare size={11} /> Notes</button>
+        <button className="active"><Mic size={11} /></button>
+        <button><Terminal size={11} /></button>
+        <button><MessageSquare size={11} /></button>
         <button className="stonic-chat-plus"><Plus size={12} /></button>
       </div>
       <div className="stonic-chat-output">
         <div className="stonic-message stonic-message-nasi">
-          <div className="stonic-message-label">NASI CORE <span>· now</span></div>
-          <div className="stonic-message-text">NASI core online. Awaiting your directive, Commander.</div>
+          <div className="stonic-message-text">NASI online. Ready.</div>
         </div>
       </div>
       {isLoading && (
         <div className="stonic-typing-indicator">
           <span /><span /><span />
-          NASI is thinking
         </div>
       )}
       <div className="stonic-command-bar">
@@ -40,7 +38,7 @@ export function ChatPanel({
               setInput('');
             }
           }}
-          placeholder="Type instruction or / command for Hermes..."
+          placeholder="Commands..."
           className="stonic-command-input"
         />
         <button className="stonic-command-btn">

@@ -8,10 +8,9 @@ export function AISphere({ onVoiceStart }: { onVoiceStart: () => void }) {
   return (
     <section className="stonic-aisphere-panel">
       <div className="stonic-aisphere-header">
-        <span className="stonic-aisphere-title">NEURAL CORE</span>
         <div className="stonic-aisphere-status">
           <span className={`stonic-thinking-dot ${isThinking ? 'active' : ''}`} />
-          {isThinking ? 'THINKING' : 'STANDBY'}
+
         </div>
       </div>
       <div className="stonic-aisphere-visual">
@@ -29,11 +28,11 @@ export function AISphere({ onVoiceStart }: { onVoiceStart: () => void }) {
       </div>
       <button className="stonic-start-button" onClick={onVoiceStart}>
         <Mic size={11} />
-        <span>START AI</span>
+
         <span className="stonic-button-arrow">→</span>
       </button>
       <div className="stonic-aisphere-caption">
-        Your living AI core
+
       </div>
     </section>
   );
