@@ -30,7 +30,7 @@ const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = parseInt(process.env.PORT || '3000', 10);
 
   app.use(express.json({ limit: '25mb' }));
 
@@ -238,6 +238,24 @@ async function startServer() {
     }
   });
 
+  app.put('/api/conversations/:id', async (req, res) => {
+    try {
+      const conversation = await loadConversation(req.params.id);
+      if (!conversation) {
+        return res.status(404).json({ error: 'Conversation not found' });
+      }
+      const updates = req.body || {};
+      if (updates.title !== undefined) conversation.title = updates.title;
+      if (updates.messages !== undefined) conversation.messages = updates.messages;
+      conversation.updatedAt = Date.now();
+      await dbUpdateConversation(conversation);
+      res.json({ conversation });
+    } catch (err: any) {
+      console.warn('[Conversations] Update error:', err?.message);
+      res.status(500).json({ error: 'Failed to update conversation' });
+    }
+  });
+
   app.delete('/api/conversations/:id', async (req, res) => {
     try {
       await dbDeleteConversation(req.params.id);
@@ -288,6 +306,23 @@ async function startServer() {
     } catch (err: any) {
       console.warn('[Memory] Create error:', err?.message);
       res.status(500).json({ error: 'Failed to create memory' });
+    }
+  });
+
+  app.put('/api/memories/:id', async (req, res) => {
+    try {
+      const memories = await loadMemories();
+      const index = memories.findIndex((m) => m.id === req.params.id);
+      if (index < 0) {
+        return res.status(404).json({ error: 'Memory not found' });
+      }
+      const updates = req.body || {};
+      memories[index] = { ...memories[index], ...updates, updatedAt: Date.now() };
+      await saveMemories(memories);
+      res.json({ memory: memories[index] });
+    } catch (err: any) {
+      console.warn('[Memory] Update error:', err?.message);
+      res.status(500).json({ error: 'Failed to update memory' });
     }
   });
 
