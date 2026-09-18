@@ -1,719 +1,1319 @@
-import { StrictMode, useState, useCallback, useEffect, useMemo, type MouseEvent } from 'react';
+import React, { StrictMode, useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   BrainCircuit, Mic, VolumeX, Settings2, Database,
-  Send, X, Activity, Globe2, Bot,
-  Users, Cpu, Key, Languages, Speaker, Save,
-  Plus, Trash2, MessageSquare, Clock, ChevronLeft,
+  Send, X, Users, Key,
+  Speaker, Save, Plus, Trash2, MessageSquare, Clock,
+  ChevronLeft, Zap, Globe2,
+  Phone, PhoneOff, AlertTriangle,
+  ChevronDown, Wifi, Radio as RadioIcon, Search,
+  Palette, Download, Upload,
 } from 'lucide-react';
 import WorldGlobe from './components/WorldGlobe';
 import AgentOffice from './components/AgentOffice';
 import { useConversations, useMemories } from './hooks/useStorage';
+import { useVoice, type CoreState } from './hooks/useVoice';
 import { getPersonalitySystemPrompt, type PersonalityType } from './lib/personality';
 import { parseMemoryCommand, getMemoryResponse } from './lib/memoryCommands';
-import type { Memory } from './lib/storage';
+import { routeCommand, isActiveStatus, statusClass, type AgentRoute } from './lib/agentRouter';
+import { useOrchestration, setOrchestration, resetOrchestration, applyLiveStatus, orchestrationLabel } from './lib/orchestration';
+import NASICore from './components/NASICore';
 import './styles.css';
+import './mobile-fix.css';
+import './polish.css';
 
-/* ===== Types ===== */
-type CoreState = 'IDLE' | 'LISTENING' | 'THINKING' | 'SPEAKING' | 'ERROR';
-type Agent = { name: string; role: string; color: string; status: string; initials: string };
-type Message = { from: 'user' | 'nasi'; text: string };
-
-interface NasiSettings {
-  provider: string;
-  model: string;
-  apiKey: string;
-  voiceLanguage: string;
-  voiceSpeed: number;
-  personality: PersonalityType;
+// ============================================================
+// ERROR BOUNDARY
+// ============================================================
+type SBProps = { children: ReactNode; fallback?: ReactNode; name?: string };
+type SBState = { hasError: boolean; error: string };
+class SectionBoundary extends React.Component<SBProps, SBState> {
+  constructor(props: SBProps) {
+    super(props);
+    (this as any).state = { hasError: false, error: '' };
+  }
+  static getDerivedStateFromError(err: Error) { return { hasError: true, error: err.message }; }
+  componentDidCatch(err: Error) { console.error('[NASI]', err); }
+  handleRetry = () => { (this as any).setState({ hasError: false, error: '' }); };
+  render() {
+    if ((this as any).state.hasError) {
+      return <div className="nasi-section-fallback" onClick={this.handleRetry}><AlertTriangle size={14} /><span>{(this as any).props.name || 'Component'} failed — tap to retry</span></div>;
+    }
+    return ((this as any).props as SBProps).children;
+  }
 }
 
+// ============================================================
+// TYPES
+// ============================================================
+type Agent = { name: string; role: string; color: string; status: string; initials: string; department: string };
+type Message = { from: 'user' | 'nasi'; text: string; source?: string; timestamp?: number };
+interface NasiSettings {
+  assistantName: string; theme: 'cyan' | 'emerald' | 'crimson'; animationIntensity: 'low' | 'medium' | 'high';
+  voiceProvider: 'browser' | 'elevenlabs'; voiceLanguage: string; voiceSpeed: number; voicePitch: number; voiceVolume: number;
+  autoSpeak: boolean; liveVoice: boolean; memoryEnabled: boolean; contextLength: number; personality: PersonalityType;
+  geminiApiKey: string; geminiModel: string; openaiApiKey: string; openaiModel: string;
+  claudeApiKey: string; claudeModel: string; grokApiKey: string; grokModel: string; activeProvider: string;
+  elevenlabsApiKey: string; elevenlabsVoiceId: string; elevenlabsModel: string; customVoiceId: string;
+}
 const DEFAULT_SETTINGS: NasiSettings = {
-  provider: 'Gemini',
-  model: '',
-  apiKey: '',
-  voiceLanguage: 'en-US',
-  voiceSpeed: 0.98,
-  personality: 'warm',
+  assistantName: 'NASI', theme: 'cyan', animationIntensity: 'medium',
+  voiceProvider: 'browser', voiceLanguage: 'en-US', voiceSpeed: 0.98, voicePitch: 1.0, voiceVolume: 1.0,
+  autoSpeak: true, liveVoice: false, memoryEnabled: true, contextLength: 20, personality: 'warm',
+  geminiApiKey: '', geminiModel: 'gemini-2.0-flash', openaiApiKey: '', openaiModel: 'gpt-4o-mini',
+  claudeApiKey: '', claudeModel: 'claude-3-haiku-20240307', grokApiKey: '', grokModel: 'grok-2-1212', activeProvider: 'gemini',
+  elevenlabsApiKey: '', elevenlabsVoiceId: '21m00Tcm4TlvDq8ikWAM', elevenlabsModel: 'eleven_flash_v2_5', customVoiceId: '',
 };
-
 function loadSettings(): NasiSettings {
   try {
     const raw = localStorage.getItem('nasi_settings');
-    if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
-  } catch { /* ignore */ }
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // Merge saved data ON TOP of defaults — saved values always win
+      // Key rule: if a key exists in localStorage (even empty string), use it.
+      // Only fall back to defaults for keys that are truly missing (undefined/null).
+      const merged = { ...DEFAULT_SETTINGS };
+      for (const [key, val] of Object.entries(parsed)) {
+        if (val !== undefined && val !== null) {
+          (merged as any)[key] = val;
+        }
+      }
+      return merged;
+    }
+  } catch (err) {
+    console.warn('[Settings] Failed to load from localStorage:', err);
+  }
   return { ...DEFAULT_SETTINGS };
 }
-
-function saveSettingsToDisk(s: NasiSettings) {
-  localStorage.setItem('nasi_settings', JSON.stringify(s));
+function saveSettings(s: NasiSettings) {
+  try {
+    localStorage.setItem('nasi_settings', JSON.stringify(s));
+  } catch (err) {
+    console.warn('[Settings] Failed to save to localStorage:', err);
+  }
 }
 
+// Baseline agent roster. `status` here is the RESTING state only — the Manager
+// and the currently-delegated agent get their live status from orchestration
+// state at runtime (see `runtimeAgents` in <App />).
+// Compact labels for the Agent Town status bar — keeps all 7 departments on
+// one row without scrolling or ellipsis.
+const DEPT_SHORT: Record<string, string> = {
+  Core: 'CORE', Research: 'RESEARCH', Web: 'WEB', Commerce: 'COMMERCE',
+  Infrastructure: 'INFRA', Communication: 'COMMS', Security: 'SECURITY',
+};
+
 const AGENTS: Agent[] = [
-  { name: 'Research', role: 'Research Agent', color: '#3ad6ea', status: 'Idle', initials: 'R' },
-  { name: 'Browser', role: 'Browser Agent', color: '#45df9b', status: 'Idle', initials: 'B' },
-  { name: 'Computer', role: 'Computer Agent', color: '#f09b47', status: 'Idle', initials: 'C' },
-  { name: 'Memory', role: 'Memory Agent', color: '#a9b5c4', status: 'Idle', initials: 'M' },
-  { name: 'Shopify', role: 'Shopify Agent', color: '#45df9b', status: 'Idle', initials: 'S' },
-  { name: 'Comm', role: 'Comm Agent', color: '#3ad6ea', status: 'Idle', initials: 'C' },
-  { name: 'File', role: 'File Agent', color: '#f09b47', status: 'Idle', initials: 'F' },
-  { name: 'Security', role: 'Security Agent', color: '#e9675f', status: 'Idle', initials: 'X' },
+  { name: 'Manager', role: 'NASI Manager', color: '#2cb8d4', status: 'Idle', initials: 'NM', department: 'Core' },
+  { name: 'Research', role: 'Research Agent', color: '#2cb8d4', status: 'Idle', initials: 'RA', department: 'Research' },
+  { name: 'Browser', role: 'Web Agent', color: '#2ebc7a', status: 'Idle', initials: 'WA', department: 'Web' },
+  { name: 'Shopify', role: 'Shopify Agent', color: '#2ebc7a', status: 'Not Connected', initials: 'SA', department: 'Commerce' },
+  { name: 'Computer', role: 'Computer Agent', color: '#c88a38', status: 'Not Connected', initials: 'CA', department: 'Infrastructure' },
+  { name: 'Comm', role: 'Communication Agent', color: '#2cb8d4', status: 'Not Connected', initials: 'CO', department: 'Communication' },
+  { name: 'File', role: 'File Agent', color: '#c88a38', status: 'Idle', initials: 'FA', department: 'Infrastructure' },
+  { name: 'Security', role: 'Security Agent', color: '#c85548', status: 'Idle', initials: 'XA', department: 'Security' },
+];
+const PROVIDERS = [
+  { id: 'gemini', name: 'Google Gemini', keyEnv: 'GEMINI_API_KEY' },
+  { id: 'openai', name: 'OpenAI', keyEnv: 'OPENAI_API_KEY' },
+  { id: 'claude', name: 'Anthropic Claude', keyEnv: 'CLAUDE_API_KEY' },
+  { id: 'grok', name: 'xAI Grok', keyEnv: 'GROK_API_KEY' },
 ];
 
-const PROVIDERS = ['Gemini', 'OpenAI', 'Claude', 'Grok', 'Ollama'];
+// Real ElevenLabs premade voice IDs (verified against the ElevenLabs library).
+// Warm, friendly female voices first — NASI's default conversational tone.
+const elevenlabsVoices: { id: string; name: string }[] = [
+  { id: '21m00Tcm4TlvDq8ikWAM', name: 'Rachel' },
+  { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Sarah' },
+  { id: 'cgSgspJ2msm6clMCkdW9', name: 'Jessica' },
+  { id: 'AZnzlk1XvdvUeBnXmlld', name: 'Domi' },
+  { id: 'XB0fDUnXUj1R11ebVAv', name: 'Arnold' },
+  { id: 'pNInz6obpgDQGcFmaSg', name: 'Adam' },
+];
 
+const elevenlabsModels: { label: string; value: string }[] = [
+  { label: 'Flash v2.5', value: 'eleven_flash_v2_5' },
+  { label: 'Turbo v2.5', value: 'eleven_multilingual_v2_5' },
+  { label: 'Multilingual v2', value: 'eleven_multilingual_v2' },
+];
+
+// ============================================================
+// SYSTEM FEED — left intelligence panel
+// ============================================================
+function SystemFeed({ connectionStatus, coreState, memories, orchestrationText }: { connectionStatus: string; coreState: CoreState; memories: any[]; orchestrationText?: string | null }) {
+  const [vectorStats, setVectorStats] = useState<any>(null);
+  useEffect(() => {
+    fetch('/api/vector-memory/stats').then(r => r.json()).then(setVectorStats).catch(() => {});
+    const interval = setInterval(() => {
+      fetch('/api/vector-memory/stats').then(r => r.json()).then(setVectorStats).catch(() => {});
+    }, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const events = useMemo(() => [
+    { time: 'NOW', text: `NASI Core: ${coreState}`, color: coreState === 'IDLE' ? '#1a5a3a' : '#2cb8d4' },
+    { time: 'SYS', text: `Backend: ${connectionStatus}`, color: connectionStatus === 'online' ? '#2ebc7a' : '#c85548' },
+    { time: 'MEM', text: `${vectorStats?.totalMemories ?? memories.length} memories (${vectorStats?.embeddingType || 'tfidf'})`, color: '#c88a38' },
+    orchestrationText
+      ? { time: 'Agt', text: orchestrationText, color: '#2ebc7a' }
+      : { time: 'Agt', text: `${AGENTS.filter(a => a.status !== 'Not Connected').length} agents standing by`, color: '#2cb8d4' },
+    { time: 'NET', text: 'Voice pipeline: Browser STT + ElevenLabs TTS', color: '#5a7a8a' },
+    { time: 'SEC', text: 'Security monitoring active', color: '#c85548' },
+  ], [connectionStatus, coreState, memories.length, vectorStats, orchestrationText]);
+
+  return (
+    <div className="nasi-feed">
+      <div className="nasi-feed-section">
+        <div className="nasi-feed-header"><Wifi size={9} /><span>META LINK</span><div className={`nasi-feed-status ${connectionStatus}`} /></div>
+        <div className="nasi-feed-card">
+          <div className="nasi-feed-card-title">SYSTEM {connectionStatus === 'online' ? 'ONLINE' : 'OFFLINE'}</div>
+          <div className="nasi-feed-card-sub">NASI AI v1.0 — {coreState}</div>
+        </div>
+      </div>
+      <div className="nasi-feed-section">
+        <div className="nasi-feed-header"><RadioIcon size={9} /><span>SAT-LINK FEED</span></div>
+        <div className="nasi-feed-events">
+          {events.map((ev, i) => (
+            <div key={i} className="nasi-feed-event">
+              <span className="nasi-feed-event-time" style={{ color: ev.color }}>{ev.time}</span>
+              <span className="nasi-feed-event-text">{ev.text}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="nasi-feed-section">
+        <div className="nasi-feed-header"><Globe2 size={9} /><span>GLOBAL NETWORK</span><span className="nasi-feed-badge">BETA</span></div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// AGENT TOWN PANEL — large bottom section
+// ============================================================
+function AgentTownPanel({ agents, onSelectAgent }: { agents: Agent[]; onSelectAgent: (a: Agent) => void }) {
+  const [expanded, setExpanded] = useState(true);
+  // Live delegation state — drives which agent shows as ACTIVE right now.
+  const o = useOrchestration();
+  const liveAgents = useMemo(() => applyLiveStatus(agents, o), [agents, o]);
+  const livePhase = o.phase;
+  const liveAgent = o.agent;
+  const liveReason = o.route?.reason ?? null;
+  const departments = useMemo(() => {
+    const map = new Map<string, Agent[]>();
+    liveAgents.forEach(a => { if (!map.has(a.department)) map.set(a.department, []); map.get(a.department)!.push(a); });
+    return Array.from(map.entries());
+  }, [liveAgents]);
+
+  return (
+    <div className="nasi-agent-town">
+      <div className="nasi-agent-town-header" onClick={() => setExpanded(!expanded)}>
+        <div className="nasi-agent-town-title"><Users size={11} /><span>AGENT TOWN</span><span className="nasi-agent-town-count">{liveAgents.filter(a => isActiveStatus(a.status) || a.status === 'Idle').length}/{liveAgents.length}</span></div>
+        {livePhase !== 'idle' && (
+          <span className={`nasi-agent-town-delegate ${livePhase}`}>
+            {livePhase === 'delegating' ? 'MANAGER DELEGATING…' : livePhase === 'working' ? `${(liveAgent || 'AGENT').toUpperCase()} WORKING` : 'TASK COMPLETE'}
+            {liveReason ? ` · ${liveReason}` : ''}
+          </span>
+        )}
+        <div className="nasi-agent-town-tabs">
+          <button className="nasi-agent-tab active">staff</button>
+          <button className="nasi-agent-tab">agents</button>
+          <button className="nasi-agent-tab">visual hub</button>
+        </div>
+        <ChevronDown size={12} className={`nasi-agent-town-chevron ${expanded ? 'expanded' : ''}`} />
+      </div>
+      {expanded && (
+        <div className="nasi-agent-town-body">
+          {/* Compact roster: face + name + status dot for every agent */}
+          <div className="nasi-roster-row">
+            {liveAgents.map(a => (
+              <button key={a.name} className={`nasi-roster-pill ${isActiveStatus(a.status) ? 'active' : ''}`}
+                style={{ '--agent-color': a.color } as any} onClick={() => onSelectAgent(a)}
+                title={`${a.name} · ${a.department} · ${a.status}`}>
+                <span className="nasi-roster-face" style={{ background: a.color }}>{a.initials}</span>
+                <span className="nasi-roster-name">{a.name}</span>
+                <span className={`nasi-roster-dot ${statusClass(a.status)}`} />
+              </button>
+            ))}
+          </div>
+          <div className="nasi-agent-town-office">
+            <SectionBoundary name="Agent Office">
+              <AgentOffice agents={liveAgents} onSelectAgent={onSelectAgent} focusAgent={liveAgent} />
+            </SectionBoundary>
+          </div>
+          <div className="nasi-agent-town-departments">
+            {departments.map(([dept, deptAgents]) => {
+              const anyActive = deptAgents.some(a => isActiveStatus(a.status));
+              const allIdle = deptAgents.every(a => a.status === 'Idle');
+              const state = anyActive ? 'active' : allIdle ? 'idle' : 'offline';
+              const lead = deptAgents.find(a => isActiveStatus(a.status)) || deptAgents[0];
+              return (
+                <button key={dept} className={`nasi-dept-pill ${state}`}
+                  style={{ '--agent-color': lead.color } as any}
+                  onClick={() => onSelectAgent(lead)}
+                  title={`${dept} · ${deptAgents.map(a => `${a.name} (${a.status})`).join(', ')}`}>
+                  <span className="nasi-dept-pill-icon" style={{ background: lead.color }} />
+                  <span className="nasi-dept-pill-name">{DEPT_SHORT[dept] || dept.toUpperCase().slice(0, 7)}</span>
+                  <span className={`nasi-dept-pill-dot ${state}`} />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// LIVE CONSOLE PANEL — Right tabbed panel (Voice / Agent / Notes)
+// ============================================================
+function LiveConsolePanel({
+  coreState, liveVoiceActive, micStatus, transcript, lastTranscript, voiceLog, errorMessage,
+  agents, messages, command, setCommand, handleSend, isSending,
+  startListening, stopSpeech, toggleLiveVoice, onSelectAgent,
+}: {
+  coreState: CoreState; liveVoiceActive: boolean; micStatus: string; transcript: string;
+  lastTranscript: string; voiceLog: string[]; errorMessage: string | null;
+  agents: Agent[]; messages: Message[]; command: string; setCommand: (s: string) => void;
+  handleSend: (s: string) => void; isSending: boolean;
+  startListening: () => void; stopSpeech: () => void; toggleLiveVoice: () => void;
+  onSelectAgent: (a: Agent) => void;
+}) {
+  const [tab, setTab] = useState<'voice' | 'agent' | 'notes'>('voice');
+  const consoleRef = useRef<HTMLDivElement>(null);
+  const [notes, setNotes] = useState('');
+  // Same live delegation state as Agent Town — one source of truth.
+  const orch = useOrchestration();
+  const liveAgents = useMemo(() => applyLiveStatus(agents, orch), [agents, orch]);
+
+  // Auto-scroll console output
+  useEffect(() => { if (consoleRef.current) consoleRef.current.scrollTop = consoleRef.current.scrollHeight; }, [voiceLog, tab, messages]);
+
+  const ts = () => new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+  return (
+    <div className="nasi-console-panel">
+      <div className="nasi-console-tabs">
+        <button className={`nasi-console-tab ${tab === 'voice' ? 'active' : ''}`} onClick={() => setTab('voice')}>
+          <Mic size={9} /> VOICE
+        </button>
+        <button className={`nasi-console-tab ${tab === 'agent' ? 'active' : ''}`} onClick={() => setTab('agent')}>
+          <Users size={9} /> AGENT
+        </button>
+        <button className={`nasi-console-tab ${tab === 'notes' ? 'active' : ''}`} onClick={() => setTab('notes')}>
+          <MessageSquare size={9} /> NOTES
+        </button>
+      </div>
+
+      <div className="nasi-console-body" ref={consoleRef}>
+        {/* ═══ VOICE TAB ═══ */}
+        {tab === 'voice' && (
+          <div className="nasi-voice-section">
+            {/* Voice controls */}
+            <div className="nasi-voice-controls">
+              <button className={`nasi-mic ${coreState === 'LISTENING' ? 'listening' : coreState === 'SPEAKING' ? 'speaking' : ''}`}
+                onClick={() => { if (liveVoiceActive) toggleLiveVoice(); else startListening(); }}><Mic size={18} /></button>
+              <button className={`nasi-stop-btn ${coreState === 'SPEAKING' ? 'active' : ''}`} onClick={stopSpeech} disabled={coreState !== 'SPEAKING'}><VolumeX size={12} /></button>
+              <div className="nasi-voice-sep" />
+              <button className={`nasi-live-btn ${liveVoiceActive ? 'active' : ''}`} onClick={toggleLiveVoice}>
+                {liveVoiceActive ? <PhoneOff size={9} /> : <Phone size={9} />}
+                <span>{liveVoiceActive ? 'LIVE' : 'LIVE'}</span>
+              </button>
+              <div className="nasi-voice-sep" />
+              <span className={`nasi-state-label ${coreState !== 'IDLE' ? 'active' : ''}`}>{coreState === 'IDLE' ? 'READY' : coreState}</span>
+            </div>
+
+            {/* Waveform */}
+            <div className={`nasi-waveform ${coreState === 'LISTENING' ? 'listening' : coreState === 'SPEAKING' ? 'speaking' : ''}`}>
+              {Array.from({ length: 40 }).map((_, i) => (<div key={i} className="nasi-wavebar" style={{ animationDelay: `${i * 0.025}s` }} />))}
+            </div>
+
+            {errorMessage && <div className="nasi-error-bar"><AlertTriangle size={12} /><span>{errorMessage}</span></div>}
+
+            {/* Voice log */}
+            {voiceLog.map((log, i) => (
+              <div key={i} className="nasi-console-line">
+                <span className="nasi-console-ts">{ts()}</span>
+                <span className="nasi-console-badge voice">VOICE</span>
+                <span className="nasi-console-text dim">{log}</span>
+              </div>
+            ))}
+
+            {/* Transcript */}
+            {transcript && (
+              <div className="nasi-console-line">
+                <span className="nasi-console-ts">{ts()}</span>
+                <span className="nasi-console-badge user">USER</span>
+                <span className="nasi-console-text">{transcript}</span>
+              </div>
+            )}
+
+            {/* Messages as console output */}
+            {messages.map((msg, i) => (
+              <div key={i} className="nasi-console-line">
+                <span className="nasi-console-ts">{msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ts()}</span>
+                <span className={`nasi-console-badge ${msg.from === 'user' ? 'user' : 'nasi'}`}>{msg.from === 'user' ? 'USER' : 'NASI'}</span>
+                <span className="nasi-console-text">{msg.text.length > 200 ? msg.text.slice(0, 200) + '...' : msg.text}</span>
+              </div>
+            ))}
+
+            {isSending && (
+              <div className="nasi-console-line">
+                <span className="nasi-console-ts">{ts()}</span>
+                <span className="nasi-console-badge nasi">NASI</span>
+                <span className="nasi-console-text dim">processing...</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ═══ AGENT TAB ═══ */}
+        {tab === 'agent' && (
+          <div className="nasi-agent-console-list">
+            <div className="nasi-console-line" style={{ borderBottom: 'none', paddingBottom: 4 }}>
+              <span className="nasi-console-badge system">SYS</span>
+              <span className="nasi-console-text dim">Agent Manager online · {liveAgents.filter(a => isActiveStatus(a.status) || a.status === 'Idle').length}/{liveAgents.length} agents ready</span>
+            </div>
+            {liveAgents.map(a => (
+              <div key={a.name} className="nasi-agent-console-item" onClick={() => onSelectAgent(a)}>
+                <div className="nasi-agent-console-avatar" style={{ background: a.color }}>{a.initials}</div>
+                <div className="nasi-agent-console-info">
+                  <div className="nasi-agent-console-name">{a.name}</div>
+                  <div className="nasi-agent-console-role">{a.department} · {a.role}</div>
+                </div>
+                <span className={`nasi-agent-console-status ${statusClass(a.status)}`}>{a.status}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ═══ NOTES TAB ═══ */}
+        {tab === 'notes' && (
+          <div className="nasi-notes-section">
+            <div className="nasi-voice-section-label">CONVERSATION</div>
+            {messages.map((msg, i) => (
+              <div key={i} className="nasi-console-line">
+                <span className="nasi-console-ts">{msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                <span className={`nasi-console-badge ${msg.from === 'user' ? 'user' : 'nasi'}`}>{msg.from === 'user' ? 'U' : 'N'}</span>
+                <span className="nasi-console-text">{msg.text.length > 300 ? msg.text.slice(0, 300) + '...' : msg.text}</span>
+              </div>
+            ))}
+            <div style={{ marginTop: 'auto' }}>
+              <div className="nasi-voice-section-label">PERSONAL NOTES</div>
+              <textarea className="nasi-notes-input" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Type notes here..." />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Command input at bottom of console */}
+      <div style={{ padding: '8px 10px', borderTop: '1px solid rgba(44,184,212,.05)' }}>
+        <div className="nasi-command-input" style={{ maxWidth: '100%' }}>
+          <input className="nasi-input" value={command} onChange={e => setCommand(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && command.trim()) handleSend(command); }} placeholder="Talk to NASI..." />
+          <button className="nasi-input-mic" onClick={startListening} title="Voice"><Mic size={12} /></button>
+          <button className="nasi-input-send" onClick={() => handleSend(command)} disabled={!command.trim() || isSending}><Send size={12} /></button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// MEMORY MODAL — with vector search and stats
+// ============================================================
+function MemoryModal({ memories, deleteMemory, clearMemories, onClose }: {
+  memories: any[]; deleteMemory: (id: string) => void; clearMemories: () => Promise<void>; onClose: () => void;
+}) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [memoryStats, setMemoryStats] = useState<{ totalMemories: number; embeddingType: string } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/vector-memory/stats').then(r => r.json()).then(setMemoryStats).catch(() => {});
+  }, []);
+
+  const handleSearch = useCallback(async () => {
+    if (!searchQuery.trim()) { setSearchResults([]); return; }
+    setIsSearching(true);
+    try {
+      const res = await fetch(`/api/vector-memory/search?q=${encodeURIComponent(searchQuery)}&topK=20`);
+      const data = await res.json();
+      setSearchResults(data.results || []);
+    } catch { setSearchResults([]); }
+    finally { setIsSearching(false); }
+  }, [searchQuery]);
+
+  const displayList = searchQuery.trim() && searchResults.length > 0
+    ? searchResults.map((r: any) => ({ ...r.memory, _score: r.score }))
+    : memories;
+
+  return (
+    <div className="nasi-modal-bg" onClick={onClose}>
+      <div className="nasi-modal nasi-memory-modal" onClick={e => e.stopPropagation()}>
+        <button className="nasi-modal-close" onClick={onClose}><X size={14} /></button>
+        <div className="nasi-modal-kicker"><Database size={12} /> MEMORY {memoryStats && <span style={{ marginLeft: 8, opacity: 0.6, fontSize: 10 }}>({memoryStats.totalMemories} stored · {memoryStats.embeddingType} embeddings)</span>}</div>
+
+        {/* Search bar */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+          <input className="nasi-settings-input" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleSearch(); }}
+            placeholder="Search memories semantically..." style={{ flex: 1 }} />
+          <button className="nasi-modal-btn" onClick={handleSearch} disabled={isSearching} style={{ flexShrink: 0 }}>
+            <Search size={10} /> {isSearching ? '...' : 'SEARCH'}
+          </button>
+        </div>
+        {searchQuery.trim() && searchResults.length > 0 && (
+          <div style={{ fontSize: 10, opacity: 0.5, marginBottom: 6 }}>
+            {searchResults.length} semantic matches found
+          </div>
+        )}
+
+        {displayList.length === 0 ? (
+          <><div className="nasi-empty">{searchQuery.trim() ? 'No matching memories found' : 'No memories stored yet'}</div>
+          <div className="nasi-empty-hint">Say "NASI, remember that..." to create a memory.</div></>
+        ) : (
+          <div className="nasi-memory-list">
+            {displayList.map((m: any) => (
+              <div key={m.id} className="nasi-memory-item">
+                <div className="nasi-memory-item-header">
+                  <span className="nasi-memory-category">{m.category}</span>
+                  <span className="nasi-memory-importance">★ {m.importance}</span>
+                  {m._score != null && <span style={{ fontSize: 9, color: '#00d9ff', opacity: 0.7 }}>({(m._score * 100).toFixed(0)}% match)</span>}
+                </div>
+                <div className="nasi-memory-key">{m.key}</div>
+                <div className="nasi-memory-value">{m.value}</div>
+                <button className="nasi-memory-delete" onClick={() => deleteMemory(m.id)}><Trash2 size={10} /></button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="nasi-settings-actions">
+          {memories.length > 0 && <button className="nasi-modal-btn danger" onClick={async () => { await clearMemories(); setSearchResults([]); }}><Trash2 size={10} /> CLEAR ALL</button>}
+          <button className="nasi-modal-btn" onClick={onClose}>CLOSE</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// MAIN APP
+// ============================================================
 function App() {
-  const [coreState, setCoreState] = useState<CoreState>('IDLE');
   const [command, setCommand] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showMemory, setShowMemory] = useState(false);
-  const [showSidebar, setShowSidebar] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const [showConversations, setShowConversations] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [settings, setSettings] = useState<NasiSettings>(loadSettings);
+
+  // ── Agent orchestration: Core → Manager → department agent ──
+  // Shared store so Agent Town, the console and the office canvas all agree.
+  const orchestration = useOrchestration();
+  const orchestrationText = orchestrationLabel(orchestration);
+  const agentTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // Tracks whether the delegating→working hop has happened yet, so a task that
+  // finishes faster than the hop still shows the routed agent working first.
+  const delegationRef = useRef({ routed: false, done: false });
+
+// Apply theme CSS variables from settings.theme whenever the theme changes
+useEffect(() => {
+  const root = document.documentElement;
+  const body = document.body;
+  const apply = (t: NasiSettings['theme']) => {
+    if (t === 'cyan') {
+      root.style.setProperty('--cyan', '#00e5ff');
+      root.style.setProperty('--cyan-dim', '#108fb0');
+      root.style.setProperty('--emerald', '#00ff88');
+      root.style.setProperty('--amber', '#ffaa00');
+      root.style.setProperty('--crimson', '#ff4444');
+      root.style.setProperty('--line', 'rgba(0, 229, 255, .14)');
+      root.style.setProperty('--line-2', 'rgba(0, 229, 255, .24)');
+      root.style.setProperty('--line-3', 'rgba(0, 229, 255, .34)');
+      root.style.setProperty('--glow-cyan', 'rgba(0, 229, 255, .48)');
+      body.style.background = '#000000';
+    } else if (t === 'emerald') {
+      root.style.setProperty('--cyan', '#00ff88');
+      root.style.setProperty('--cyan-dim', '#109c5a');
+      root.style.setProperty('--emerald', '#66ffbb');
+      root.style.setProperty('--amber', '#ffd24a');
+      root.style.setProperty('--crimson', '#ff5a5a');
+      root.style.setProperty('--line', 'rgba(0, 255, 136, .14)');
+      root.style.setProperty('--line-2', 'rgba(0, 255, 136, .24)');
+      root.style.setProperty('--line-3', 'rgba(0, 255, 136, .34)');
+      root.style.setProperty('--glow-cyan', 'rgba(0, 255, 136, .45)');
+      body.style.background = '#000c06';
+    } else if (t === 'crimson') {
+      root.style.setProperty('--cyan', '#ff6644');
+      root.style.setProperty('--cyan-dim', '#9f2e16');
+      root.style.setProperty('--emerald', '#ff8a6a');
+      root.style.setProperty('--amber', '#ffe2a0');
+      root.style.setProperty('--crimson', '#ff2222');
+      root.style.setProperty('--line', 'rgba(255, 102, 68, .14)');
+      root.style.setProperty('--line-2', 'rgba(255, 102, 68, .24)');
+      root.style.setProperty('--line-3', 'rgba(255, 102, 68, .34)');
+      root.style.setProperty('--glow-cyan', 'rgba(255, 102, 68, .45)');
+      body.style.background = '#0c0202';
+    }
+  };
+  apply(settings.theme);
+  return () => { root.style.setProperty('--cyan', '#00e5ff'); root.style.setProperty('--line', 'rgba(0, 229, 255, .14)'); body.style.background = '#000000'; };
+}, [settings.theme]);
   const [settingsDraft, setSettingsDraft] = useState<NasiSettings>(settings);
   const [settingsSaved, setSettingsSaved] = useState(false);
-  const [nav, setNav] = useState<'home' | 'chat'>('home');
+  const [liveVoiceActive, setLiveVoiceActive] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+  const [activeNode, setActiveNode] = useState<string | null>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const centerRef = useRef<HTMLDivElement>(null);
+  const nodesRef = useRef<HTMLDivElement>(null);
+  const coreRef = useRef<HTMLDivElement>(null);
+  const [routes, setRoutes] = useState<{ id: string; color: string; d: string; tx: number; ty: number }[]>([]);
 
-  // Conversation hooks
-  const {
-    conversations,
-    activeConversation,
-    activeConversationId,
-    createConversation,
-    selectConversation,
-    addMessage,
-    deleteConversation,
-    newConversation,
-    refreshConversations,
-  } = useConversations();
+  // Measure actual DOM positions: trace starts at each node's right edge,
+  // converges at the Core's exact center point.
+  const measureRoutes = useCallback(() => {
+    if (showChat) { setRoutes([]); return; }
+    const center = centerRef.current, nodes = nodesRef.current, core = coreRef.current;
+    const overlay = center?.querySelector<SVGSVGElement>('.nasi-routing-overlay');
+    if (!center || !nodes || !core || !overlay) return;
+    const cb = center.getBoundingClientRect();
+    // Coordinates are measured against the SVG overlay itself — it is inset in
+    // the core card, not the center panel, so using the panel would draw every
+    // trace offset by the card's position within the panel.
+    const sb = overlay.getBoundingClientRect();
+    const coreB = core.getBoundingClientRect();
+    const nodeEls = nodes.querySelectorAll<HTMLElement>('.nasi-routing-node');
+    const defs = [
+      { id: 'MEMORY', color: '#00d9ff' },
+      { id: 'SKILLS', color: '#00e88a' },
+      { id: 'SOUL', color: '#ffb347' },
+      { id: 'SETTING', color: '#8fa3b8' },
+    ];
+    const next: { id: string; color: string; d: string; tx: number; ty: number }[] = [];
+    nodeEls.forEach((el, ni) => {
+      const id = el.dataset.nodeId;
+      const def = defs.find(d => d.id === id);
+      if (!def) return;
+      const nb = el.getBoundingClientRect();
+      // Guard: core center inside the panel bounds
+      if (coreB.left < cb.left || coreB.right > cb.right) return;
+      const sx = nb.right - sb.left;
+      const sy = nb.top + nb.height / 2 - sb.top;
+      const orbCx = coreB.left + coreB.width / 2 - sb.left;
+      const cy = coreB.top + coreB.height / 2 - sb.top;
+      // Traces run straight right from each node into the orb's LEFT side. Each
+      // line lands on its own contact point down the orb's edge, so the four stay
+      // parallel-ish instead of all four piling into one spot. The top and bottom
+      // lines get a single gentle elbow; the middle two are near-straight.
+      const entryX = coreB.left - sb.left - 4;
+      if (entryX <= sx + 12) return;
+      const spread = Math.min(15, coreB.height * 0.085);
+      const entryY = cy + (ni - 1.5) * spread;
+      // Staggered bend points so no two elbows sit on the same vertical line.
+      const bendX = sx + (entryX - sx) * (0.46 + ni * 0.05);
+      const d =
+        `M ${sx.toFixed(1)},${sy.toFixed(1)} H ${bendX.toFixed(1)} ` +
+        `Q ${entryX.toFixed(1)},${sy.toFixed(1)} ${entryX.toFixed(1)},${entryY.toFixed(1)}`;
+      next.push({ id: def.id, color: def.color, d, tx: orbCx, ty: cy });
+    });
+    setRoutes(next);
+  }, [showChat]);
 
-  // Memory hooks
-  const {
-    memories,
-    createMemory,
-    deleteMemory,
-    clearMemories,
-    refreshMemories,
-  } = useMemories();
+  useEffect(() => {
+    measureRoutes();
+    const ro = new ResizeObserver(measureRoutes);
+    if (centerRef.current) ro.observe(centerRef.current);
+    window.addEventListener('resize', measureRoutes);
+    return () => { ro.disconnect(); window.removeEventListener('resize', measureRoutes); };
+  }, [measureRoutes, showChat]);
 
-  // Display messages from active conversation
+  useEffect(() => {
+    if (activeNode) {
+      const t = setTimeout(() => setActiveNode(null), 3200);
+      return () => clearTimeout(t);
+    }
+  }, [activeNode]);
+
+  const { conversations, activeConversation, activeConversationId, createConversation, selectConversation, addMessage, deleteConversation, newConversation } = useConversations();
+  const { memories, createMemory, deleteMemory, clearMemories } = useMemories();
+  const [coreState, setCoreState] = useState<CoreState>('IDLE');
+  const sendCommandRef = useRef<(text: string, source: 'text' | 'voice') => Promise<void>>();
+
+  const voiceConfig = useMemo(() => ({
+    ttsLocaleHints: [settings.voiceLanguage, 'en-US', 'en-GB'],
+    onTranscript: (text: string) => { if (text.trim() && sendCommandRef.current) sendCommandRef.current(text, 'voice'); },
+    onStateChange: (state: CoreState) => { setCoreState(state); },
+    // Always pass ElevenLabs key if available — useVoice will try it first,
+    // falling back to browser TTS if it fails.
+    elevenlabsApiKey: settings.elevenlabsApiKey || undefined,
+    // Use customVoiceId if set, otherwise fall back to preset voice selection
+    elevenlabsVoiceId: settings.customVoiceId || settings.elevenlabsVoiceId || undefined,
+    elevenlabsModel: settings.elevenlabsModel || undefined,
+  }), [settings]);
+
+  const { micStatus, transcript, lastTranscript, voicesLoaded, voiceLog, errorMessage, startListening, stopAll, stopSpeech, speak, pushLog } = useVoice(voiceConfig);
+
+  const speakWithSettings = useCallback(async (text: string) => {
+    if (!settings.autoSpeak) {
+      // Reset state so LIVE voice loop can continue
+      setCoreState('IDLE');
+      return;
+    }
+    const ttsText = text.length > 500 ? text.slice(0, 500) + '...' : text;
+    await speak(ttsText, settings.voiceSpeed, settings.voicePitch, settings.voiceVolume);
+  }, [settings.autoSpeak, settings.voiceSpeed, settings.voicePitch, settings.voiceVolume, speak]);
+
+  const testVoice = useCallback(async () => {
+    // Use settingsDraft values when inside Settings modal so the test button
+    // reflects unsaved changes (API key, voice ID, etc.) instead of the stale saved state.
+    const draftActive = showSettings;
+    const apiKey = draftActive ? settingsDraft.elevenlabsApiKey : settings.elevenlabsApiKey;
+    const voiceId = draftActive ? (settingsDraft.customVoiceId || settingsDraft.elevenlabsVoiceId) : (settings.customVoiceId || settings.elevenlabsVoiceId);
+    const model = draftActive ? settingsDraft.elevenlabsModel : settings.elevenlabsModel;
+    const speed = draftActive ? settingsDraft.voiceSpeed : settings.voiceSpeed;
+    const pitch = draftActive ? settingsDraft.voicePitch : settings.voicePitch;
+    const volume = draftActive ? settingsDraft.voiceVolume : settings.voiceVolume;
+    // If ElevenLabs API key is available (from draft or saved), call it directly
+    // to avoid stale closure issues with the useVoice hook.
+    if (apiKey && apiKey.trim()) {
+      pushLog(`TTS: TEST — calling ElevenLabs directly (key=${apiKey.slice(0,4)}..., voice=${voiceId})`, true);
+      try {
+        const res = await fetch('/api/voice/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: 'Hello, I am NASI. I am your personal AI assistant.',
+            voiceId,
+            model,
+            stability: Math.max(0.1, Math.min(1, pitch * 0.7)),
+            similarityBoost: Math.max(0.1, pitch),
+            style: 0.2,
+            apiKey,
+          }),
+        });
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({})) as any;
+          const errMsg = errBody?.error || errBody?.detail || errBody?.message || `HTTP ${res.status}`;
+          pushLog(`TTS: TEST ElevenLabs FAILED — ${errMsg}. Falling back to browser.`, true);
+          await speak('Hello, I am NASI. I am your personal AI assistant.', speed, pitch, volume);
+          return;
+        }
+        pushLog('TTS: TEST — ElevenLabs responded OK, playing audio...', true);
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.onended = () => URL.revokeObjectURL(url);
+        audio.onerror = () => { URL.revokeObjectURL(url); pushLog('TTS: TEST — audio playback error', true); };
+        await audio.play();
+        pushLog('TTS: TEST — PROVIDER = ElevenLabs ✓', true);
+      } catch (err: any) {
+        pushLog(`TTS: TEST — ElevenLabs error: ${err?.message}. Falling back to browser.`, true);
+        await speak('Hello, I am NASI. I am your personal AI assistant.', speed, pitch, volume);
+      }
+    } else {
+      pushLog('TTS: TEST — no ElevenLabs key, using browser TTS', true);
+      await speak('Hello, I am NASI. I am your personal AI assistant.', speed, pitch, volume);
+    }
+  }, [speak, showSettings, settingsDraft, settings, pushLog]);
+
   const messages: Message[] = useMemo(() => {
     if (!activeConversation) return [{ from: 'nasi', text: 'NASI online. Ready.' }];
-    return activeConversation.messages.map(m => ({
-      from: m.role === 'user' ? 'user' as const : 'nasi' as const,
-      text: m.text,
-    }));
+    return activeConversation.messages.map(m => ({ from: m.role === 'user' ? 'user' as const : 'nasi' as const, text: m.text, source: m.source, timestamp: m.timestamp }));
   }, [activeConversation]);
 
-  // Sync draft when settings modal opens
+  useEffect(() => { fetch('/api/health').then(r => r.json()).then(d => setConnectionStatus(d.status === 'ok' ? 'online' : 'offline')).catch(() => setConnectionStatus('offline')); }, []);
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, showChat]);
+  useEffect(() => { if (showSettings) { setSettingsSaved(false); } }, [showSettings]);
+
+  const liveVoiceActiveRef = useRef(false);
+  liveVoiceActiveRef.current = liveVoiceActive;
   useEffect(() => {
-    if (showSettings) {
-      setSettingsDraft(loadSettings());
-      setSettingsSaved(false);
+    if (!liveVoiceActive) return;
+    if (coreState === 'IDLE' && !isSending) {
+      const timer = setTimeout(() => { if (liveVoiceActiveRef.current) startListening(); }, 300);
+      return () => clearTimeout(timer);
     }
-  }, [showSettings]);
+  }, [liveVoiceActive, coreState, isSending]); // eslint-disable-line
 
-  const handleSaveSettings = () => {
-    saveSettingsToDisk(settingsDraft);
-    setSettings(settingsDraft);
-    setSettingsSaved(true);
-    setTimeout(() => setSettingsSaved(false), 2000);
-  };
+  const systemInstruction = useMemo(() => getPersonalitySystemPrompt(settings.personality), [settings.personality]);
 
-  // Get the personality-based system instruction
-  const systemInstruction = useMemo(() => {
-    return getPersonalitySystemPrompt(settings.personality);
-  }, [settings.personality]);
+  // ── Sentence-aware TTS queue: speak the first sentence while the LLM is
+  // still generating the rest. Cuts perceived latency massively in voice mode. ──
+  const sentenceQueueRef = useRef<string[]>([]);
+  const isSpeakingQueueRef = useRef(false);
+  const queueDoneRef = useRef(false);
 
-  // Core send function — handles both text and voice input
+  const pumpSentenceQueue = useCallback(async () => {
+    if (isSpeakingQueueRef.current) return;
+    isSpeakingQueueRef.current = true;
+    try {
+      while (sentenceQueueRef.current.length > 0) {
+        const sentence = sentenceQueueRef.current.shift()!;
+        const ttsText = sentence.length > 500 ? sentence.slice(0, 500) + '...' : sentence;
+        await speak(ttsText, settings.voiceSpeed, settings.voicePitch, settings.voiceVolume);
+      }
+    } finally {
+      isSpeakingQueueRef.current = false;
+      // Queue fully drained AND stream finished → back to IDLE so LIVE loop resumes
+      if (queueDoneRef.current && sentenceQueueRef.current.length === 0) {
+        queueDoneRef.current = false;
+        setCoreState('IDLE');
+      }
+    }
+  }, [speak, settings.voiceSpeed, settings.voicePitch, settings.voiceVolume]);
+
+  const enqueueSentence = useCallback((text: string) => {
+    if (!settings.autoSpeak || !text.trim()) return;
+    sentenceQueueRef.current.push(text.trim());
+    pumpSentenceQueue();
+  }, [settings.autoSpeak, pumpSentenceQueue]);
+
+  // ── Delegation timeline (Core → Manager → agent → idle) ──
+  const clearAgentTimers = useCallback(() => {
+    agentTimersRef.current.forEach(clearTimeout);
+    agentTimersRef.current = [];
+  }, []);
+  useEffect(() => () => clearAgentTimers(), [clearAgentTimers]);
+
+  // Close the turn out only after the agent has been visibly working for a beat.
+  const finishDelegation = useCallback(() => {
+    agentTimersRef.current.push(setTimeout(() => {
+      setOrchestration({ phase: 'done' });
+      agentTimersRef.current.push(setTimeout(() => { resetOrchestration(); }, 1200));
+    }, 600));
+  }, []);
+
+  const beginDelegation = useCallback((text: string): AgentRoute => {
+    clearAgentTimers();
+    const route = routeCommand(text);
+    delegationRef.current = { routed: false, done: false };
+    // 1) Core hands the task to the Manager
+    setOrchestration({ phase: 'delegating', agent: null, route });
+    // 2) Manager delegates to the routed department agent
+    agentTimersRef.current.push(setTimeout(() => {
+      delegationRef.current.routed = true;
+      setOrchestration({ phase: 'working', agent: route.agent });
+      // The turn may already be over — only then close it out, so the working
+      // state is always visible even for very fast replies.
+      if (delegationRef.current.done) finishDelegation();
+    }, 450));
+    return route;
+  }, [clearAgentTimers, finishDelegation]);
+
+  const endDelegation = useCallback(() => {
+    const st = delegationRef.current;
+    st.done = true;
+    // If the hop hasn't fired yet, let it close the turn out (see above).
+    if (!st.routed) return;
+    clearAgentTimers();
+    finishDelegation();
+  }, [clearAgentTimers, finishDelegation]);
+
   const sendCommand = useCallback(async (text: string, source: 'text' | 'voice' = 'text') => {
     if (!text || isSending) return;
     setIsSending(true);
-    setCoreState('THINKING');
-
-    // 1. Check for memory commands
     const memCmd = parseMemoryCommand(text);
     if (memCmd) {
       try {
         if (memCmd.type === 'remember') {
           await createMemory(memCmd.category, memCmd.key, memCmd.value, 5, activeConversationId || undefined);
           const response = getMemoryResponse(memCmd);
-          if (activeConversationId) {
-            await addMessage(activeConversationId, 'user', text, source);
-            await addMessage(activeConversationId, 'assistant', response, 'text');
-          } else {
-            // Create a new conversation for this interaction
-            const conv = await createConversation(text);
-            if (conv) {
-              await addMessage(conv.id, 'assistant', response, 'text');
-            }
-          }
-          refreshMemories();
-          setIsSending(false);
-          setCoreState('IDLE');
-          return;
+          if (activeConversationId) { await addMessage(activeConversationId, 'user', text, source); await addMessage(activeConversationId, 'assistant', response, 'text'); }
+          else { const conv = await createConversation(text); if (conv) await addMessage(conv.id, 'assistant', response, 'text'); }
+          setIsSending(false); if (source === 'voice') speakWithSettings(response); return;
         }
         if (memCmd.type === 'forget') {
-          // Try to find matching memory by key
-          const match = memories.find(m =>
-            m.key.toLowerCase().includes(memCmd.key.toLowerCase()) ||
-            m.value.toLowerCase().includes(memCmd.key.toLowerCase())
-          );
-          if (match) {
-            await deleteMemory(match.id);
-            refreshMemories();
-          }
+          const match = memories.find(m => m.key.toLowerCase().includes(memCmd.key.toLowerCase()) || m.value.toLowerCase().includes(memCmd.key.toLowerCase()));
+          if (match) await deleteMemory(match.id);
           const response = getMemoryResponse(memCmd);
-          if (activeConversationId) {
-            await addMessage(activeConversationId, 'user', text, source);
-            await addMessage(activeConversationId, 'assistant', response, 'text');
-          }
-          setIsSending(false);
-          setCoreState('IDLE');
-          return;
+          if (activeConversationId) { await addMessage(activeConversationId, 'user', text, source); await addMessage(activeConversationId, 'assistant', response, 'text'); }
+          setIsSending(false); if (source === 'voice') speakWithSettings(response); return;
         }
         if (memCmd.type === 'forget_all') {
           await clearMemories();
           const response = getMemoryResponse(memCmd);
-          if (activeConversationId) {
-            await addMessage(activeConversationId, 'user', text, source);
-            await addMessage(activeConversationId, 'assistant', response, 'text');
-          }
-          setIsSending(false);
-          setCoreState('IDLE');
-          return;
+          if (activeConversationId) { await addMessage(activeConversationId, 'user', text, source); await addMessage(activeConversationId, 'assistant', response, 'text'); }
+          setIsSending(false); if (source === 'voice') speakWithSettings(response); return;
         }
         if (memCmd.type === 'recall') {
           const response = getMemoryResponse(memCmd);
-          const memoryList = memories.length > 0
-            ? memories.map(m => `• ${m.key}: ${m.value}`).join('\n')
-            : 'I don\'t have any memories stored yet.';
+          const memoryList = memories.length > 0 ? memories.map(m => `• ${m.key}: ${m.value}`).join('\n') : "I don't have any memories stored yet.";
           const fullResponse = `${response}\n\n${memoryList}`;
-          if (activeConversationId) {
-            await addMessage(activeConversationId, 'user', text, source);
-            await addMessage(activeConversationId, 'assistant', fullResponse, 'text');
-          }
-          setIsSending(false);
-          setCoreState('IDLE');
-          return;
+          if (activeConversationId) { await addMessage(activeConversationId, 'user', text, source); await addMessage(activeConversationId, 'assistant', fullResponse, 'text'); }
+          setIsSending(false); if (source === 'voice') speakWithSettings(fullResponse); return;
         }
-      } catch (err) {
-        console.warn('[Memory] Command error:', err);
-      }
+      } catch (err) { console.warn('[Memory] Error:', err); }
     }
-
-    // 2. Regular AI generation — ensure we have a conversation
     let convId = activeConversationId;
-    if (!convId) {
-      const conv = await createConversation(text);
-      if (conv) {
-        convId = conv.id;
-      } else {
-        setIsSending(false);
-        setCoreState('IDLE');
-        return;
-      }
-    } else {
-      // Add user message to existing conversation
-      await addMessage(convId, 'user', text, source);
-    }
-
-    // 3. Call AI with conversation context
+    if (!convId) { const conv = await createConversation(text); if (conv) convId = conv.id; else { setIsSending(false); return; }    } else { await addMessage(convId, 'user', text, source); }
+    // Route the intent and hand it to the Manager → department agent.
+    beginDelegation(text);
+    // Voice path uses streaming + sentence-level TTS; text path uses plain JSON.
+    const isVoice = source === 'voice';
+    sentenceQueueRef.current = [];
+    isSpeakingQueueRef.current = false;
+    queueDoneRef.current = false;
+    const turnStart = performance.now();
     try {
-      const res = await fetch('/api/gemini/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: text,
-          systemInstruction,
-          conversationId: convId,
-        }),
-      });
-      const data = await res.json();
-      const responseText = data.text || 'Command received.';
-      await addMessage(convId, 'assistant', responseText, 'text');
+      let responseText = '';
+      if (isVoice) {
+        pushLog(`⏱ Voice turn started (STT done)`);
+        // Streaming SSE — speak each sentence as soon as it completes
+        const res = await fetch('/api/gemini/generate-stream', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: text, systemInstruction, conversationId: convId, apiKey: settings.geminiApiKey || undefined }),
+        });
+        if (!res.ok || !res.body) throw new Error(`Stream HTTP ${res.status}`);
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let sseBuf = '';        // raw SSE text, split on blank lines into events
+        let sentenceBuf = '';   // decoded reply text, split into sentences for TTS
+        let fullText = '';
+        let firstChunkLogged = false;
 
-      // TTS for voice-initiated conversations
-      if (source === 'voice' && responseText) {
-        speakText(responseText);
-      }
-    } catch {
-      const errorText = 'Channel temporarily unavailable.';
-      if (convId) {
-        await addMessage(convId, 'assistant', errorText, 'text');
-      }
-    } finally {
-      setIsSending(false);
-      setCoreState('IDLE');
-    }
-  }, [isSending, activeConversationId, systemInstruction, memories, createConversation, addMessage, createMemory, deleteMemory, clearMemories, refreshMemories, activeConversationId]);
-
-  const speakText = useCallback((text: string) => {
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.rate = settings.voiceSpeed;
-      const voices = window.speechSynthesis.getVoices();
-      const prefer = voices.find(v => v.lang.startsWith(settings.voiceLanguage) && /female/i.test(v.name))
-        || voices.find(v => v.lang.startsWith(settings.voiceLanguage))
-        || voices.find(v => v.lang.startsWith('en'))
-        || voices[0];
-      if (prefer) u.voice = prefer;
-      u.onstart = () => setCoreState('SPEAKING');
-      u.onend = () => setCoreState('IDLE');
-      u.onerror = () => setCoreState('IDLE');
-      window.speechSynthesis.speak(u);
-    }
-  }, [settings.voiceSpeed, settings.voiceLanguage]);
-
-  const startVoice = useCallback(async () => {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setCoreState('ERROR');
-      return;
-    }
-    if (coreState === 'LISTENING') {
-      setCoreState('IDLE');
-      return;
-    }
-    setCoreState('THINKING');
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-      });
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : MediaRecorder.isTypeSupported('audio/webm')
-        ? 'audio/webm'
-        : '';
-      if (!mimeType) {
-        stream.getTracks().forEach(t => t.stop());
-        setCoreState('ERROR');
-        return;
-      }
-      const recorder = new MediaRecorder(stream, { mimeType, audioBitsPerSecond: 128000 });
-      const chunks: Blob[] = [];
-      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
-      recorder.onstop = async () => {
-        stream.getTracks().forEach(t => t.stop());
-        if (chunks.length === 0) { setCoreState('IDLE'); return; }
-        const blob = new Blob(chunks, { type: mimeType });
-        const ab = await blob.arrayBuffer();
-        const b64 = btoa(String.fromCharCode(...new Uint8Array(ab)));
-        setCoreState('THINKING');
-        try {
-          const sttRes = await fetch('/api/voice/stt', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ audioBase64: b64, mimeType }),
-          });
-          const sttData = await sttRes.json();
-          const text = typeof sttData.text === 'string' ? sttData.text.trim() : '';
-          if (text) {
-            await sendCommand(text, 'voice');
-          } else {
-            setCoreState('IDLE');
+        const emitSentences = () => {
+          // Emit complete sentences (keeping delimiters), leave the tail in buffer
+          const m = sentenceBuf.match(/^[\s\S]*?[.!?۔؟]+(?:\s+|$)/);
+          if (m) {
+            const sentence = m[0].trim();
+            sentenceBuf = sentenceBuf.slice(m[0].length);
+            if (sentence) enqueueSentence(sentence);
           }
-        } catch {
-          setCoreState('ERROR');
+        };
+
+        const handleSseEvent = (raw: string) => {
+          let ev = 'chunk';
+          let dataStr = '';
+          for (const line of raw.split('\n')) {
+            if (line.startsWith('event: ')) ev = line.slice(7).trim();
+            else if (line.startsWith('data: ')) dataStr += line.slice(6);
+          }
+          if (!dataStr) return;
+          let payload: any;
+          try { payload = JSON.parse(dataStr); } catch { return; }
+          if (ev === 'chunk' && payload.text) {
+            if (!firstChunkLogged) {
+              firstChunkLogged = true;
+              pushLog(`⏱ LLM first token: ${Math.round(performance.now() - turnStart)}ms`);
+            }
+            fullText += payload.text;
+            sentenceBuf += payload.text;
+            emitSentences();
+          } else if (ev === 'done') {
+            const t = payload.timings || {};
+            pushLog(`⏱ Server: mem ${t['Memory retrieval (server)'] ?? '?'}ms · LLM ${payload.totalMs ?? '?'}ms total`);
+          }
+        };
+
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          sseBuf += decoder.decode(value, { stream: true });
+          // SSE events are separated by blank lines (\n\n)
+          let idx: number;
+          while ((idx = sseBuf.indexOf('\n\n')) >= 0) {
+            const rawEvent = sseBuf.slice(0, idx);
+            sseBuf = sseBuf.slice(idx + 2);
+            if (rawEvent.trim()) handleSseEvent(rawEvent);
+          }
         }
-      };
-      recorder.start();
-      setCoreState('LISTENING');
-      setTimeout(() => {
-        if (recorder.state === 'recording') recorder.stop();
-      }, 8000);
+        // Flush trailing SSE event (if stream ended without a final blank line)
+        if (sseBuf.trim()) handleSseEvent(sseBuf);
+        // Flush remaining sentence fragment so nothing is dropped
+        if (sentenceBuf.trim()) { enqueueSentence(sentenceBuf.trim()); sentenceBuf = ''; }
+        responseText = fullText;
+      } else {
+        const res = await fetch('/api/gemini/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: text, systemInstruction, conversationId: convId, apiKey: settings.geminiApiKey || undefined }) });
+        const data = await res.json();
+        responseText = data.text || 'Command received.';
+        if (data.status === 'simulated' || data.status === 'autonomous_fallback') {
+          responseText = `${responseText}\n\n⚠ AI provider offline`;
+        }
+      }
+      await addMessage(convId, 'assistant', responseText || 'Command received.', 'text');
+      if (isVoice && responseText) {
+        // Flush any remaining sentence fragment from the stream
+        if (!settings.autoSpeak) { setCoreState('IDLE'); }
+        else {
+          queueDoneRef.current = true;
+          if (sentenceQueueRef.current.length === 0 && !isSpeakingQueueRef.current) setCoreState('IDLE');
+        }
+      } else if (isVoice) {
+        setCoreState('IDLE');
+      }
     } catch (err: any) {
-      setCoreState('ERROR');
-    }
-  }, [coreState, sendCommand]);
+      pushLog(`⏱ Voice turn failed after ${Math.round(performance.now() - turnStart)}ms — ${err?.message || err}`);
+      if (convId) await addMessage(convId, 'assistant', 'Channel unavailable. Check API key in Settings.', 'text');
+      if (isVoice) setCoreState('IDLE');
+    } finally { setIsSending(false); endDelegation(); }
+  }, [isSending, activeConversationId, systemInstruction, memories, settings.geminiApiKey, settings.autoSpeak, createConversation, addMessage, createMemory, deleteMemory, clearMemories, speakWithSettings, enqueueSentence, pushLog, setCoreState, beginDelegation, endDelegation]);
+
+  sendCommandRef.current = sendCommand;
 
   const handleSend = useCallback((text: string) => {
     if (!text.trim() || isSending) return;
-    sendCommand(text.trim());
-    setCommand('');
+    sendCommand(text.trim()); setCommand('');
   }, [isSending, sendCommand]);
 
-  const stopSpeech = useCallback(() => {
-    window.speechSynthesis?.cancel();
-    if (coreState === 'SPEAKING') setCoreState('IDLE');
-  }, [coreState]);
+  // Auto-save settings to localStorage on every draft change (debounced)
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    // Skip auto-save on initial mount (settingsDraft === settings at startup)
+    if (settingsDraft === settings) return;
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(() => {
+      saveSettings(settingsDraft);
+      setSettings(settingsDraft);
+    }, 400); // 400ms debounce
+    return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
+  }, [settingsDraft]); // eslint-disable-line
 
-  const handleNewConversation = useCallback(() => {
-    newConversation();
-    setShowSidebar(false);
-  }, [newConversation]);
-
-  const handleSelectConversation = useCallback(async (id: string) => {
-    await selectConversation(id);
-    setShowSidebar(false);
-  }, [selectConversation]);
-
-  const handleDeleteConversation = useCallback(async (id: string, e: MouseEvent) => {
-    e.stopPropagation();
-    await deleteConversation(id);
-  }, [deleteConversation]);
-
-  const lastMsg = messages[messages.length - 1];
+  const handleSaveSettings = () => {
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    saveSettings(settingsDraft);
+    setSettings(settingsDraft);
+    setSettingsSaved(true);
+    setTimeout(() => setSettingsSaved(false), 2000);
+  };
+  const exportSettings = useCallback(() => {
+    const blob = new Blob([JSON.stringify(settingsDraft, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `nasi-settings-${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  }, [settingsDraft]);
+  const importSettings = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    const text = await file.text();
+    if (!text) return;
+    try {
+      const parsed = JSON.parse(text) as Partial<NasiSettings>;
+      const merged = { ...settingsDraft, ...parsed } as NasiSettings;
+      setSettingsDraft(merged); setSettings(merged);
+      saveSettings(merged);
+      setSettingsSaved(true); setTimeout(() => setSettingsSaved(false), 2000);
+    } catch (err) { console.warn('[Settings] Import failed:', err); }
+    e.target.value = '';
+  }, [settingsDraft]);
+  const toggleLiveVoice = () => { if (liveVoiceActive) { setLiveVoiceActive(false); stopAll(); } else { setLiveVoiceActive(true); startListening(); } };
 
   return (
     <div className="nasi-app">
-      {/* Top bar */}
+      {/* ═══════ HEADER ═══════ */}
       <header className="nasi-topbar">
         <div className="nasi-brand">
-          <button className="nasi-icon-btn sidebar-toggle" onClick={() => setShowSidebar(!showSidebar)} title="Conversations">
-            {showSidebar ? <ChevronLeft size={14} /> : <MessageSquare size={14} />}
+          <button className="nasi-icon-btn" onClick={() => setShowConversations(!showConversations)} title="Conversations">
+            {showConversations ? <ChevronLeft size={14} /> : <MessageSquare size={14} />}
           </button>
           <svg className="nasi-logo" viewBox="0 0 32 32">
-            <circle cx="16" cy="16" r="14" fill="none" stroke="#1a5a66" strokeWidth="0.7" opacity="0.6" />
-            <circle cx="16" cy="16" r="10" fill="none" stroke="#1a5a66" strokeWidth="0.4" strokeDasharray="2 3" opacity="0.5" />
-            <circle cx="16" cy="16" r="5" fill="#1a5a66" opacity="0.3" />
-            <circle cx="16" cy="16" r="2" fill="#4cdbdf" />
+            <circle cx="16" cy="16" r="14" fill="none" stroke="#122838" strokeWidth="0.7" opacity="0.7" />
+            <circle cx="16" cy="16" r="10" fill="none" stroke="#122838" strokeWidth="0.4" strokeDasharray="2 3" opacity="0.6" />
+            <circle cx="16" cy="16" r="5" fill="#122838" opacity="0.4" />
+            <circle cx="16" cy="16" r="2" fill="#2cb8d4" />
           </svg>
           <span className="nasi-brandname">NASI</span>
         </div>
-        <nav className="nasi-nav">
-          <button className={`nasi-nav-btn ${nav === 'home' ? 'active' : ''}`} onClick={() => setNav('home')}>Home</button>
-          <button className={`nasi-nav-btn ${nav === 'chat' ? 'active' : ''}`} onClick={() => setNav('chat')}>Chat</button>
-        </nav>
+        <div className="nasi-topbar-center">
+          <button className={`nasi-topbar-btn ${!showChat ? 'active' : ''}`} onClick={() => setShowChat(false)}>HOME</button>
+          <button className={`nasi-topbar-btn ${showChat ? 'active' : ''}`} onClick={() => setShowChat(true)}>CHAT</button>
+        </div>
         <div className="nasi-topbar-actions">
+          <div className={`nasi-status-dot ${connectionStatus}`} title={`Backend: ${connectionStatus}`} />
           <button className="nasi-icon-btn" onClick={() => setShowMemory(true)} title="Memory"><Database size={14} /></button>
           <button className="nasi-icon-btn" onClick={() => setShowSettings(true)} title="Settings"><Settings2 size={14} /></button>
         </div>
       </header>
 
-      {/* Conversation sidebar */}
-      {showSidebar && (
+      {/* ═══════ SIDEBAR ═══════ */}
+      {showConversations && (
         <div className="nasi-sidebar">
           <div className="nasi-sidebar-header">
             <span className="nasi-sidebar-title">CONVERSATIONS</span>
-            <button className="nasi-sidebar-new" onClick={handleNewConversation} title="New conversation">
-              <Plus size={14} />
-            </button>
+            <button className="nasi-sidebar-new" onClick={() => { newConversation(); setShowConversations(false); }}><Plus size={14} /></button>
           </div>
           <div className="nasi-sidebar-list">
-            {conversations.length === 0 && (
-              <div className="nasi-sidebar-empty">No conversations yet</div>
-            )}
+            {conversations.length === 0 && <div className="nasi-sidebar-empty">No conversations yet</div>}
             {conversations.map(conv => (
-              <button
-                key={conv.id}
-                className={`nasi-sidebar-item ${conv.id === activeConversationId ? 'active' : ''}`}
-                onClick={() => handleSelectConversation(conv.id)}
-              >
+              <button key={conv.id} className={`nasi-sidebar-item ${conv.id === activeConversationId ? 'active' : ''}`}
+                onClick={() => { selectConversation(conv.id); setShowConversations(false); setShowChat(true); }}>
                 <div className="nasi-sidebar-item-text">{conv.title}</div>
-                <div className="nasi-sidebar-item-meta">
-                  <Clock size={9} />
-                  <span>{new Date(conv.updatedAt).toLocaleDateString()}</span>
-                </div>
-                <button
-                  className="nasi-sidebar-item-delete"
-                  onClick={(e) => handleDeleteConversation(conv.id, e)}
-                  title="Delete conversation"
-                >
-                  <Trash2 size={10} />
-                </button>
+                <div className="nasi-sidebar-item-meta"><Clock size={9} /><span>{new Date(conv.updatedAt).toLocaleDateString()}</span></div>
+                <button className="nasi-sidebar-item-delete" onClick={(e) => { e.stopPropagation(); deleteConversation(conv.id); }}><Trash2 size={10} /></button>
               </button>
             ))}
           </div>
         </div>
       )}
 
-      {/* Main canvas */}
-      <div className={`nasi-canvas ${nav === 'chat' ? 'chat-mode' : ''}`}>
-        {/* LEFT: World Globe */}
-        <div className="nasi-zone-world">
-          <WorldGlobe />
-        </div>
+      {/* ═══════ HOME — COMMAND CENTER ═══════ */}
+      {!showChat && (
+        <div className="nasi-command-center">
+          {/* LEFT: Intelligence Panel */}
+          <aside className="nasi-left-panel">
+            <SectionBoundary name="System Feed">
+              <SystemFeed connectionStatus={connectionStatus} coreState={coreState} memories={memories} orchestrationText={orchestrationText} />
+            </SectionBoundary>
+            <div className="nasi-left-globe">
+              <SectionBoundary name="World Globe">
+                <WorldGlobe />
+              </SectionBoundary>
+            </div>
+          </aside>
 
-        {/* CENTER-RIGHT: AI Core + Neural Modules */}
-        <div className="nasi-zone-core">
-          {/* Neural modules with connection lines */}
-          <div className="nasi-neural-cluster">
-            <div className="nasi-modules-col">
+          {/* CENTER: Neural Routing + Core */}
+          <div className="nasi-center-panel" ref={centerRef}>
+            {/* Neural routing card — nav + routing lines + Core in one bounded panel */}
+            <div className="nasi-core-card">
+              <div className="nasi-core-card-label">
+                <span className="nasi-core-card-dot" />
+                NEURAL PIPELINE · {coreState === 'IDLE' ? 'STANDBY' : coreState}
+              </div>
+            {/* Routing nodes — left column, each line starts at its right edge */}
+            <div className="nasi-routing-nodes" ref={nodesRef}>
               {[
-                { label: 'MEMORY', icon: <Database size={10} />, color: '#3ad6ea', action: () => setShowMemory(true) },
-                { label: 'SKILLS', icon: <Activity size={10} />, color: '#45df9b', action: () => setShowSettings(true) },
-                { label: 'PERSONALITY', icon: <Users size={10} />, color: '#f09b47', action: () => setShowSettings(true) },
-                { label: 'SETTINGS', icon: <Settings2 size={10} />, color: '#a9b5c4', action: () => setShowSettings(true) },
-              ].map(m => (
-                <button key={m.label} className="nasi-module" style={{ '--mod-color': m.color } as any} onClick={m.action}>
-                  {m.icon}
-                  <span>{m.label}</span>
+                { id: 'MEMORY', color: '#00d9ff', icon: <Database size={11} />, action: () => setShowMemory(true) },
+                { id: 'SKILLS', color: '#00e88a', icon: <Zap size={11} />, action: () => setShowChat(true) },
+                { id: 'SOUL', color: '#ffb347', icon: <BrainCircuit size={11} />, action: () => setShowSettings(true) },
+                { id: 'SETTING', color: '#8fa3b8', icon: <Settings2 size={11} />, action: () => setShowSettings(true) },
+              ].map((n, i) => (
+                <button key={n.id} data-node-id={n.id}
+                  className={`nasi-routing-node ${activeNode === n.id ? 'active' : ''}`}
+                  style={{ '--node-color': n.color } as any}
+                  onClick={() => { setActiveNode(n.id); n.action(); }}>
+                  <div className="nasi-routing-node-icon">{n.icon}</div>
+                  <span className="nasi-routing-node-label">{n.id}</span>
+                  <div className="nasi-routing-node-dot" />
                 </button>
               ))}
             </div>
-            {/* Connection lines SVG */}
-            <svg className="nasi-connections-svg" viewBox="0 0 120 200" preserveAspectRatio="none">
-              <path d="M 10,25 C 60,25 60,80 110,95" stroke="#3ad6ea" strokeWidth="1.2" fill="none" opacity="0.35">
-                <animate attributeName="stroke-dashoffset" values="0;12" dur="2s" repeatCount="indefinite" />
-              </path>
-              <path d="M 10,70 C 60,70 60,90 110,95" stroke="#45df9b" strokeWidth="1.2" fill="none" opacity="0.35">
-                <animate attributeName="stroke-dashoffset" values="0;12" dur="2.3s" repeatCount="indefinite" />
-              </path>
-              <path d="M 10,115 C 60,115 60,100 110,95" stroke="#f09b47" strokeWidth="1.2" fill="none" opacity="0.35">
-                <animate attributeName="stroke-dashoffset" values="0;12" dur="2.6s" repeatCount="indefinite" />
-              </path>
-              <path d="M 10,160 C 60,160 60,105 110,95" stroke="#a9b5c4" strokeWidth="1.2" fill="none" opacity="0.35">
-                <animate attributeName="stroke-dashoffset" values="0;12" dur="2.9s" repeatCount="indefinite" />
-              </path>
+
+            {/* Circuit traces — measured from each node's right edge to the Core's exact center */}
+            <svg className="nasi-routing-overlay">
+              {routes.map((r, i) => (
+                <g key={r.id} className={`nasi-route-group ${activeNode === r.id ? 'active' : ''}`} style={{ color: r.color }}>
+                  <path className="nasi-route-glow" d={r.d} stroke={r.color} />
+                  <path className="nasi-route-base" d={r.d} stroke={r.color} />
+                  <path className="nasi-route-flow" d={r.d} stroke={r.color} style={{ animationDelay: `${i * 0.3}s` }} />
+                  <circle className="nasi-route-particle" r="2.4" fill={r.color} style={{ color: r.color }}>
+                    <animateMotion dur={`${2.2 + i * 0.25}s`} repeatCount="indefinite" path={r.d} />
+                  </circle>
+                  <circle className="nasi-route-particle dual" r="1.5" fill={r.color} style={{ color: r.color }}>
+                    <animateMotion dur={`${2.2 + i * 0.25}s`} begin={`-${(1.1 + i * 0.12).toFixed(2)}s`} repeatCount="indefinite" path={r.d} />
+                  </circle>
+                </g>
+              ))}
+              {routes[0] && (
+                <g>
+                  <circle className="nasi-route-converge" cx={routes[0].tx} cy={routes[0].ty} r="5" fill="none" stroke="rgba(0,217,255,.3)" strokeWidth="1">
+                    <animate attributeName="r" values="4;11;4" dur="2.4s" repeatCount="indefinite" />
+                    <animate attributeName="opacity" values=".3;.05;.3" dur="2.4s" repeatCount="indefinite" />
+                  </circle>
+                </g>
+              )}
             </svg>
-          </div>
 
-          {/* THE CORE — particle sphere via Canvas */}
-          <div className="nasi-core-area">
-            <NASICoreCanvas state={coreState} />
-            <div className={`nasi-core-state-overlay ${coreState !== 'IDLE' ? 'active' : ''}`}>
-              {coreState !== 'IDLE' && coreState}
+            {/* Core — right side */}
+            <div className="nasi-core-area">
+              <SectionBoundary name="NASI Core">
+                <div className="nasi-core-wrapper" ref={coreRef}>
+                  <NASICore state={coreState} />
+                  <div className="nasi-core-label">
+                    <span className="nasi-core-name">NASI</span>
+                    <span className="nasi-core-subtitle">AI CORE</span>
+                    <span className={`nasi-core-state ${coreState !== 'IDLE' ? 'active' : ''}`}>{coreState === 'IDLE' ? 'STANDBY' : coreState}</span>
+                  </div>
+                </div>
+              </SectionBoundary>
+
+              <button className={`nasi-start-btn ${liveVoiceActive ? 'live' : ''}`} onClick={() => { if (liveVoiceActive) toggleLiveVoice(); else startListening(); }}>
+                {liveVoiceActive ? <><PhoneOff size={14} /> STOP</> : <><Mic size={14} /> {coreState === 'IDLE' ? 'START NASI' : coreState}</>}
+              </button>
             </div>
+            </div>
+
+            {/* AGENT TOWN — second stacked card inside the center column */}
+            <AgentTownPanel agents={AGENTS} onSelectAgent={(a) => setSelectedAgent(a)} />
           </div>
 
-          {/* Voice controls */}
-          <div className="nasi-voice-controls">
-            <button
-              className={`nasi-mic ${coreState === 'LISTENING' ? 'listening' : coreState === 'SPEAKING' ? 'speaking' : ''}`}
-              onClick={startVoice}
-              title={coreState === 'LISTENING' ? 'Stop' : 'Start voice'}
-            >
-              <Mic size={22} />
-            </button>
-            <button
-              className={`nasi-stop ${coreState === 'SPEAKING' ? 'active' : ''}`}
-              onClick={stopSpeech}
-              disabled={coreState !== 'SPEAKING'}
-              title="Stop speech"
-            >
-              <VolumeX size={14} />
-            </button>
-            <div className="nasi-voice-sep" />
-            <span className={`nasi-state-label ${coreState !== 'IDLE' ? 'active' : ''}`}>
-              {coreState === 'IDLE' ? 'READY' : coreState}
-            </span>
-          </div>
+          {/* RIGHT: Tabbed Console — Voice / Agent / Notes */}
+          <LiveConsolePanel
+            coreState={coreState}
+            liveVoiceActive={liveVoiceActive}
+            micStatus={micStatus}
+            transcript={transcript}
+            lastTranscript={lastTranscript}
+            voiceLog={voiceLog}
+            errorMessage={errorMessage}
+            agents={AGENTS}
+            messages={messages}
+            command={command}
+            setCommand={setCommand}
+            handleSend={handleSend}
+            isSending={isSending}
+            startListening={startListening}
+            stopSpeech={stopSpeech}
+            toggleLiveVoice={toggleLiveVoice}
+            onSelectAgent={setSelectedAgent}
+          />
+        </div>
+      )}
 
-          {/* Waveform */}
-          <div className={`nasi-waveform ${coreState === 'LISTENING' ? 'listening' : coreState === 'SPEAKING' ? 'speaking' : ''}`}>
-            {Array.from({ length: 32 }).map((_, i) => (
-              <div key={i} className="nasi-wavebar" style={{ animationDelay: `${i * 0.03}s` }} />
+      {/* ═══════ CHAT VIEW ═══════ */}
+      {showChat && (
+        <div className="nasi-chat-view">
+          <div className="nasi-chat-messages">
+            {messages.map((msg, i) => (
+              <div key={i} className={`nasi-chat-msg ${msg.from}`}>
+                <div className="nasi-chat-msg-avatar">{msg.from === 'nasi' ? <BrainCircuit size={14} /> : <span>U</span>}</div>
+                <div className="nasi-chat-msg-content">
+                  <div className="nasi-chat-msg-header">
+                    <span className="nasi-chat-msg-name">{msg.from === 'nasi' ? settings.assistantName : 'You'}</span>
+                    {msg.source && <span className="nasi-chat-msg-source">{msg.source}</span>}
+                  </div>
+                  <div className="nasi-chat-msg-text">{msg.text}</div>
+                </div>
+              </div>
             ))}
+            {isSending && (
+              <div className="nasi-chat-msg nasi">
+                <div className="nasi-chat-msg-avatar"><BrainCircuit size={14} /></div>
+                <div className="nasi-chat-msg-content">
+                  <div className="nasi-chat-msg-header"><span className="nasi-chat-msg-name">{settings.assistantName}</span></div>
+                  <div className="nasi-chat-typing"><span /><span /><span /></div>
+                </div>
+              </div>
+            )}
+            <div ref={chatEndRef} />
           </div>
-
-          {/* Last response */}
-          {lastMsg && (
-            <div className="nasi-last-response">
-              <span className={`nasi-msg-dot ${lastMsg.from}`} />
-              <span className="nasi-msg-text">{lastMsg.text.length > 140 ? lastMsg.text.slice(0, 140) + '…' : lastMsg.text}</span>
+          <div className="nasi-chat-input-area">
+            <div className="nasi-command-input">
+              <input className="nasi-input" value={command} onChange={e => setCommand(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && command.trim()) handleSend(command); }} placeholder={`Message ${settings.assistantName}...`} />
+              <button className={`nasi-input-mic ${coreState === 'LISTENING' ? 'listening' : ''}`} onClick={startListening}><Mic size={12} /></button>
+              <button className="nasi-input-send" onClick={() => handleSend(command)} disabled={!command.trim() || isSending}><Send size={12} /></button>
             </div>
-          )}
-
-          {/* Chat input */}
-          <div className="nasi-chatbar">
-            <input
-              className="nasi-chatinput"
-              value={command}
-              onChange={e => setCommand(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && command.trim()) handleSend(command); }}
-              placeholder="Talk to NASI..."
-            />
-            <button className="nasi-chaticon" onClick={startVoice} title="Voice"><Mic size={12} /></button>
-            <button className="nasi-send" onClick={() => handleSend(command)} disabled={!command.trim() || isSending}>
-              <Send size={12} />
-            </button>
+            <div className="nasi-chat-controls">
+              <button className={`nasi-live-btn ${liveVoiceActive ? 'active' : ''}`} onClick={toggleLiveVoice}>
+                {liveVoiceActive ? <PhoneOff size={9} /> : <Phone size={9} />}<span>{liveVoiceActive ? 'STOP LIVE' : 'LIVE VOICE'}</span>
+              </button>
+              <span className={`nasi-state-label ${coreState !== 'IDLE' ? 'active' : ''}`}>{coreState === 'IDLE' ? 'READY' : coreState}</span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* BOTTOM: Agent Town */}
-      <div className="nasi-zone-agents">
-        <AgentOffice agents={AGENTS} onSelectAgent={(a) => { setSelectedAgent(a); }} />
-      </div>
-
-      {/* ===== SETTINGS MODAL ===== */}
+      {/* ═══════ SETTINGS MODAL ═══════ */}
       {showSettings && (
         <div className="nasi-modal-bg" onClick={() => setShowSettings(false)}>
           <div className="nasi-modal nasi-settings-modal" onClick={e => e.stopPropagation()}>
             <button className="nasi-modal-close" onClick={() => setShowSettings(false)}><X size={14} /></button>
             <div className="nasi-modal-kicker"><Settings2 size={10} /> SETTINGS</div>
-
-            {/* Provider */}
-            <div className="nasi-settings-group">
-              <label className="nasi-settings-label"><Cpu size={9} /> PROVIDER</label>
-              <div className="nasi-settings-row-group">
-                {PROVIDERS.map(p => (
-                  <button
-                    key={p}
-                    className={`nasi-settings-chip ${settingsDraft.provider === p ? 'active' : ''}`}
-                    onClick={() => setSettingsDraft(s => ({ ...s, provider: p }))}
-                  >
-                    {p}
-                  </button>
-                ))}
+            <SettingsGroup title="GENERAL" icon={<Settings2 size={9} />}>
+              <SettingsInput label="ASSISTANT NAME" value={settingsDraft.assistantName} onChange={v => setSettingsDraft(s => ({ ...s, assistantName: v }))} />
+              <SettingsChips label="ANIMATION" options={[{ label: 'Low', value: 'low' }, { label: 'Medium', value: 'medium' }, { label: 'High', value: 'high' }]} selected={settingsDraft.animationIntensity} onChange={v => setSettingsDraft(s => ({ ...s, animationIntensity: v as any }))} />
+            </SettingsGroup>
+            <SettingsGroup title="VOICE" icon={<Speaker size={9} />}>
+              <SettingsChips label="PROVIDER" options={[{ label: 'Browser TTS', value: 'browser' }, { label: 'ElevenLabs', value: 'elevenlabs' }]} selected={settingsDraft.voiceProvider} onChange={v => setSettingsDraft(s => ({ ...s, voiceProvider: v as any }))} />
+              <SettingsChips label="LANGUAGE" options={[{ label: 'English', value: 'en-US' }, { label: 'Urdu', value: 'ur-PK' }, { label: 'Auto', value: '' }]} selected={settingsDraft.voiceLanguage} onChange={v => setSettingsDraft(s => ({ ...s, voiceLanguage: v }))} />
+              <SettingsRange label={`SPEED: ${settingsDraft.voiceSpeed.toFixed(2)}`} min={0.5} max={1.5} step={0.05} value={settingsDraft.voiceSpeed} onChange={v => setSettingsDraft(s => ({ ...s, voiceSpeed: v }))} />
+              <SettingsRange label={`PITCH: ${settingsDraft.voicePitch.toFixed(1)}`} min={0.5} max={2.0} step={0.1} value={settingsDraft.voicePitch} onChange={v => setSettingsDraft(s => ({ ...s, voicePitch: v }))} />
+              <SettingsRange label={`VOLUME: ${Math.round(settingsDraft.voiceVolume * 100)}%`} min={0} max={1} step={0.05} value={settingsDraft.voiceVolume} onChange={v => setSettingsDraft(s => ({ ...s, voiceVolume: v }))} />
+              {settingsDraft.voiceProvider === 'elevenlabs' && (
+                <>
+                  <input className="nasi-settings-input" type="password" value={settingsDraft.elevenlabsApiKey} onChange={e => setSettingsDraft(s => ({ ...s, elevenlabsApiKey: e.target.value }))} placeholder="ELEVENLABS_API_KEY" />
+                  <div className="nasi-settings-field"><label className="nasi-settings-field-label">VOICE</label><div className="nasi-settings-row-group">{elevenlabsVoices.map(v => <button key={v.id} className={`nasi-settings-chip ${settingsDraft.customVoiceId ? '' : settingsDraft.elevenlabsVoiceId === v.id ? 'active' : ''}`} onClick={() => setSettingsDraft(s => ({ ...s, elevenlabsVoiceId: v.id, customVoiceId: '' }))}>{v.name}</button>)}</div></div>
+                  <div className="nasi-settings-field">
+                    <label className="nasi-settings-field-label">CUSTOM VOICE ID {settingsDraft.customVoiceId && <span style={{ color: 'var(--emerald)', opacity: 0.7 }}>(overrides preset)</span>}</label>
+                    <input className="nasi-settings-input" value={settingsDraft.customVoiceId} onChange={e => setSettingsDraft(s => ({ ...s, customVoiceId: e.target.value.trim() }))} placeholder="Paste your ElevenLabs voice ID..." style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.05em' }} />
+                  </div>
+                  <div className="nasi-settings-field"><label className="nasi-settings-field-label">MODEL</label><div className="nasi-settings-row-group">{elevenlabsModels.map(v => <button key={v.value} className={`nasi-settings-chip ${settingsDraft.elevenlabsModel === v.value ? 'active' : ''}`} onClick={() => setSettingsDraft(s => ({ ...s, elevenlabsModel: v.value }))}>{v.label}</button>)}</div></div>
+                </>
+              )}
+              <SettingsToggle label="AUTO SPEAK" checked={settingsDraft.autoSpeak} onChange={v => setSettingsDraft(s => ({ ...s, autoSpeak: v }))} />
+              <button className="nasi-test-voice-btn-full" onClick={testVoice}><Speaker size={10} /> TEST VOICE</button>
+            </SettingsGroup>
+            <SettingsGroup title="THEME" icon={<Palette size={9} />}>
+              <div className="nasi-settings-field">
+                <label className="nasi-settings-field-label">ACCENT COLOR</label>
+                <div className="nasi-settings-row-group">
+                  <button className="nasi-theme-chip" onClick={() => setSettingsDraft(s => ({ ...s, theme: 'cyan' }))} style={{ borderColor: 'rgba(0,229,255,.6)', boxShadow: '0 0 10px rgba(0,229,255,.25)' }}><span style={{ background: 'var(--cyan)', width: 14, height: 14, borderRadius: '50%', display: 'inline-block', marginRight: 6, boxShadow: '0 0 8px var(--cyan)' }} />CYAN</button>
+                  <button className="nasi-theme-chip" onClick={() => setSettingsDraft(s => ({ ...s, theme: 'emerald' }))} style={{ borderColor: 'rgba(0,255,136,.6)', boxShadow: '0 0 10px rgba(0,255,136,.25)' }}><span style={{ background: 'var(--emerald)', width: 14, height: 14, borderRadius: '50%', display: 'inline-block', marginRight: 6, boxShadow: '0 0 8px var(--emerald)' }} />EMERALD</button>
+                  <button className="nasi-theme-chip" onClick={() => setSettingsDraft(s => ({ ...s, theme: 'crimson' }))} style={{ borderColor: 'rgba(255,102,68,.6)', boxShadow: '0 0 10px rgba(255,102,68,.25)' }}><span style={{ background: 'var(--crimson)', width: 14, height: 14, borderRadius: '50%', display: 'inline-block', marginRight: 6, boxShadow: '0 0 8px var(--crimson)' }} />CRIMSON</button>
+                </div>
               </div>
-            </div>
-
-            {/* Model */}
-            <div className="nasi-settings-group">
-              <label className="nasi-settings-label"><Activity size={9} /> MODEL NAME</label>
-              <input
-                className="nasi-settings-input"
-                value={settingsDraft.model}
-                onChange={e => setSettingsDraft(s => ({ ...s, model: e.target.value }))}
-                placeholder="e.g. gemini-2.0-flash"
-              />
-            </div>
-
-            {/* API Key */}
-            <div className="nasi-settings-group">
-              <label className="nasi-settings-label"><Key size={9} /> API KEY</label>
-              <input
-                className="nasi-settings-input"
-                type="password"
-                value={settingsDraft.apiKey}
-                onChange={e => setSettingsDraft(s => ({ ...s, apiKey: e.target.value }))}
-                placeholder="Paste your API key here"
-              />
-            </div>
-
-            {/* Voice Language */}
-            <div className="nasi-settings-group">
-              <label className="nasi-settings-label"><Languages size={9} /> VOICE LANGUAGE</label>
-              <div className="nasi-settings-row-group">
-                {[
-                  { label: 'English', value: 'en-US' },
-                  { label: 'Urdu', value: 'ur-PK' },
-                  { label: 'Auto', value: '' },
-                ].map(l => (
-                  <button
-                    key={l.value}
-                    className={`nasi-settings-chip ${settingsDraft.voiceLanguage === l.value ? 'active' : ''}`}
-                    onClick={() => setSettingsDraft(s => ({ ...s, voiceLanguage: l.value }))}
-                  >
-                    {l.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Voice Speed */}
-            <div className="nasi-settings-group">
-              <label className="nasi-settings-label"><Speaker size={9} /> VOICE SPEED: {settingsDraft.voiceSpeed.toFixed(2)}</label>
-              <input
-                className="nasi-settings-range"
-                type="range"
-                min="0.5"
-                max="1.5"
-                step="0.05"
-                value={settingsDraft.voiceSpeed}
-                onChange={e => setSettingsDraft(s => ({ ...s, voiceSpeed: parseFloat(e.target.value) }))}
-              />
-            </div>
-
-            {/* Personality */}
-            <div className="nasi-settings-group">
-              <label className="nasi-settings-label"><BrainCircuit size={9} /> PERSONALITY</label>
-              <div className="nasi-settings-row-group">
-                {[
-                  { label: 'Warm', value: 'warm' },
-                  { label: 'Professional', value: 'professional' },
-                  { label: 'Playful', value: 'playful' },
-                  { label: 'Stoic', value: 'stoic' },
-                ].map(p => (
-                  <button
-                    key={p.value}
-                    className={`nasi-settings-chip ${settingsDraft.personality === p.value ? 'active' : ''}`}
-                    onClick={() => setSettingsDraft(s => ({ ...s, personality: p.value as PersonalityType }))}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
+            </SettingsGroup>
+            <SettingsGroup title="BRAIN" icon={<BrainCircuit size={9} />}>
+              <SettingsChips label="PERSONALITY" options={[{ label: 'Warm', value: 'warm' }, { label: 'Professional', value: 'professional' }, { label: 'Playful', value: 'playful' }, { label: 'Stoic', value: 'stoic' }]} selected={settingsDraft.personality} onChange={v => setSettingsDraft(s => ({ ...s, personality: v as PersonalityType }))} />
+              <SettingsToggle label="MEMORY" checked={settingsDraft.memoryEnabled} onChange={v => setSettingsDraft(s => ({ ...s, memoryEnabled: v }))} />
+            </SettingsGroup>
+            <SettingsGroup title="AI PROVIDERS" icon={<Key size={9} />}>
+              {PROVIDERS.map(p => (
+                <div key={p.id} className="nasi-settings-provider">
+                  <button className={`nasi-settings-chip ${settingsDraft.activeProvider === p.id ? 'active' : ''}`} onClick={() => setSettingsDraft(s => ({ ...s, activeProvider: p.id }))}>{p.name}</button>
+                  {settingsDraft.activeProvider === p.id && (
+                    <div className="nasi-settings-provider-fields">
+                      <input className="nasi-settings-input" type="password" value={(settingsDraft as any)[`${p.id}ApiKey`] || ''} onChange={e => setSettingsDraft(s => ({ ...s, [`${p.id}ApiKey`]: e.target.value }))} placeholder={`${p.name} API key`} />
+                      <input className="nasi-settings-input" value={(settingsDraft as any)[`${p.id}Model`] || ''} onChange={e => setSettingsDraft(s => ({ ...s, [`${p.id}Model`]: e.target.value }))} placeholder="Model name" />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </SettingsGroup>
             <div className="nasi-settings-actions">
-              <button className="nasi-modal-btn primary" onClick={handleSaveSettings}>
-                <Save size={10} /> {settingsSaved ? 'SAVED ✓' : 'SAVE'}
-              </button>
+              <button className="nasi-modal-btn primary" onClick={handleSaveSettings}><Save size={10} /> {settingsSaved ? 'SAVED ✓' : 'SAVE'}</button>
+              <button className="nasi-modal-btn" onClick={exportSettings}><Download size={10} /> BACKUP</button>
+              <label className="nasi-modal-btn" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Upload size={10} /> RESTORE
+                <input type="file" accept=".json" style={{ display: 'none' }} onChange={importSettings} />
+              </label>
               <button className="nasi-modal-btn" onClick={() => setShowSettings(false)}>CLOSE</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ===== MEMORY MODAL ===== */}
+      {/* ═══════ MEMORY MODAL ═══════ */}
       {showMemory && (
-        <div className="nasi-modal-bg" onClick={() => setShowMemory(false)}>
-          <div className="nasi-modal nasi-memory-modal" onClick={e => e.stopPropagation()}>
-            <button className="nasi-modal-close" onClick={() => setShowMemory(false)}><X size={14} /></button>
-            <div className="nasi-modal-kicker"><Database size={12} /> MEMORY</div>
-
-            {memories.length === 0 ? (
-              <>
-                <div className="nasi-empty">No memories stored yet</div>
-                <div className="nasi-empty-hint">
-                  Say "NASI, remember that..." or type it in chat to create a memory.
-                  <br /><br />
-                  Try:
-                  <br />• "Remember that I prefer short answers"
-                  <br />• "Remember that my project is called NASI"
-                  <br />• "What do you remember about me?"
-                </div>
-              </>
-            ) : (
-              <div className="nasi-memory-list">
-                {memories.map(m => (
-                  <div key={m.id} className="nasi-memory-item">
-                    <div className="nasi-memory-item-header">
-                      <span className="nasi-memory-category">{m.category}</span>
-                      <span className="nasi-memory-importance">★ {m.importance}</span>
-                    </div>
-                    <div className="nasi-memory-key">{m.key}</div>
-                    <div className="nasi-memory-value">{m.value}</div>
-                    <button className="nasi-memory-delete" onClick={() => deleteMemory(m.id)} title="Delete memory">
-                      <Trash2 size={10} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="nasi-settings-actions">
-              {memories.length > 0 && (
-                <button className="nasi-modal-btn danger" onClick={async () => { await clearMemories(); refreshMemories(); }}>
-                  <Trash2 size={10} /> CLEAR ALL
-                </button>
-              )}
-              <button className="nasi-modal-btn" onClick={() => setShowMemory(false)}>CLOSE</button>
-            </div>
-          </div>
-        </div>
+        <MemoryModal
+          memories={memories}
+          deleteMemory={deleteMemory}
+          clearMemories={clearMemories}
+          onClose={() => setShowMemory(false)}
+        />
       )}
 
-      {/* ===== AGENT MODAL ===== */}
+      {/* ═══════ AGENT DETAIL MODAL ═══════ */}
       {selectedAgent && (
         <div className="nasi-modal-bg" onClick={() => setSelectedAgent(null)}>
           <div className="nasi-modal nasi-agent-modal" onClick={e => e.stopPropagation()}>
             <button className="nasi-modal-close" onClick={() => setSelectedAgent(null)}><X size={14} /></button>
-            <div className="nasi-agent-avatar" style={{ background: selectedAgent.color, color: '#05090d' }}>
-              {selectedAgent.initials}
-            </div>
-            <div className="nasi-modal-kicker" style={{ color: selectedAgent.color }}>
-              <span className="nasi-dot" style={{ background: selectedAgent.color }} /> AGENT
-            </div>
+            <div className="nasi-agent-avatar" style={{ background: selectedAgent.color, color: '#030608' }}>{selectedAgent.initials}</div>
+            <div className="nasi-modal-kicker" style={{ color: selectedAgent.color }}><span className="nasi-dot" style={{ background: selectedAgent.color }} /> AGENT</div>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{selectedAgent.name}</h3>
             <div className="nasi-agent-role">{selectedAgent.role}</div>
             <div className="nasi-agent-status">{selectedAgent.status}</div>
             <div className="nasi-agent-capabilities">
               <div className="nasi-agent-cap-title">CAPABILITIES</div>
               <div className="nasi-agent-cap-list">
+                {selectedAgent.name === 'Manager' && 'Task delegation, agent coordination, response synthesis'}
                 {selectedAgent.name === 'Research' && 'Web search, data analysis, source verification'}
                 {selectedAgent.name === 'Browser' && 'Page navigation, content extraction, form filling'}
                 {selectedAgent.name === 'Computer' && 'File management, code execution, system commands'}
-                {selectedAgent.name === 'Memory' && 'Context storage, preference learning, recall'}
                 {selectedAgent.name === 'Shopify' && 'Product management, order processing, analytics'}
                 {selectedAgent.name === 'Comm' && 'Email, messaging, notifications, scheduling'}
                 {selectedAgent.name === 'File' && 'File organization, document processing, OCR'}
                 {selectedAgent.name === 'Security' && 'Access control, threat detection, monitoring'}
               </div>
+            </div>
+            <div className="nasi-agent-connection-status">
+              <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: selectedAgent.status === 'Active' ? '#2ebc7a' : selectedAgent.status === 'Idle' ? '#1a5a3a' : '#c85548', boxShadow: '0 0 6px currentColor' }} />
+              <span>{selectedAgent.status === 'Idle' ? 'Standing by' : selectedAgent.status === 'Active' ? 'Active' : 'Not connected'}</span>
             </div>
             <button className="nasi-modal-btn" onClick={() => setSelectedAgent(null)}>CLOSE</button>
           </div>
@@ -723,156 +1323,167 @@ function App() {
   );
 }
 
-/* ===== NASI CORE — Canvas Particle Sphere ===== */
+// ============================================================
+// SETTINGS SUB-COMPONENTS
+// ============================================================
+function SettingsGroup({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
+  return <div className="nasi-settings-group"><div className="nasi-settings-label">{icon} {title}</div><div className="nasi-settings-content">{children}</div></div>;
+}
+function SettingsInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return <div className="nasi-settings-field"><label className="nasi-settings-field-label">{label}</label><input className="nasi-settings-input" value={value} onChange={e => onChange(e.target.value)} placeholder={label} /></div>;
+}
+function SettingsChips({ label, options, selected, onChange }: { label: string; options: { label: string; value: string }[]; selected: string; onChange: (v: string) => void }) {
+  return <div className="nasi-settings-field"><label className="nasi-settings-field-label">{label}</label><div className="nasi-settings-row-group">{options.map(o => <button key={o.value} className={`nasi-settings-chip ${selected === o.value ? 'active' : ''}`} onClick={() => onChange(o.value)}>{o.label}</button>)}</div></div>;
+}
+function SettingsRange({ label, min, max, step, value, onChange }: { label: string; min: number; max: number; step: number; value: number; onChange: (v: number) => void }) {
+  return <div className="nasi-settings-field"><label className="nasi-settings-field-label">{label}</label><input className="nasi-settings-range" type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(parseFloat(e.target.value))} /></div>;
+}
+function SettingsToggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return <div className="nasi-settings-field nasi-settings-toggle-row"><label className="nasi-settings-field-label">{label}</label><button className={`nasi-toggle ${checked ? 'on' : ''}`} onClick={() => onChange(!checked)}><div className="nasi-toggle-thumb" /></button></div>;
+}
+
+// ============================================================
+// NASI CORE — Canvas Particle Sphere
+// ============================================================
 function NASICoreCanvas({ state }: { state: CoreState }) {
-  const canvasRef = useState<HTMLCanvasElement | null>(null)[0];
-  const canvasCallbackRef = useCallback((canvas: HTMLCanvasElement | null) => {
-    (canvasRef as any).__current = canvas;
-  }, []);
-  const animRef = useState(0)[0];
-  const particlesRef = useState<{ x: number; y: number; z: number; vx: number; vy: number; vz: number; size: number; hue: number }[]>([])[0];
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const animRef = useRef(0);
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const particlesRef = useRef<{ x: number; y: number; z: number; vx: number; vy: number; vz: number; size: number; hue: number; brightness: number }[]>([]);
+  const timeRef = useRef(0);
 
   useEffect(() => {
-    const canvas = (canvasRef as any)?.__current as HTMLCanvasElement | undefined;
+    const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-
-    const W = 280;
-    const H = 280;
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = W * dpr;
-    canvas.height = H * dpr;
-    canvas.style.width = W + 'px';
-    canvas.style.height = H + 'px';
+    const W = 300, H = 300, dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px'; canvas.style.borderRadius = '50%';
     ctx.scale(dpr, dpr);
-
-    const cx = W / 2;
-    const cy = H / 2;
-    const R = 85;
+    const cx = W / 2, cy = H / 2, R = 116;
 
     if (particlesRef.current.length === 0) {
-      for (let i = 0; i < 200; i++) {
-        const theta = Math.random() * Math.PI * 2;
-        const phi = Math.acos(2 * Math.random() - 1);
-        const r = R * (0.6 + Math.random() * 0.4);
-        particlesRef.current.push({
-          x: r * Math.sin(phi) * Math.cos(theta),
-          y: r * Math.sin(phi) * Math.sin(theta),
-          z: r * Math.cos(phi),
-          vx: (Math.random() - 0.5) * 0.15,
-          vy: (Math.random() - 0.5) * 0.15,
-          vz: (Math.random() - 0.5) * 0.15,
-          size: 0.8 + Math.random() * 1.5,
-          hue: Math.random() * 40 + 170,
-        });
+      // Three shells: dense inner volume, mid shell, outer atmosphere
+      const shells = [
+        { count: 280, rMin: 0.2, rMax: 0.6 },
+        { count: 240, rMin: 0.58, rMax: 0.9 },
+        { count: 170, rMin: 0.88, rMax: 1.06 },
+      ];
+      for (const shell of shells) {
+        for (let i = 0; i < shell.count; i++) {
+          const theta = Math.random() * Math.PI * 2;
+          const phi = Math.acos(2 * Math.random() - 1);
+          const r = R * (shell.rMin + Math.random() * (shell.rMax - shell.rMin));
+          particlesRef.current.push({
+            x: r * Math.sin(phi) * Math.cos(theta), y: r * Math.sin(phi) * Math.sin(theta), z: r * Math.cos(phi),
+            vx: (Math.random() - 0.5) * 0.06, vy: (Math.random() - 0.5) * 0.06, vz: (Math.random() - 0.5) * 0.06,
+            size: 0.35 + Math.random() * 1.9, hue: 172 + Math.random() * 42, brightness: 0.45 + Math.random() * 0.55,
+          });
+        }
       }
     }
 
-    let rotY = 0;
-    let rotX = 0.3;
-    let frame = 0;
-
+    let rotY = 0, rotX = 0.28;
     const getStateColor = () => {
-      switch (state) {
-        case 'LISTENING': return { r: 58, g: 214, b: 234, intensity: 1.0 };
-        case 'THINKING': return { r: 58, g: 214, b: 234, intensity: 0.8 };
-        case 'SPEAKING': return { r: 69, g: 223, b: 155, intensity: 1.0 };
-        case 'ERROR': return { r: 233, g: 103, b: 95, intensity: 0.9 };
-        default: return { r: 58, g: 140, b: 160, intensity: 0.4 };
+      switch (stateRef.current) {
+        case 'LISTENING': return { r: 0, g: 217, b: 255, intensity: 1.0, glow: 0.7 };
+        case 'THINKING': return { r: 255, g: 179, b: 71, intensity: 0.9, glow: 0.55 };
+        case 'SPEAKING': return { r: 0, g: 232, b: 138, intensity: 1.0, glow: 0.7 };
+        case 'ERROR': return { r: 255, g: 82, b: 82, intensity: 0.95, glow: 0.6 };
+        default: return { r: 0, g: 190, b: 235, intensity: 0.42, glow: 0.2 };
       }
     };
 
     const animate = () => {
       ctx.clearRect(0, 0, W, H);
-      frame++;
-
+      timeRef.current += 0.016;
+      const t = timeRef.current;
+      const st = stateRef.current;
       const sc = getStateColor();
-      const speed = state === 'THINKING' ? 0.012 : state === 'LISTENING' ? 0.015 : 0.005;
+      const speed = st === 'THINKING' ? 0.02 : st === 'LISTENING' ? 0.024 : st === 'SPEAKING' ? 0.016 : 0.007;
       rotY += speed;
-      if (state === 'THINKING') rotX += 0.003;
+      if (st === 'THINKING') rotX += 0.004;
+      if (st === 'LISTENING') rotX = 0.28 + Math.sin(t * 2.2) * 0.12;
+      const cosY = Math.cos(rotY), sinY = Math.sin(rotY), cosX = Math.cos(rotX), sinX = Math.sin(rotX);
 
-      const cosY = Math.cos(rotY);
-      const sinY = Math.sin(rotY);
-      const cosX = Math.cos(rotX);
-      const sinX = Math.sin(rotX);
+      // Outer glow
+      const outerGlow = ctx.createRadialGradient(cx, cy, R * 0.2, cx, cy, R * 1.6);
+      outerGlow.addColorStop(0, `rgba(${sc.r},${sc.g},${sc.b},${0.08 * sc.intensity * sc.glow})`);
+      outerGlow.addColorStop(0.5, `rgba(${sc.r},${sc.g},${sc.b},${0.03 * sc.intensity * sc.glow})`);
+      outerGlow.addColorStop(1, 'transparent');
+      ctx.fillStyle = outerGlow; ctx.beginPath(); ctx.arc(cx, cy, R * 1.6, 0, Math.PI * 2); ctx.fill();
 
-      const atmoGrad = ctx.createRadialGradient(cx, cy, R * 0.3, cx, cy, R * 1.3);
-      atmoGrad.addColorStop(0, `rgba(${sc.r},${sc.g},${sc.b},${0.06 * sc.intensity})`);
-      atmoGrad.addColorStop(0.5, `rgba(${sc.r},${sc.g},${sc.b},${0.02 * sc.intensity})`);
-      atmoGrad.addColorStop(1, 'transparent');
-      ctx.fillStyle = atmoGrad;
-      ctx.beginPath();
-      ctx.arc(cx, cy, R * 1.3, 0, Math.PI * 2);
-      ctx.fill();
+      // Orbital rings
+      for (let ring = 0; ring < 3; ring++) {
+        const ringR = R + 15 + ring * 18;
+        const ringAlpha = (0.08 - ring * 0.02) * sc.intensity;
+        ctx.save(); ctx.translate(cx, cy); ctx.rotate(t * (0.3 + ring * 0.15) * (ring % 2 === 0 ? 1 : -1));
+        ctx.scale(1, 0.3 + ring * 0.1);
+        ctx.strokeStyle = `rgba(${sc.r},${sc.g},${sc.b},${ringAlpha})`; ctx.lineWidth = 0.8; ctx.setLineDash([4, 8]);
+        ctx.beginPath(); ctx.arc(0, 0, ringR, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+      }
 
-      ctx.strokeStyle = `rgba(${sc.r},${sc.g},${sc.b},${0.15 * sc.intensity})`;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(cx, cy, R + 10, 0, Math.PI * 2);
-      ctx.stroke();
-
+      // Particles
       const projected = particlesRef.current.map(p => {
-        let x = p.x * cosY - p.z * sinY;
-        let z = p.x * sinY + p.z * cosY;
-        let y = p.y * cosX - z * sinX;
+        let x = p.x * cosY - p.z * sinY, z = p.x * sinY + p.z * cosY, y = p.y * cosX - z * sinX;
         z = p.y * sinX + z * cosX;
-
-        p.x += p.vx;
-        p.y += p.vy;
-        p.z += p.vz;
+        p.x += p.vx * (state === 'THINKING' ? 1.5 : 1); p.y += p.vy * (state === 'THINKING' ? 1.5 : 1);
+        p.z += p.vz * (state === 'THINKING' ? 1.5 : 1);
         const dist = Math.sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
-        if (dist > R * 1.1) {
-          p.vx *= -0.8;
-          p.vy *= -0.8;
-          p.vz *= -0.8;
-        }
-
-        return { sx: cx + x, sy: cy + y, z, size: p.size, hue: p.hue };
+        if (dist > R * 1.05) { p.vx *= -0.85; p.vy *= -0.85; p.vz *= -0.85; }
+        return { sx: cx + x, sy: cy + y, z, size: p.size, hue: p.hue, brightness: p.brightness };
       });
-
       projected.sort((a, b) => a.z - b.z);
-
       projected.forEach(p => {
         const depth = (p.z + R) / (2 * R);
-        const alpha = 0.15 + depth * 0.6 * sc.intensity;
-        const sz = p.size * (0.5 + depth * 0.8);
-
-        ctx.fillStyle = `hsla(${p.hue}, 70%, 65%, ${alpha})`;
-        ctx.beginPath();
-        ctx.arc(p.sx, p.sy, sz, 0, Math.PI * 2);
-        ctx.fill();
+        const alpha = (0.1 + depth * 0.7) * sc.intensity * p.brightness;
+        const sz = p.size * (0.4 + depth * 0.9);
+        if (sz > 1.2) { ctx.fillStyle = `hsla(${p.hue},80%,70%,${alpha * 0.3})`; ctx.beginPath(); ctx.arc(p.sx, p.sy, sz * 2, 0, Math.PI * 2); ctx.fill(); }
+        ctx.fillStyle = `hsla(${p.hue},75%,68%,${alpha})`; ctx.beginPath(); ctx.arc(p.sx, p.sy, sz, 0, Math.PI * 2); ctx.fill();
       });
 
-      const pulse = state === 'IDLE' ? 1 : 1 + Math.sin(frame * 0.05) * 0.15;
-      const coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 25 * pulse);
-      coreGrad.addColorStop(0, `rgba(${sc.r},${sc.g},${sc.b},${0.25 * sc.intensity})`);
-      coreGrad.addColorStop(1, 'transparent');
-      ctx.fillStyle = coreGrad;
-      ctx.beginPath();
-      ctx.arc(cx, cy, 25 * pulse, 0, Math.PI * 2);
-      ctx.fill();
+      // Core energy
+      const pulse = state === 'IDLE' ? 1 : 1 + Math.sin(t * 3) * 0.12;
+      const corePulse = state === 'THINKING' ? 0.8 : state === 'SPEAKING' ? 1.2 : 1;
+      for (let layer = 3; layer >= 0; layer--) {
+        const layerR = (20 + layer * 12) * pulse * corePulse;
+        const layerAlpha = (0.15 - layer * 0.03) * sc.intensity;
+        const coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, layerR);
+        coreGrad.addColorStop(0, `rgba(${sc.r},${sc.g},${sc.b},${layerAlpha * 1.5})`);
+        coreGrad.addColorStop(0.5, `rgba(${sc.r},${sc.g},${sc.b},${layerAlpha * 0.5})`);
+        coreGrad.addColorStop(1, 'transparent');
+        ctx.fillStyle = coreGrad; ctx.beginPath(); ctx.arc(cx, cy, layerR, 0, Math.PI * 2); ctx.fill();
+      }
 
-      ctx.strokeStyle = `rgba(${sc.r},${sc.g},${sc.b},${0.2 * sc.intensity})`;
-      ctx.lineWidth = 0.8;
-      ctx.beginPath();
-      ctx.arc(cx, cy, R * 0.6, 0, Math.PI * 2);
-      ctx.stroke();
+      // Center point
+      const centerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 8 * pulse);
+      centerGrad.addColorStop(0, `rgba(${Math.min(255, sc.r + 80)},${Math.min(255, sc.g + 60)},${Math.min(255, sc.b + 40)},${0.9 * sc.intensity})`);
+      centerGrad.addColorStop(1, 'transparent');
+      ctx.fillStyle = centerGrad; ctx.beginPath(); ctx.arc(cx, cy, 8 * pulse, 0, Math.PI * 2); ctx.fill();
+
+      // Rings
+      ctx.strokeStyle = `rgba(${sc.r},${sc.g},${sc.b},${0.12 * sc.intensity})`; ctx.lineWidth = 0.6;
+      ctx.beginPath(); ctx.arc(cx, cy, R * 0.45, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = `rgba(${sc.r},${sc.g},${sc.b},${0.06 * sc.intensity})`; ctx.lineWidth = 0.4;
+      ctx.beginPath(); ctx.arc(cx, cy, R * 0.65, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = `rgba(${sc.r},${sc.g},${sc.b},${0.18 * sc.intensity})`; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(cx, cy, R + 8, 0, Math.PI * 2); ctx.stroke();
+
+      // State effects
+      if (state === 'LISTENING') { for (let w = 0; w < 3; w++) { const waveR = R + 30 + w * 15 + Math.sin(t * 4 - w * 0.8) * 8; ctx.strokeStyle = `rgba(44,184,212,${0.12 - w * 0.03})`; ctx.lineWidth = 0.7; ctx.beginPath(); ctx.arc(cx, cy, waveR, 0, Math.PI * 2); ctx.stroke(); } }
+      if (state === 'THINKING') { for (let a = 0; a < 3; a++) { const arcStart = t * 2 + a * (Math.PI * 2 / 3); const arcLen = 0.8 + Math.sin(t * 3 + a) * 0.3; ctx.strokeStyle = `rgba(34,150,190,${0.2 - a * 0.05})`; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(cx, cy, R * 0.75, arcStart, arcStart + arcLen); ctx.stroke(); } }
+      if (state === 'SPEAKING') { const speakPulse = Math.sin(t * 8) * 0.5 + 0.5; ctx.strokeStyle = `rgba(46,188,122,${0.18 * speakPulse})`; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.arc(cx, cy, R * 0.55, 0, Math.PI * 2); ctx.stroke(); }
 
       animRef.current = requestAnimationFrame(animate);
     };
-
     animate();
     return () => cancelAnimationFrame(animRef.current);
-  }, [state, canvasRef, particlesRef, animRef]);
+  }, [state]); // eslint-disable-line
 
-  return (
-    <canvas
-      ref={canvasCallbackRef}
-      className="nasi-core-canvas"
-      style={{ width: 280, height: 280 }}
-    />
-  );
+  return <canvas ref={canvasRef} className="nasi-core-canvas" />;
 }
 
-createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);
+// ============================================================
+createRoot(document.getElementById('root')!).render(<StrictMode><SectionBoundary name="NASI"><App /></SectionBoundary></StrictMode>);

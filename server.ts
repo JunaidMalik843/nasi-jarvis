@@ -1,6 +1,6 @@
 import express from 'express';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from 'fs/promises';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import 'dotenv/config';
@@ -24,9 +24,12 @@ import {
   buildMemoryContext,
   extractTitleFromMessages,
 } from './src/lib/storage';
+import { getVectorMemoryStore } from './src/lib/vectorMemory';
+import type { VectorMemoryStore } from './src/lib/vectorMemory';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Works in tsx (ESM) dev and in esbuild CJS production output
+const __dirname = path.resolve();
+const DATA_DIR = path.join(__dirname, 'data');
 
 async function startServer() {
   const app = express();
@@ -50,14 +53,53 @@ async function startServer() {
     return aiClient;
   }
 
+  // ── Vector Memory Store ──
+  const vectorMem: VectorMemoryStore = getVectorMemoryStore(DATA_DIR, process.env.GEMINI_API_KEY);
+  await vectorMem.init();
+
+  // ── Personality Config ──
+  async function loadPersonalityConfig(): Promise<any> {
+    try {
+      const raw = await fs.readFile(path.join(__dirname, 'src', 'nasi-personality.json'), 'utf-8');
+      return JSON.parse(raw);
+    } catch {
+      return { name: 'NASI', activeProfile: 'warm', profiles: {}, rules: {} };
+    }
+  }
+
+  async function getActiveSystemPrompt(): Promise<string> {
+    const config = await loadPersonalityConfig();
+    const profile = config.profiles?.[config.activeProfile];
+    return profile?.systemPrompt || 'You are NASI, a helpful AI assistant. Be concise, friendly, and support English and Urdu.';
+  }
+
   // Health check
   app.get('/api/health', (req, res) => {
     res.json({
       status: 'ok',
       hasApiKey: !!process.env.GEMINI_API_KEY,
+      hasElevenLabsKey: !!process.env.ELEVENLABS_API_KEY,
       uptime: process.uptime(),
     });
   });
+
+  // Conversational brevity — injected into every LLM call so replies match the
+  // user's message length (short question → short natural reply).
+  const BREVITY_SUFFIX = '\n\nRESPONSE LENGTH RULES (critical):\n- Voice conversation replies must be SHORT and natural — 1 to 3 sentences for simple questions or small talk.\n- Match the length of the user\'s message: a greeting gets a warm one-liner, a simple factual question gets 1-2 sentences.\n- Only give longer, structured answers when the user explicitly asks for detail, explanations, or lists.\n- Never pad replies with filler, disclaimers, or "Is there anything else..." unless it fits naturally.\n- This is a spoken conversation — write replies that sound natural when spoken aloud.';
+
+  function withBrevity(systemInstruction?: string): string {
+    const base = systemInstruction || '';
+    return base ? `${base}${BREVITY_SUFFIX}` : `You are NASI.${BREVITY_SUFFIX}`;
+  }
+
+  // Server-side latency instrumentation helper
+  let pipelineTimings: Record<string, number> = {};
+  function markTiming(stage: string, since: number): number {
+    const ms = Date.now() - since;
+    pipelineTimings[stage] = ms;
+    console.log(`[LATENCY] ${stage}: ${ms}ms`);
+    return ms;
+  }
 
   // Tactical autonomous fallback generator for seamless offline / rate-limited operation
   function getTacticalResponse(prompt: string): string {
@@ -347,15 +389,238 @@ async function startServer() {
   });
 
   // ============================================================================
+  // VECTOR MEMORY — Semantic search + CRUD
+  // ============================================================================
+
+  // Store a new memory in the vector store
+  app.post('/api/vector-memory', async (req, res) => {
+    try {
+      const { text, category, importance, sourceConversationId } = req.body || {};
+      if (!text || !text.trim()) {
+        return res.status(400).json({ error: 'Text required' });
+      }
+      const memory = await vectorMem.store({
+        text: text.trim(),
+        category: category || 'general',
+        importance: importance ?? 5,
+        sourceConversationId,
+      });
+      // Also store in legacy JSON memory for backward compatibility
+      const legacyMemory: Memory = {
+        id: memory.id,
+        category: memory.category,
+        key: text.trim().slice(0, 80),
+        value: text.trim(),
+        importance: memory.importance,
+        createdAt: memory.createdAt,
+        updatedAt: memory.updatedAt,
+        sourceConversationId: memory.sourceConversationId,
+      };
+      await dbCreateMemory(legacyMemory);
+      res.status(201).json({ memory, created: true });
+    } catch (err: any) {
+      console.warn('[VectorMemory] Store error:', err?.message);
+      res.status(500).json({ error: 'Failed to store memory' });
+    }
+  });
+
+  // Semantic search across vector memories
+  app.get('/api/vector-memory/search', async (req, res) => {
+    try {
+      const query = (req.query.q as string) || '';
+      const topK = parseInt((req.query.topK as string) || '10', 10);
+      if (!query.trim()) {
+        return res.status(400).json({ error: 'Query required (?q=...)' });
+      }
+      const results = await vectorMem.searchHybrid(query, topK);
+      res.json({ results, count: results.length });
+    } catch (err: any) {
+      console.warn('[VectorMemory] Search error:', err?.message);
+      res.status(500).json({ error: 'Search failed' });
+    }
+  });
+
+  // Get vector memory stats
+  app.get('/api/vector-memory/stats', async (req, res) => {
+    try {
+      const stats = vectorMem.getStats();
+      res.json(stats);
+    } catch (err: any) {
+      res.status(500).json({ error: 'Stats unavailable' });
+    }
+  });
+
+  // List all vector memories (without embedding vectors)
+  app.get('/api/vector-memory', async (req, res) => {
+    try {
+      const memories = vectorMem.listAll();
+      res.json({ memories, count: memories.length });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to list memories' });
+    }
+  });
+
+  // Delete a vector memory
+  app.delete('/api/vector-memory/:id', async (req, res) => {
+    try {
+      const deleted = await vectorMem.delete(req.params.id);
+      if (!deleted) return res.status(404).json({ error: 'Not found' });
+      // Also delete from legacy store
+      await dbDeleteMemory(req.params.id);
+      res.json({ deleted: true });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Delete failed' });
+    }
+  });
+
+  // Clear all vector memories
+  app.post('/api/vector-memory/clear', async (req, res) => {
+    try {
+      await vectorMem.clear();
+      await dbClearMemories();
+      res.json({ cleared: true });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Clear failed' });
+    }
+  });
+
+  // ============================================================================
+  // PERSONALITY — Load/save NASI personality config
+  // ============================================================================
+
+  app.get('/api/personality', async (req, res) => {
+    try {
+      const config = await loadPersonalityConfig();
+      res.json(config);
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to load personality' });
+    }
+  });
+
+  app.put('/api/personality', async (req, res) => {
+    try {
+      const updates = req.body || {};
+      const configPath = path.join(__dirname, 'src', 'nasi-personality.json');
+      const existing = await loadPersonalityConfig();
+      const merged = { ...existing, ...updates };
+      await fs.writeFile(configPath, JSON.stringify(merged, null, 2));
+      res.json({ config: merged, saved: true });
+    } catch (err: any) {
+      console.warn('[Personality] Save error:', err?.message);
+      res.status(500).json({ error: 'Failed to save personality' });
+    }
+  });
+
+  app.put('/api/personality/active-profile', async (req, res) => {
+    try {
+      const { profile } = req.body || {};
+      if (!profile) return res.status(400).json({ error: 'Profile name required' });
+      const configPath = path.join(__dirname, 'src', 'nasi-personality.json');
+      const config = await loadPersonalityConfig();
+      if (!config.profiles?.[profile]) {
+        return res.status(400).json({ error: `Profile '${profile}' not found` });
+      }
+      config.activeProfile = profile;
+      await fs.writeFile(configPath, JSON.stringify(config, null, 2));
+      res.json({ activeProfile: profile, saved: true });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to update profile' });
+    }
+  });
+
+  app.get('/api/personality/active-prompt', async (req, res) => {
+    try {
+      const prompt = await getActiveSystemPrompt();
+      const config = await loadPersonalityConfig();
+      const profile = config.profiles?.[config.activeProfile];
+      res.json({
+        systemPrompt: prompt,
+        activeProfile: config.activeProfile,
+        traits: profile?.traits || [],
+        greeting: profile?.greeting || '',
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to get prompt' });
+    }
+  });
+
+  // ============================================================================
+  // ELEVENLABS PROXY — Server-side TTS to protect API key
+  // ============================================================================
+
+  app.post('/api/voice/tts', async (req, res) => {
+    try {
+      const { text, voiceId, model, stability, similarityBoost, style, apiKey: clientApiKey } = req.body || {};
+      if (!text || !text.trim()) {
+        return res.status(400).json({ error: 'Text required' });
+      }
+      const apiKey = process.env.ELEVENLABS_API_KEY || (clientApiKey && clientApiKey.trim());
+      if (!apiKey) {
+        return res.status(400).json({ error: 'No ElevenLabs API key configured', status: 'no_api_key' });
+      }
+      const ttsStart = Date.now();
+      const vid = voiceId || '21m00Tcm4TlvDq8ikWAM';
+      const modelId = model || 'eleven_flash_v2_5';
+      const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${vid}/stream`, {
+        method: 'POST',
+        headers: {
+          'xi-api-key': apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model_id: modelId,
+          // ElevenLabs' TTS API expects the payload field to be `text`
+          // (`input` is rejected with 422 "body.text: Field required").
+          text: text.trim(),
+          voice_settings: {
+            stability: stability ?? 0.7,
+            similarity_boost: similarityBoost ?? 0.8,
+            style: style ?? 0.2,
+          },
+        }),
+      });
+      if (!response.ok) {
+        const errText = await response.text().catch(() => '');
+        return res.status(response.status).json({ error: `ElevenLabs HTTP ${response.status}`, detail: errText });
+      }
+      markTiming('TTS server (ElevenLabs headers)', ttsStart);
+      // Stream the audio response directly to the client
+      res.setHeader('Content-Type', response.headers.get('Content-Type') || 'audio/mpeg');
+      res.setHeader('Transfer-Encoding', 'chunked');
+      if (response.body) {
+        const reader = response.body.getReader();
+        const pump = async (): Promise<void> => {
+          const { done, value } = await reader.read();
+          if (done) { res.end(); return; }
+          res.write(value);
+          return pump();
+        };
+        await pump();
+      } else {
+        res.end();
+      }
+    } catch (err: any) {
+      console.warn('[ElevenLabs Proxy] Error:', err?.message);
+      res.status(500).json({ error: 'TTS proxy failed' });
+    }
+  });
+
+  // ============================================================================
   // MEMORY-AWARE GEMINI GENERATION
   // ============================================================================
 
-  app.post('/api/gemini/generate', async (req, res) => {
-    const { prompt, systemInstruction, temperature, model, conversationId } = req.body || {};
-    const modelName = model || 'gemini-3.8-flash';
-    const ai = getAI();
+  // ============================================================================
+  // MEMORY-AWARE GEMINI GENERATION (non-streaming — kept for text mode)
+  // ============================================================================
 
-    // Build memory context if conversation exists
+  app.post('/api/gemini/generate', async (req, res) => {
+    const genStart = Date.now();
+    pipelineTimings = {};
+    const { prompt, systemInstruction, temperature, model, conversationId, apiKey: clientApiKey } = req.body || {};
+    const modelName = model || 'gemini-3.8-flash';
+    let ai = getAI();
+
+    // Build memory context — use vector semantic search for relevant memories
     let memoryContext = '';
     let conversation = null;
     if (conversationId) {
@@ -377,24 +642,51 @@ async function startServer() {
       }
     }
 
-    // Add relevant memories
+    // Use vector memory for semantic search of relevant memories
     try {
-      const memories = await loadMemories();
-      const context = buildMemoryContext(memories);
-      if (context) {
-        memoryContext += context;
+      const memStart = Date.now();
+      const searchResults = await vectorMem.searchHybrid(prompt, 10);
+      const vectorContext = vectorMem.buildContext(searchResults);
+      if (vectorContext) {
+        memoryContext += vectorContext;
       }
+      markTiming('Memory retrieval (server)', memStart);
     } catch {
-      // Ignore memory load errors
+      // Fallback to legacy flat memory search
+      try {
+        const memories = await loadMemories();
+        const context = buildMemoryContext(memories);
+        if (context) {
+          memoryContext += context;
+        }
+      } catch {
+        // Ignore memory load errors
+      }
+    }
+
+    // If server env var is missing but client provided an API key, create a per-request client
+    let clientProvidedAi: GoogleGenAI | null = null;
+    if (!ai && clientApiKey && clientApiKey.trim()) {
+      try {
+        clientProvidedAi = new GoogleGenAI({
+          apiKey: clientApiKey.trim(),
+          httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
+        });
+        ai = clientProvidedAi;
+      } catch (err: any) {
+        console.warn('[Gemini] Failed to create client with provided key:', err?.message);
+      }
     }
 
     if (!ai) {
       const tacticalPrompt = memoryContext ? `${memoryContext}\n\n${prompt}` : prompt;
+      const personalityPrompt = await getActiveSystemPrompt();
       return res.json({
         text: getTacticalResponse(tacticalPrompt),
         provider: 'gemini',
         model: modelName,
         status: 'simulated',
+        personality: personalityPrompt.slice(0, 50) + '...',
       });
     }
 
@@ -407,23 +699,25 @@ async function startServer() {
       try {
         const fullPrompt = memoryContext ? `${memoryContext}\n\n${prompt}` : prompt;
 
+        const llmStart = Date.now();
         const response = await ai.models.generateContent({
           model: candidate,
           contents: fullPrompt || '',
           config: {
-            systemInstruction:
-              systemInstruction ||
-              'You are NASI, an advanced autonomous cybernetic AI personal operating system and multi-agent orchestrator. Provide concise, tactical, and informative responses. You speak naturally and support English and Urdu (Urdu script and Roman Urdu).',
+            systemInstruction: withBrevity(systemInstruction || (await getActiveSystemPrompt())),
             temperature: typeof temperature === 'number' ? temperature : 0.7,
           },
         });
 
         if (response.text) {
+          markTiming('LLM generation (server)', llmStart);
+          markTiming('TOTAL server turn', genStart);
           return res.json({
             text: response.text,
             provider: 'gemini',
             model: candidate,
             status: 'success',
+            timings: { ...pipelineTimings },
           });
         }
       } catch (err: any) {
@@ -455,6 +749,157 @@ async function startServer() {
       model: modelName,
       status: 'autonomous_fallback',
     });
+  });
+
+  // ============================================================================
+  // STREAMING GEMINI GENERATION — SSE stream of text chunks for voice pipeline
+  // Client starts TTS on the first sentence while the rest is still generating.
+  // ============================================================================
+
+  app.post('/api/gemini/generate-stream', async (req, res) => {
+    const genStart = Date.now();
+    pipelineTimings = {};
+    const { prompt, systemInstruction, temperature, model, conversationId, apiKey: clientApiKey } = req.body || {};
+    const modelName = model || 'gemini-3.8-flash';
+    let ai = getAI();
+
+    // SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    const sendEvent = (event: string, data: any) => {
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    };
+
+    // Build memory context (same as non-streaming path)
+    let memoryContext = '';
+    let conversation = null;
+    const memStartTotal = Date.now();
+    if (conversationId) {
+      try {
+        conversation = await loadConversation(conversationId);
+        if (conversation) {
+          const recentMessages = conversation.messages.slice(-20);
+          const historyText = recentMessages
+            .filter((m) => m.role === 'user')
+            .map((m) => m.text)
+            .join('\n');
+          if (historyText) {
+            memoryContext += `Recent conversation context:\n${historyText}\n\n`;
+          }
+        }
+      } catch {
+        // Ignore load errors
+      }
+    }
+    try {
+      const searchResults = await vectorMem.searchHybrid(prompt, 10);
+      const vectorContext = vectorMem.buildContext(searchResults);
+      if (vectorContext) {
+        memoryContext += vectorContext;
+      }
+    } catch {
+      try {
+        const memories = await loadMemories();
+        const context = buildMemoryContext(memories);
+        if (context) memoryContext += context;
+      } catch { /* ignore */ }
+    }
+    markTiming('Memory retrieval (server)', memStartTotal);
+
+    // Per-request client when server env key is missing but client supplied one
+    let clientProvidedAi: GoogleGenAI | null = null;
+    if (!ai && clientApiKey && clientApiKey.trim()) {
+      try {
+        clientProvidedAi = new GoogleGenAI({
+          apiKey: clientApiKey.trim(),
+          httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
+        });
+        ai = clientProvidedAi;
+      } catch (err: any) {
+        console.warn('[Gemini Stream] Failed to create client with provided key:', err?.message);
+      }
+    }
+
+    if (!ai) {
+      const tacticalPrompt = memoryContext ? `${memoryContext}\n\n${prompt}` : prompt;
+      sendEvent('chunk', { text: getTacticalResponse(tacticalPrompt) });
+      sendEvent('done', { status: 'simulated', model: modelName, timings: { ...pipelineTimings } });
+      res.end();
+      return;
+    }
+
+    const candidateModels = [modelName];
+    if (modelName === 'gemini-3.8-flash') {
+      candidateModels.push('gemini-flash-latest');
+    }
+
+    const fullPrompt = memoryContext ? `${memoryContext}\n\n${prompt}` : prompt;
+    const systemInstr = withBrevity(systemInstruction || (await getActiveSystemPrompt()));
+
+    for (const candidate of candidateModels) {
+      try {
+        const llmStart = Date.now();
+        let firstChunkAt = 0;
+        let anyChunk = false;
+
+        const stream = await ai.models.generateContentStream({
+          model: candidate,
+          contents: fullPrompt || '',
+          config: {
+            systemInstruction: systemInstr,
+            temperature: typeof temperature === 'number' ? temperature : 0.7,
+          },
+        });
+
+        for await (const chunk of stream) {
+          const t = chunk.text;
+          if (!t) continue;
+          if (!anyChunk) {
+            anyChunk = true;
+            firstChunkAt = Date.now();
+            markTiming(`LLM first token (${candidate})`, llmStart);
+          }
+          sendEvent('chunk', { text: t });
+        }
+
+        if (!anyChunk) {
+          throw new Error('Empty stream from model');
+        }
+
+        markTiming(`LLM full generation (${candidate})`, llmStart);
+        markTiming('TOTAL server turn', genStart);
+        sendEvent('done', {
+          status: 'success',
+          model: candidate,
+          firstTokenMs: firstChunkAt - llmStart,
+          totalMs: Date.now() - genStart,
+          timings: { ...pipelineTimings },
+        });
+        res.end();
+        return;
+      } catch (err: any) {
+        const status = err?.status || err?.code;
+        const msg = String(err?.message || '');
+        const isQuotaOrSpike =
+          status === 429 || status === 503 ||
+          msg.includes('quota') || msg.includes('429') || msg.includes('503') ||
+          msg.includes('high demand') || msg.includes('RESOURCE_EXHAUSTED');
+
+        if (isQuotaOrSpike && candidate !== candidateModels[candidateModels.length - 1]) {
+          console.warn(`[Gemini Stream] Rate limit on ${candidate}. Trying backup channel.`);
+          continue;
+        }
+        console.warn('[Gemini Stream] Generation notice:', msg);
+        break;
+      }
+    }
+
+    // Autonomous tactical fallback when the stream fails entirely
+    sendEvent('chunk', { text: getTacticalResponse(prompt) });
+    sendEvent('done', { status: 'autonomous_fallback', model: modelName, timings: { ...pipelineTimings } });
+    res.end();
   });
 
   // Vite middleware for development
