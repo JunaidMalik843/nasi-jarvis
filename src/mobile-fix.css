@@ -1,0 +1,43 @@
+/* ═══════════════════════════════════════════════════════════════
+   NASI — mobile layout overrides
+   Imported AFTER styles.css so these win on equal specificity.
+
+   Why this file exists: on small screens the Agent Town card used a
+   fixed viewport height (55vh/60vh) while its contents (header +
+   office canvas + department list) are much shorter, which left a
+   large empty block below the department list. Here the card sizes
+   to its content instead.
+
+   Colours are NOT overridden — mobile inherits the desktop theme
+   variables so both breakpoints look identical.
+   ═══════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  /* Content-driven height → no trailing empty space. */
+  .nasi-agent-town { height: auto; min-height: 0; margin: 8px; }
+
+  /* The office canvas keeps a fixed, meaningful height instead of
+     stretching a fixed-height card. */
+  .nasi-agent-town-office { flex: 0 0 auto; height: 220px; min-height: 0; }
+
+  /* Department list scrolls within a sane cap rather than growing the page. */
+  .nasi-agent-town-departments { gap: 9px; padding: 7px 9px; max-height: 140px; overflow-y: auto; }
+
+  /* The delegation banner would crowd the header at this width. */
+  .nasi-agent-town-delegate { display: none; }
+
+  /* Nav buttons become a wrapped row here and the traces are hidden, so the
+     desktop orb-centring offset must not apply. The row must also be allowed
+     to shrink/wrap inside the card instead of spilling past its edges. */
+  .nasi-routing-nodes {
+    margin-bottom: 0;
+    flex-shrink: 1;
+    width: 100%;
+    box-sizing: border-box;
+  }
+}
+
+@media (max-width: 480px) {
+  .nasi-agent-town { height: auto; min-height: 0; }
+  .nasi-agent-town-office { flex: 0 0 auto; height: 190px; min-height: 0; }
+}

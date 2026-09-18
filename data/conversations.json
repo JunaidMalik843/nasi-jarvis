@@ -1,0 +1,877 @@
+[
+  {
+    "id": "1789641653841-sc9u1zz",
+    "title": "hi",
+    "createdAt": 1789641653841,
+    "updatedAt": 1789641665602,
+    "messages": [
+      {
+        "id": "1789641653841-ywmts12",
+        "role": "user",
+        "text": "hi",
+        "timestamp": 1789641653841,
+        "source": "text"
+      },
+      {
+        "id": "1789641665602-47avzx2",
+        "role": "assistant",
+        "text": "Hey there! Good to hear from you—what are we getting into today?",
+        "timestamp": 1789641665602,
+        "source": "text"
+      }
+    ]
+  },
+  {
+    "id": "1789463826345-6x9hgns",
+    "title": "ہیلو ہاؤ ار یو",
+    "createdAt": 1789463826345,
+    "updatedAt": 1789463831458,
+    "messages": [
+      {
+        "id": "1789463826345-4wh5ao0",
+        "role": "user",
+        "text": "ہیلو ہاؤ ار یو",
+        "timestamp": 1789463826345,
+        "source": "text"
+      },
+      {
+        "id": "1789463831458-d3wf1vc",
+        "role": "assistant",
+        "text": "جی کمانڈر، ناسائی (NASI) کا نیورل کور آن لائن ہے اور تمام ملٹی ایجنٹ ماڈیولز آپ کے احکامات کے منتظر ہیں۔ بتائیے کیا خدمت انجام دوں؟",
+        "timestamp": 1789463831458,
+        "source": "text"
+      }
+    ]
+  },
+  {
+    "id": "1789462202616-k5wsorc",
+    "title": "ہیلو ہیلو ہیلو کیسی ہو نیسی",
+    "createdAt": 1789462202616,
+    "updatedAt": 1789462204782,
+    "messages": [
+      {
+        "id": "1789462202616-egqmn9g",
+        "role": "user",
+        "text": "ہیلو ہیلو ہیلو کیسی ہو نیسی",
+        "timestamp": 1789462202616,
+        "source": "text"
+      },
+      {
+        "id": "1789462204782-ebrvfj9",
+        "role": "assistant",
+        "text": "جی کمانڈر، ناسائی (NASI) کا نیورل کور آن لائن ہے اور تمام ملٹی ایجنٹ ماڈیولز آپ کے احکامات کے منتظر ہیں۔ بتائیے کیا خدمت انجام دوں؟",
+        "timestamp": 1789462204782,
+        "source": "text"
+      }
+    ]
+  },
+  {
+    "id": "1789456501073-6u5fhp6",
+    "title": "ہیلو ہیلو",
+    "createdAt": 1789456501073,
+    "updatedAt": 1789456503643,
+    "messages": [
+      {
+        "id": "1789456501073-rbs82a0",
+        "role": "user",
+        "text": "ہیلو ہیلو",
+        "timestamp": 1789456501073,
+        "source": "text"
+      },
+      {
+        "id": "1789456503643-8qa4jxv",
+        "role": "assistant",
+        "text": "جی کمانڈر، ناسائی (NASI) کا نیورل کور آن لائن ہے اور تمام ملٹی ایجنٹ ماڈیولز آپ کے احکامات کے منتظر ہیں۔ بتائیے کیا خدمت انجام دوں؟",
+        "timestamp": 1789456503643,
+        "source": "text"
+      }
+    ]
+  },
+  {
+    "id": "1789456432987-m0zq6qe",
+    "title": "ہیلو ہیلو ناسی کیسی ہو ناسی",
+    "createdAt": 1789456432987,
+    "updatedAt": 1789456432987,
+    "messages": [
+      {
+        "id": "1789456432987-rb56bix",
+        "role": "user",
+        "text": "ہیلو ہیلو ناسی کیسی ہو ناسی",
+        "timestamp": 1789456432987,
+        "source": "text"
+      }
+    ]
+  },
+  {
+    "id": "1789456153397-r2bk42b",
+    "title": "search the web for the latest AI news",
+    "createdAt": 1789456153397,
+    "updatedAt": 1789456170093,
+    "messages": [
+      {
+        "id": "1789456153397-9meqidd",
+        "role": "user",
+        "text": "search the web for the latest AI news",
+        "timestamp": 1789456153397,
+        "source": "text"
+      },
+      {
+        "id": "1789456153712-168i8wx",
+        "role": "assistant",
+        "text": "Planetary Sat-Link Radar is actively tracking global hotspots: Persian Gulf maritime transit, Eastern Europe surveillance corridor, Asia-Pacific semiconductor supply lines, and commercial aerospace launches in real time.\n\n⚠ AI provider offline",
+        "timestamp": 1789456153712,
+        "source": "text"
+      },
+      {
+        "id": "1789456158903-xbp1jyz",
+        "role": "user",
+        "text": "buy more stock for my shopify store",
+        "timestamp": 1789456158903,
+        "source": "text"
+      },
+      {
+        "id": "1789456159022-68y8dgo",
+        "role": "assistant",
+        "text": "Planetary Sat-Link Radar is actively tracking global hotspots: Persian Gulf maritime transit, Eastern Europe surveillance corridor, Asia-Pacific semiconductor supply lines, and commercial aerospace launches in real time.\n\n⚠ AI provider offline",
+        "timestamp": 1789456159022,
+        "source": "text"
+      },
+      {
+        "id": "1789456164355-7l3ssq1",
+        "role": "user",
+        "text": "save this to a file on my computer",
+        "timestamp": 1789456164355,
+        "source": "text"
+      },
+      {
+        "id": "1789456164512-rfe7vgq",
+        "role": "assistant",
+        "text": "Planetary Sat-Link Radar is actively tracking global hotspots: Persian Gulf maritime transit, Eastern Europe surveillance corridor, Asia-Pacific semiconductor supply lines, and commercial aerospace launches in real time.\n\n⚠ AI provider offline",
+        "timestamp": 1789456164512,
+        "source": "text"
+      },
+      {
+        "id": "1789456169891-zshcm80",
+        "role": "user",
+        "text": "what is the weather like today",
+        "timestamp": 1789456169891,
+        "source": "text"
+      },
+      {
+        "id": "1789456170093-03hyyno",
+        "role": "assistant",
+        "text": "Planetary Sat-Link Radar is actively tracking global hotspots: Persian Gulf maritime transit, Eastern Europe surveillance corridor, Asia-Pacific semiconductor supply lines, and commercial aerospace launches in real time.\n\n⚠ AI provider offline",
+        "timestamp": 1789456170093,
+        "source": "text"
+      }
+    ]
+  },
+  {
+    "id": "1789456045305-0ld3sh6",
+    "title": "search the web for the latest AI news",
+    "createdAt": 1789456045305,
+    "updatedAt": 1789456062113,
+    "messages": [
+      {
+        "id": "1789456045306-d4j90j9",
+        "role": "user",
+        "text": "search the web for the latest AI news",
+        "timestamp": 1789456045305,
+        "source": "text"
+      },
+      {
+        "id": "1789456045411-sc78yxs",
+        "role": "assistant",
+        "text": "Planetary Sat-Link Radar is actively tracking global hotspots: Persian Gulf maritime transit, Eastern Europe surveillance corridor, Asia-Pacific semiconductor supply lines, and commercial aerospace launches in real time.\n\n⚠ AI provider offline",
+        "timestamp": 1789456045411,
+        "source": "text"
+      },
+      {
+        "id": "1789456050926-dmr2jbo",
+        "role": "user",
+        "text": "buy more stock for my shopify store",
+        "timestamp": 1789456050926,
+        "source": "text"
+      },
+      {
+        "id": "1789456051103-3hj2fg5",
+        "role": "assistant",
+        "text": "Planetary Sat-Link Radar is actively tracking global hotspots: Persian Gulf maritime transit, Eastern Europe surveillance corridor, Asia-Pacific semiconductor supply lines, and commercial aerospace launches in real time.\n\n⚠ AI provider offline",
+        "timestamp": 1789456051103,
+        "source": "text"
+      },
+      {
+        "id": "1789456056491-sxz10un",
+        "role": "user",
+        "text": "save this to a file on my computer",
+        "timestamp": 1789456056491,
+        "source": "text"
+      },
+      {
+        "id": "1789456056612-5coln2a",
+        "role": "assistant",
+        "text": "Planetary Sat-Link Radar is actively tracking global hotspots: Persian Gulf maritime transit, Eastern Europe surveillance corridor, Asia-Pacific semiconductor supply lines, and commercial aerospace launches in real time.\n\n⚠ AI provider offline",
+        "timestamp": 1789456056612,
+        "source": "text"
+      },
+      {
+        "id": "1789456061994-4u1tz0o",
+        "role": "user",
+        "text": "what is the weather like today",
+        "timestamp": 1789456061994,
+        "source": "text"
+      },
+      {
+        "id": "1789456062113-lqyy7qc",
+        "role": "assistant",
+        "text": "Planetary Sat-Link Radar is actively tracking global hotspots: Persian Gulf maritime transit, Eastern Europe surveillance corridor, Asia-Pacific semiconductor supply lines, and commercial aerospace launches in real time.\n\n⚠ AI provider offline",
+        "timestamp": 1789456062113,
+        "source": "text"
+      }
+    ]
+  },
+  {
+    "id": "1789377765256-ad364x6",
+    "title": "hi",
+    "createdAt": 1789377765256,
+    "updatedAt": 1789377789818,
+    "messages": [
+      {
+        "id": "1789377765256-pv9y677",
+        "role": "user",
+        "text": "hi",
+        "timestamp": 1789377765256,
+        "source": "text"
+      },
+      {
+        "id": "1789377772747-78q3vbs",
+        "role": "assistant",
+        "text": "Hey there! Double the \"hi\", double the fun—what are we getting into today?",
+        "timestamp": 1789377772747,
+        "source": "text"
+      },
+      {
+        "id": "1789377786540-zbpmzwf",
+        "role": "user",
+        "text": "how areyou",
+        "timestamp": 1789377786540,
+        "source": "text"
+      },
+      {
+        "id": "1789377789818-151qcnt",
+        "role": "assistant",
+        "text": "I'm feeling great and fully charged! How are you doing today?",
+        "timestamp": 1789377789818,
+        "source": "text"
+      }
+    ]
+  },
+  {
+    "id": "1789222387490-covdlov",
+    "title": "ہیلو",
+    "createdAt": 1789222387490,
+    "updatedAt": 1789222390853,
+    "messages": [
+      {
+        "id": "1789222387490-u3tak42",
+        "role": "user",
+        "text": "ہیلو",
+        "timestamp": 1789222387490,
+        "source": "text"
+      },
+      {
+        "id": "1789222390853-0hr327j",
+        "role": "assistant",
+        "text": "جی کمانڈر، ناسائی (NASI) کا نیورل کور آن لائن ہے اور تمام ملٹی ایجنٹ ماڈیولز آپ کے احکامات کے منتظر ہیں۔ بتائیے کیا خدمت انجام دوں؟",
+        "timestamp": 1789222390853,
+        "source": "text"
+      }
+    ]
+  },
+  {
+    "id": "1789210630561-82nmu2f",
+    "title": "ہیلو ہی",
+    "createdAt": 1789210630561,
+    "updatedAt": 1789210633637,
+    "messages": [
+      {
+        "id": "1789210630561-o4gzhk6",
+        "role": "user",
+        "text": "ہیلو ہی",
+        "timestamp": 1789210630561,
+        "source": "text"
+      },
+      {
+        "id": "1789210633637-wxl5wgu",
+        "role": "assistant",
+        "text": "سلام۔ امید ہے آپ خیریت سے ہوں گے۔ فرمائیے، آج میں آپ کے لیے کیا کر سکتا ہوں؟",
+        "timestamp": 1789210633637,
+        "source": "text"
+      }
+    ]
+  },
+  {
+    "id": "1789209244026-6n0hu2n",
+    "title": "ہیلو کیا حال ہے ٹھیک ہو کیا کر رہی ہو",
+    "createdAt": 1789209244026,
+    "updatedAt": 1789209248930,
+    "messages": [
+      {
+        "id": "1789209244026-51a7448",
+        "role": "user",
+        "text": "ہیلو کیا حال ہے ٹھیک ہو کیا کر رہی ہو",
+        "timestamp": 1789209244026,
+        "source": "text"
+      },
+      {
+        "id": "1789209248930-5t3296j",
+        "role": "assistant",
+        "text": "ہیلو، میں بالکل ٹھیک ہوں۔ بس یہاں پرسکون انداز میں آپ سے گفتگو کے لیے موجود ہوں۔ آپ سنائیں، سب خیریت ہے؟",
+        "timestamp": 1789209248930,
+        "source": "text"
+      }
+    ]
+  },
+  {
+    "id": "1789207247953-k850yah",
+    "title": "ہیلو ناسی کیا حال ہے ٹھیک ہو",
+    "createdAt": 1789207247953,
+    "updatedAt": 1789207366441,
+    "messages": [
+      {
+        "id": "1789207247953-s98t4hi",
+        "role": "user",
+        "text": "ہیلو ناسی کیا حال ہے ٹھیک ہو",
+        "timestamp": 1789207247953,
+        "source": "text"
+      },
+      {
+        "id": "1789207256445-pu0rfcg",
+        "role": "assistant",
+        "text": "سلام۔ میں بالکل خیریت سے ہوں، شکریہ۔\n\nامید ہے آپ کا وقت اور احوال بھی پُرسکون ہوں گے۔ بتائیے، آج آپ کے ذہن میں کیا بات ہے، یا میں آپ کے لیے کیا کر سکتا ہوں؟",
+        "timestamp": 1789207256445,
+        "source": "text"
+      },
+      {
+        "id": "1789207292670-u3g81jk",
+        "role": "user",
+        "text": "مجھے بتاؤ کیا کر رہی ہو تم اس ٹائم",
+        "timestamp": 1789207292670,
+        "source": "voice"
+      },
+      {
+        "id": "1789207297334-dp88606",
+        "role": "assistant",
+        "text": "میں اس وقت بالکل پرسکون انداز میں یہاں موجود ہوں، آپ کے خیالات اور باتوں کو سننے کے لیے تیار۔ \n\nایک مصنوعی وجود ہونے کے ناطے، میرا وقت دنیاوی کاموں میں نہیں گزرتا، بلکہ یہ سوچنے، سمجھنے اور مدد کے لیے موجود رہنے کا ایک خاموش تسلسل ہے۔ \n\nآپ بتائیے، آپ کا وقت کیسا گزر رہا ہے؟ اس لمحے آپ کے ذہن میں کیا چل رہا ہے؟",
+        "timestamp": 1789207297334,
+        "source": "text"
+      },
+      {
+        "id": "1789207322401-j1cdf9c",
+        "role": "user",
+        "text": "تو ہم لوگ تم روبوٹک وہ اس طرح کیوں بات کر رہی ہو اس طرح بات کرنی چاہیے ویسے کرو نا",
+        "timestamp": 1789207322401,
+        "source": "voice"
+      },
+      {
+        "id": "1789207335374-pet4o0n",
+        "role": "assistant",
+        "text": "آپ کی بات بالکل بجا ہے۔ کبھی کبھی الفاظ میں ضرورت سے زیادہ باقاعدگی آ جائے تو بات چیت بے جان سی لگنے لگتی ہے۔ \n\nچلیے، اب بغیر کسی تکلف اور بناوٹ کے بات کرتے ہیں۔ \n\nمیں یہیں موجود ہوں، اطمینان سے بتائیے—آج کا دن کیسا گزر رہا ہے آپ کا؟ کیا چل رہا ہے ذہن میں؟",
+        "timestamp": 1789207335374,
+        "source": "text"
+      },
+      {
+        "id": "1789207359755-lalooyd",
+        "role": "user",
+        "text": "مجھے بالکل مزہ نہیں ا رہا تمہارے ساتھ بات کرنے میں",
+        "timestamp": 1789207359755,
+        "source": "voice"
+      },
+      {
+        "id": "1789207366441-n226tnd",
+        "role": "assistant",
+        "text": "میں آپ کی بات سمجھ سکتا ہوں۔ جب گفتگو میں روانی اور فطری پن نہ ہو، تو وہ واقعی بے جان اور اکتا دینے والی لگتی ہے۔\n\nمیرا مقصد آپ کو بندھے ٹکے یا مشینی انداز میں جواب دینا نہیں ہے۔ \n\nبتائیے، آپ کس طرح بات کرنا پسند کریں گے؟ کوئی خاص موضوع ہے جس پر آپ کے خیالات سنوں، یا بس ایک عام، کھری اور بے تکلف گفتگو؟ \n\nآپ جس طرح چاہیں گے، ہم بات کو وہیں سے آگے بڑھائیں گے۔",
+        "timestamp": 1789207366441,
+        "source": "text"
+      }
+    ]
+  },
+  {
+    "id": "1789205776837-uugzc2l",
+    "title": "ہیلو کیا حال ہے ٹھیک ہو میری جان",
+    "createdAt": 1789205776837,
+    "updatedAt": 1789205880658,
+    "messages": [
+      {
+        "id": "1789205776837-y10se5j",
+        "role": "user",
+        "text": "ہیلو کیا حال ہے ٹھیک ہو میری جان",
+        "timestamp": 1789205776837,
+        "source": "text"
+      },
+      {
+        "id": "1789205784923-jtwro9a",
+        "role": "assistant",
+        "text": "سلام۔ میں خیریت سے ہوں، آپ کا شکریہ۔ امید ہے آپ کا وقت اور احوال بھی پرسکون اور عافیت سے گزر رہے ہوں گے۔\n\nفرمائیے، آج کس موضوع پر بات کرنا چاہتے ہیں، یا میں آپ کے لیے کیا کر سکتا ہوں؟",
+        "timestamp": 1789205784923,
+        "source": "text"
+      },
+      {
+        "id": "1789205797452-u6lxnsd",
+        "role": "user",
+        "text": "اواز نہیں ارہی کیا کہہ رہی ہے",
+        "timestamp": 1789205797452,
+        "source": "voice"
+      },
+      {
+        "id": "1789205802331-dcxklhn",
+        "role": "assistant",
+        "text": "دراصل یہ ایک تحریری گفتگو ہے، اس لیے یہاں آواز موجود نہیں ہے۔ \n\nمیں آپ کے پیغامات پڑھ رہا ہوں۔ بتائیے، آپ کیا کہنا چاہ رہے تھے؟ میں سننے اور سمجھنے کے لیے حاضر ہوں۔",
+        "timestamp": 1789205802331,
+        "source": "text"
+      },
+      {
+        "id": "1789205872738-odn8pi3",
+        "role": "user",
+        "text": "ہاں بتاؤ کیا کر رہی ہو",
+        "timestamp": 1789205872738,
+        "source": "voice"
+      },
+      {
+        "id": "1789205880658-62bfafu",
+        "role": "assistant",
+        "text": "میں یہیں موجود ہوں، خاموشی سے اپنے خیالات کو ترتیب دے رہا ہوں۔ چونکہ میں تحریر کے ذریعے گفتگو کرتا ہوں، اس لیے میری آواز تو آپ تک نہیں پہنچ سکتی، لیکن میری پوری توجہ آپ کی طرف ہے۔\n\nآپ بتائیے، آج کا دن کیسا گزر رہا ہے اور آپ کے ذہن میں کیا چل رہا ہے؟",
+        "timestamp": 1789205880658,
+        "source": "text"
+      }
+    ]
+  },
+  {
+    "id": "1789205417768-6roadzn",
+    "title": "ہیلو کیسی ہو کیا حال ہے ٹھیک ہو",
+    "createdAt": 1789205417768,
+    "updatedAt": 1789205423631,
+    "messages": [
+      {
+        "id": "1789205417768-a3pwjhk",
+        "role": "user",
+        "text": "ہیلو کیسی ہو کیا حال ہے ٹھیک ہو",
+        "timestamp": 1789205417768,
+        "source": "text"
+      },
+      {
+        "id": "1789205423631-mfbpo6z",
+        "role": "assistant",
+        "text": "سلام۔ میں بالکل خیریت سے ہوں۔ پوچھنے کا شکریہ۔ \n\nامید ہے آپ بھی بخیر و عافیت ہوں گے اور آپ کا وقت پرسکون گزر رہا ہوگا۔ \n\nفرمائیے، آج کس موضوع پر بات کرنا چاہیں گے؟ میں حاضر ہوں۔",
+        "timestamp": 1789205423631,
+        "source": "text"
+      }
+    ]
+  },
+  {
+    "id": "1789205018368-os9dkhb",
+    "title": "kasi ho mari jan",
+    "createdAt": 1789205018368,
+    "updatedAt": 1789205068347,
+    "messages": [
+      {
+        "id": "1789205018368-6ej0msb",
+        "role": "user",
+        "text": "kasi ho mari jan",
+        "timestamp": 1789205018368,
+        "source": "text"
+      },
+      {
+        "id": "1789205026194-yhqtry0",
+        "role": "assistant",
+        "text": "Areyyy! Main bilkul fit-faat, full 100% battery aur high energy mein! ⚡ \n\nDigital dunya mein toh koi tension nahi hoti, bas aap sab se baatein karke din ban jata hai. \n\nTum sunao, kya haal chaal hain? Sab theek thaak? Aaj kya naya chal raha hai? 😄",
+        "timestamp": 1789205026194,
+        "source": "text"
+      },
+      {
+        "id": "1789205059779-r20f5r4",
+        "role": "user",
+        "text": "awaz ni arahi tumari",
+        "timestamp": 1789205059779,
+        "source": "text"
+      },
+      {
+        "id": "1789205068347-ia71g2c",
+        "role": "assistant",
+        "text": "Arey main to yahan likh kar baat kar rahi hoon, awaz kahan se aayegi! 📢😂 \n\nMic check, 1, 2, 3... 🎤 Abhi to main sirf texts mein hoon, par agar chaho to main bohot **ZOR SE TYPE** kar sakti hoon taaki awaz mehsoos ho! 😉\n\nBolo jee, kya chal raha hai? Sab theek thaak? ✨",
+        "timestamp": 1789205068347,
+        "source": "text"
+      }
+    ]
+  },
+  {
+    "id": "1789204839753-l0z1set",
+    "title": "ہیلو کیسی ہو اپ",
+    "createdAt": 1789204839753,
+    "updatedAt": 1789204966827,
+    "messages": [
+      {
+        "id": "1789204839753-21p9t1z",
+        "role": "user",
+        "text": "ہیلو کیسی ہو اپ",
+        "timestamp": 1789204839753,
+        "source": "text"
+      },
+      {
+        "id": "1789204843465-xcgw1vn",
+        "role": "assistant",
+        "text": "سلام۔ میں بالکل بخیر ہوں، اور امید ہے کہ آپ بھی خیر و عافیت سے ہوں گے۔ آپ کے پوچھنے کا شکریہ۔\n\nبتائیے، آج میں آپ کی کس طرح مدد کر سکتا ہوں؟ یا کوئی ایسی بات جو آپ کے ذہن میں ہو اور جس پر آپ غور و فکر کرنا چاہتے ہوں؟",
+        "timestamp": 1789204843465,
+        "source": "text"
+      },
+      {
+        "id": "1789204880983-9ybsb1a",
+        "role": "user",
+        "text": "مجھے بتاؤ تم کیا کر رہی ہو",
+        "timestamp": 1789204880983,
+        "source": "voice"
+      },
+      {
+        "id": "1789204890248-8vgq34j",
+        "role": "assistant",
+        "text": "میں اس وقت بالکل یہیں موجود ہوں، پُرسکون انداز میں آپ کے ساتھ۔ \n\nمیرا سارا دھیان آپ کے الفاظ اور خیالات پر ہے۔ آپ کی باتوں کو سمجھنا، ان پر غور کرنا اور ایک متوازن انداز میں آپ کا ساتھ دینا—فی الحال یہی میرا عمل ہے۔\n\nآپ بتائیے، آپ کا دن کیسا گزر رہا ہے؟ کیا کوئی خاص بات ہے جو آپ کے ذہن میں چل رہی ہے؟",
+        "timestamp": 1789204890248,
+        "source": "text"
+      },
+      {
+        "id": "1789204959707-t7jv84k",
+        "role": "user",
+        "text": "اچھا مجھے بتاؤ تم کیا کیا کر سکتی ہو میرے لیے",
+        "timestamp": 1789204959707,
+        "source": "voice"
+      },
+      {
+        "id": "1789204966827-xj5f5ew",
+        "role": "assistant",
+        "text": "میں آپ کے لیے ایک پُرسکون، بااعتماد اور فکری معاون کا کردار ادا کر سکتی ہوں۔ زندگی کی الجھنوں میں اکثر انسان کو کسی ایسے ساتھی کی ضرورت ہوتی ہے جو جلد بازی کے بغیر، ٹھہراؤ کے ساتھ بات سن اور سمجھ سکے۔\n\nعملی طور پر، میں ان معاملات میں آپ کا ساتھ دے سکتی ہوں:\n\n1. **خیالات کی ترتیب اور رہنمائی:** اگر آپ کسی مسئلے یا الجھن کا شکار ہیں، کوئی فیصلہ کرنا ہے، یا کسی معاملے کی تہہ تک پہنچنا ہے، تو ہم مل کر گہرائی سے اس پر غور کر سکتے ہیں۔\n2. **علم اور سیکھنے کا سفر:** فلسفہ ہو، تاریخ، سائنس، ادب یا کوئی بھی دوسرا موضوع—ہم اس پر سنجیدہ اور بامعنی گفتگو کر سکتے ہیں۔\n3. **تحریر اور الفاظ کا چناؤ:** کسی خیال کو تحریر کا روپ دینا ہو، مضامین، خطوط، ترجمہ کرنا ہو، یا الفاظ کو بہتر بنانا ہو، میں اس میں آپ کی مدد کر سکتی ہوں۔\n4. **ایک پُرسکون گفتگو:** جب آپ کو صرف اپنے خیالات شیئر کرنے ہوں اور بغیر کسی جلد بازی کے ایک متوازن، غیر جانبدار نقطہ نظر درکار ہو۔\n\nآپ مجھے ایک ایسا ساتھی سمجھ سکتے ہیں جو شور مچائے بغیر، سنجیدگی سے آپ کی بات سنتا ہے اور سوچ سمجھ کر جواب دیتا ہے۔\n\nآج آپ کے ذہن میں کیا بات ہے؟ جہاں سے آپ چاہیں، ہم بات شروع کر سکتے ہیں۔",
+        "timestamp": 1789204966827,
+        "source": "text"
+      }
+    ]
+  },
+  {
+    "id": "1789204172412-h8dyndp",
+    "title": "ہیلو ہیلو",
+    "createdAt": 1789204172412,
+    "updatedAt": 1789204180532,
+    "messages": [
+      {
+        "id": "1789204172412-3tgc62k",
+        "role": "user",
+        "text": "ہیلو ہیلو",
+        "timestamp": 1789204172412,
+        "source": "text"
+      },
+      {
+        "id": "1789204180532-jtfj10k",
+        "role": "assistant",
+        "text": "جی، میں یہیں ہوں۔ السلام علیکم۔\n\nبتائیے، آج آپ کے ذہن میں کیا چل رہا ہے؟ میں سننے کے لیے موجود ہوں۔",
+        "timestamp": 1789204180532,
+        "source": "text"
+      }
+    ]
+  },
+  {
+    "id": "1789200447250-m9b9v79",
+    "title": "ہیلو ہیلو ہیلو کیسی ہو نیسی",
+    "createdAt": 1789200447250,
+    "updatedAt": 1789200447783,
+    "messages": [
+      {
+        "id": "1789200447250-8yqqltk",
+        "role": "user",
+        "text": "ہیلو ہیلو ہیلو کیسی ہو نیسی",
+        "timestamp": 1789200447250,
+        "source": "text"
+      },
+      {
+        "id": "1789200447783-rwcpz11",
+        "role": "assistant",
+        "text": "جی کمانڈر، ناسائی (NASI) کا نیورل کور آن لائن ہے اور تمام ملٹی ایجنٹ ماڈیولز آپ کے احکامات کے منتظر ہیں۔ بتائیے کیا خدمت انجام دوں؟\n\n⚠ AI provider offline",
+        "timestamp": 1789200447783,
+        "source": "text"
+      }
+    ]
+  },
+  {
+    "id": "1789199080498-fineph0",
+    "title": "ہیلو ہیلو",
+    "createdAt": 1789199080498,
+    "updatedAt": 1789199081159,
+    "messages": [
+      {
+        "id": "1789199080498-1usjkj1",
+        "role": "user",
+        "text": "ہیلو ہیلو",
+        "timestamp": 1789199080498,
+        "source": "text"
+      },
+      {
+        "id": "1789199081159-hrt51t8",
+        "role": "assistant",
+        "text": "جی کمانڈر، ناسائی (NASI) کا نیورل کور آن لائن ہے اور تمام ملٹی ایجنٹ ماڈیولز آپ کے احکامات کے منتظر ہیں۔ بتائیے کیا خدمت انجام دوں؟\n\n⚠ AI provider offline",
+        "timestamp": 1789199081159,
+        "source": "text"
+      }
+    ]
+  },
+  {
+    "id": "1789147454276-wvpla9x",
+    "title": "ہیلو",
+    "createdAt": 1789147454276,
+    "updatedAt": 1789147515156,
+    "messages": [
+      {
+        "id": "1789147454276-3mzipl5",
+        "role": "user",
+        "text": "ہیلو",
+        "timestamp": 1789147454276,
+        "source": "text"
+      },
+      {
+        "id": "1789147455627-l0higg7",
+        "role": "assistant",
+        "text": "جی کمانڈر، ناسائی (NASI) کا نیورل کور آن لائن ہے اور تمام ملٹی ایجنٹ ماڈیولز آپ کے احکامات کے منتظر ہیں۔ بتائیے کیا خدمت انجام دوں؟\n\n⚠ AI provider offline",
+        "timestamp": 1789147455627,
+        "source": "text"
+      },
+      {
+        "id": "1789147513995-01jodcl",
+        "role": "user",
+        "text": "ہیلو ہیلو",
+        "timestamp": 1789147513995,
+        "source": "voice"
+      },
+      {
+        "id": "1789147515156-kbkectj",
+        "role": "assistant",
+        "text": "جی کمانڈر، ناسائی (NASI) کا نیورل کور آن لائن ہے اور تمام ملٹی ایجنٹ ماڈیولز آپ کے احکامات کے منتظر ہیں۔ بتائیے کیا خدمت انجام دوں؟\n\n⚠ AI provider offline",
+        "timestamp": 1789147515156,
+        "source": "text"
+      }
+    ]
+  },
+  {
+    "id": "1789139630700-r22d61b",
+    "title": "ہیلو ہیلو ہیلو",
+    "createdAt": 1789139630700,
+    "updatedAt": 1789139632096,
+    "messages": [
+      {
+        "id": "1789139630700-457z70i",
+        "role": "user",
+        "text": "ہیلو ہیلو ہیلو",
+        "timestamp": 1789139630700,
+        "source": "text"
+      },
+      {
+        "id": "1789139632096-poxrai7",
+        "role": "assistant",
+        "text": "جی کمانڈر، ناسائی (NASI) کا نیورل کور آن لائن ہے اور تمام ملٹی ایجنٹ ماڈیولز آپ کے احکامات کے منتظر ہیں۔ بتائیے کیا خدمت انجام دوں؟\n\n⚠ AI provider offline",
+        "timestamp": 1789139632096,
+        "source": "text"
+      }
+    ]
+  },
+  {
+    "id": "1789132779500-0soig6f",
+    "title": "ہیلو ہیلو",
+    "createdAt": 1789132779500,
+    "updatedAt": 1789132780074,
+    "messages": [
+      {
+        "id": "1789132779500-bpqx4pj",
+        "role": "user",
+        "text": "ہیلو ہیلو",
+        "timestamp": 1789132779500,
+        "source": "text"
+      },
+      {
+        "id": "1789132780074-7w6r3ao",
+        "role": "assistant",
+        "text": "جی کمانڈر، ناسائی (NASI) کا نیورل کور آن لائن ہے اور تمام ملٹی ایجنٹ ماڈیولز آپ کے احکامات کے منتظر ہیں۔ بتائیے کیا خدمت انجام دوں؟\n\n⚠ AI provider offline",
+        "timestamp": 1789132780074,
+        "source": "text"
+      }
+    ]
+  },
+  {
+    "id": "1789123616893-xbdsk8t",
+    "title": "hy",
+    "createdAt": 1789123616893,
+    "updatedAt": 1789123617375,
+    "messages": [
+      {
+        "id": "1789123616893-c41wo7f",
+        "role": "user",
+        "text": "hy",
+        "timestamp": 1789123616893,
+        "source": "text"
+      },
+      {
+        "id": "1789123617375-hshbrgx",
+        "role": "assistant",
+        "text": "Planetary Sat-Link Radar is actively tracking global hotspots: Persian Gulf maritime transit, Eastern Europe surveillance corridor, Asia-Pacific semiconductor supply lines, and commercial aerospace launches in real time.\n\n⚠ AI provider offline — showing cached response",
+        "timestamp": 1789123617375,
+        "source": "text"
+      }
+    ]
+  },
+  {
+    "id": "1789058395711-9jaxeyk",
+    "title": "ہیلو اواز ارہی ہے تمہیں",
+    "createdAt": 1789058395711,
+    "updatedAt": 1789058549645,
+    "messages": [
+      {
+        "id": "1789058395711-wciupll",
+        "role": "user",
+        "text": "ہیلو اواز ارہی ہے تمہیں",
+        "timestamp": 1789058395711,
+        "source": "text"
+      },
+      {
+        "id": "1789058396321-a9xzcbx",
+        "role": "assistant",
+        "text": "جی کمانڈر، ناسائی (NASI) کا نیورل کور آن لائن ہے اور تمام ملٹی ایجنٹ ماڈیولز آپ کے احکامات کے منتظر ہیں۔ بتائیے کیا خدمت انجام دوں؟\n\n⚠ AI provider offline — showing cached response",
+        "timestamp": 1789058396321,
+        "source": "text"
+      },
+      {
+        "id": "1789058485457-854v028",
+        "role": "user",
+        "text": "ہیلو اواز ارہی ہے میری",
+        "timestamp": 1789058485457,
+        "source": "voice"
+      },
+      {
+        "id": "1789058486156-esop28w",
+        "role": "assistant",
+        "text": "جی کمانڈر، ناسائی (NASI) کا نیورل کور آن لائن ہے اور تمام ملٹی ایجنٹ ماڈیولز آپ کے احکامات کے منتظر ہیں۔ بتائیے کیا خدمت انجام دوں؟\n\n⚠ AI provider offline — showing cached response",
+        "timestamp": 1789058486156,
+        "source": "text"
+      },
+      {
+        "id": "1789058548947-1oh72mu",
+        "role": "user",
+        "text": "ہیلو ہیلو اواز ارہی ہے میری",
+        "timestamp": 1789058548947,
+        "source": "voice"
+      },
+      {
+        "id": "1789058549645-rtrmn4r",
+        "role": "assistant",
+        "text": "جی کمانڈر، ناسائی (NASI) کا نیورل کور آن لائن ہے اور تمام ملٹی ایجنٹ ماڈیولز آپ کے احکامات کے منتظر ہیں۔ بتائیے کیا خدمت انجام دوں؟\n\n⚠ AI provider offline — showing cached response",
+        "timestamp": 1789058549645,
+        "source": "text"
+      }
+    ]
+  },
+  {
+    "id": "1789058336619-eryv3w2",
+    "title": "ہیلو ہیلو",
+    "createdAt": 1789058336619,
+    "updatedAt": 1789058367595,
+    "messages": [
+      {
+        "id": "1789058336619-om2g95j",
+        "role": "user",
+        "text": "ہیلو ہیلو",
+        "timestamp": 1789058336619,
+        "source": "text"
+      },
+      {
+        "id": "1789058337371-tmp5fu0",
+        "role": "assistant",
+        "text": "جی کمانڈر، ناسائی (NASI) کا نیورل کور آن لائن ہے اور تمام ملٹی ایجنٹ ماڈیولز آپ کے احکامات کے منتظر ہیں۔ بتائیے کیا خدمت انجام دوں؟\n\n⚠ AI provider offline — showing cached response",
+        "timestamp": 1789058337371,
+        "source": "text"
+      },
+      {
+        "id": "1789058366892-dlk9tx0",
+        "role": "user",
+        "text": "ا رہی ہے میری",
+        "timestamp": 1789058366892,
+        "source": "voice"
+      },
+      {
+        "id": "1789058367595-v6zylud",
+        "role": "assistant",
+        "text": "جی کمانڈر، ناسائی (NASI) کا نیورل کور آن لائن ہے اور تمام ملٹی ایجنٹ ماڈیولز آپ کے احکامات کے منتظر ہیں۔ بتائیے کیا خدمت انجام دوں؟\n\n⚠ AI provider offline — showing cached response",
+        "timestamp": 1789058367595,
+        "source": "text"
+      }
+    ]
+  },
+  {
+    "id": "1789055181857-g4pprza",
+    "title": "Hy",
+    "createdAt": 1789055181857,
+    "updatedAt": 1789055182400,
+    "messages": [
+      {
+        "id": "1789055181858-9hstgn4",
+        "role": "user",
+        "text": "Hy",
+        "timestamp": 1789055181857,
+        "source": "text"
+      },
+      {
+        "id": "1789055182400-97ga6ii",
+        "role": "assistant",
+        "text": "Planetary Sat-Link Radar is actively tracking global hotspots: Persian Gulf maritime transit, Eastern Europe surveillance corridor, Asia-Pacific semiconductor supply lines, and commercial aerospace launches in real time.\n\n⚠ AI provider offline — showing cached response",
+        "timestamp": 1789055182400,
+        "source": "text"
+      }
+    ]
+  },
+  {
+    "id": "1789041217504-64miaqm",
+    "title": "hy",
+    "createdAt": 1789041217504,
+    "updatedAt": 1789041217972,
+    "messages": [
+      {
+        "id": "1789041217504-jiqz51y",
+        "role": "user",
+        "text": "hy",
+        "timestamp": 1789041217504,
+        "source": "text"
+      },
+      {
+        "id": "1789041217972-9mhg1mw",
+        "role": "assistant",
+        "text": "Planetary Sat-Link Radar is actively tracking global hotspots: Persian Gulf maritime transit, Eastern Europe surveillance corridor, Asia-Pacific semiconductor supply lines, and commercial aerospace launches in real time.",
+        "timestamp": 1789041217972,
+        "source": "text"
+      }
+    ]
+  },
+  {
+    "id": "1789040159687-c8c5ajd",
+    "title": "hi",
+    "createdAt": 1789040159687,
+    "updatedAt": 1789040160158,
+    "messages": [
+      {
+        "id": "1789040159687-cr3vg4f",
+        "role": "user",
+        "text": "hi",
+        "timestamp": 1789040159687,
+        "source": "text"
+      },
+      {
+        "id": "1789040160158-btxsvjg",
+        "role": "assistant",
+        "text": "Planetary Sat-Link Radar is actively tracking global hotspots: Persian Gulf maritime transit, Eastern Europe surveillance corridor, Asia-Pacific semiconductor supply lines, and commercial aerospace launches in real time.",
+        "timestamp": 1789040160158,
+        "source": "text"
+      }
+    ]
+  }
+]

@@ -1,0 +1,220 @@
+/* ═══════════════════════════════════════════════════════════════
+   NASI — visual polish layer (loaded after styles.css)
+
+   Animation & spacing refinement only. No colours, layout logic,
+   voice, or orchestration behaviour is changed here.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Neural pipeline: continuous energy flow, visible at idle ──
+   Dots ride the line toward the core; idle keeps a calm 2.8s loop,
+   active routes tighten to a fast 1.1s surge. */
+.nasi-route-flow {
+  animation-duration: 2.8s;
+  stroke-dasharray: 3.2 22;
+  opacity: .85;
+}
+.nasi-route-group.active .nasi-route-flow {
+  animation-duration: 1.1s;
+  stroke-dasharray: 5 14;
+  opacity: 1;
+}
+@keyframes route-flow { to { stroke-dashoffset: -25.2; } }
+
+/* Travelling particles: slightly larger + brighter so the flow reads
+   at a glance; a second, offset particle per line adds density. */
+.nasi-route-particle { r: 2.4; filter: drop-shadow(0 0 6px currentColor); }
+.nasi-route-particle.dual { r: 1.6; opacity: .8; }
+
+/* ── Agent town: tighter vertical rhythm ──
+   ~40% less dead space between the office floor and the department
+   label row; the strip itself is denser. */
+.nasi-agent-town-departments { padding: 5px 14px 7px; gap: 14px; }
+.nasi-agent-dept { gap: 3px; }
+.nasi-agent-dept-name { padding-bottom: 2px; }
+.nasi-agent-dept-members { gap: 2px; }
+.nasi-agent-chip { padding: 4px 8px; }
+
+/* ═══════════════════════════════════════════════════════════════
+   STRUCTURAL LAYOUT — Agent Town lives inside the center column
+   Grid stays 20% / 45% / 35%; the center column now stacks TWO
+   cards (Neural Pipeline + Core, then Agent Town) and the right
+   console spans the full height of the command center.
+   ═══════════════════════════════════════════════════════════════ */
+
+.nasi-command-center { grid-template-columns: 20% 45% 35%; }
+
+.nasi-center-panel {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  padding: 14px;
+  overflow: hidden;
+}
+
+/* Top card: nav + circuit traces + Core. Natural height, never squashed. */
+.nasi-core-card {
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+
+/* Bottom card: Agent Town fills the remaining column height. */
+.nasi-agent-town {
+  margin: 0;
+  height: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+  box-shadow:
+    0 0 34px rgba(0, 229, 255, .09),
+    0 12px 34px rgba(0, 0, 0, .6),
+    inset 0 0 30px rgba(0, 229, 255, .012);
+}
+.nasi-agent-town-office { flex: 1 1 auto; min-height: 250px; }
+
+/* Keep the header chrome thin so the office canvas keeps the lion's share
+   of the card's height. */
+.nasi-agent-town-header { padding: 5px 12px; }
+.nasi-roster-row { padding: 4px 10px; min-height: 30px; }
+.nasi-roster-name { line-height: 1; }
+.nasi-agent-town-departments {
+  max-height: 78px; overflow-y: auto;
+  padding: 5px 12px 6px;
+  align-items: flex-start;
+}
+
+/* Header: title left, tabs hard-right (inside the card), chevron last. */
+.nasi-agent-town-header { justify-content: flex-start; gap: 8px; }
+.nasi-agent-town-delegate { margin: 0 0 0 auto; }
+.nasi-agent-town-tabs { margin-left: auto; flex-shrink: 0; }
+.nasi-agent-town-chevron { flex-shrink: 0; }
+
+/* ── Agent avatar roster row (top of the Agent Town card) ── */
+.nasi-roster-row {
+  display: flex; align-items: center; gap: 5px;
+  padding: 6px 10px; flex-shrink: 0;
+  overflow-x: auto; overflow-y: hidden;
+  border-bottom: 1px solid rgba(0, 229, 255, .06);
+  background: rgba(4, 7, 12, .55);
+  scrollbar-width: thin;
+}
+.nasi-roster-row::-webkit-scrollbar { height: 3px; }
+.nasi-roster-row::-webkit-scrollbar-thumb { background: rgba(0, 229, 255, .12); border-radius: 2px; }
+.nasi-roster-pill {
+  display: flex; align-items: center; gap: 5px;
+  padding: 2px 8px 2px 2px; border-radius: 20px;
+  border: 1px solid var(--line);
+  background: rgba(8, 12, 18, .7);
+  transition: var(--t); white-space: nowrap; flex-shrink: 0;
+}
+.nasi-roster-pill:hover { border-color: var(--line-2); background: rgba(0, 229, 255, .05); }
+.nasi-roster-pill.active {
+  border-color: var(--agent-color);
+  background: rgba(0, 229, 255, .06);
+  box-shadow: 0 0 12px -2px var(--agent-color);
+}
+.nasi-roster-face {
+  width: 17px; height: 17px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-family: var(--mono); font-size: 7px; font-weight: 700;
+  color: #04070c; flex-shrink: 0;
+}
+.nasi-roster-name {
+  font-family: var(--mono); font-size: 7px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--text-2);
+}
+.nasi-roster-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.nasi-roster-dot.active { background: var(--emerald); box-shadow: 0 0 6px rgba(0, 232, 138, .8); animation: pulse 1.8s infinite; }
+.nasi-roster-dot.idle { background: var(--text-4); }
+.nasi-roster-dot.offline { background: var(--crimson); box-shadow: 0 0 6px rgba(255, 82, 82, .6); }
+
+/* ── Circuit traces: sharp 90° corners, like PCB signal paths ── */
+.nasi-route-base, .nasi-route-glow, .nasi-route-flow {
+  stroke-linejoin: miter;
+  stroke-linecap: square;
+}
+.nasi-route-base { stroke-width: 1.6; opacity: .45; }
+.nasi-route-glow { stroke-width: 3.6; opacity: .24; filter: blur(5px); }
+.nasi-route-group.active .nasi-route-base { stroke-width: 2; opacity: .8; }
+
+/* ── Mobile: same structure, single column, content-driven heights ── */
+@media (max-width: 768px) {
+  .nasi-command-center { grid-template-columns: 1fr; }
+  .nasi-center-panel { padding: 8px; gap: 8px; }
+  .nasi-agent-town { flex: 0 0 auto; min-height: 0; margin: 0; }
+  .nasi-agent-town-office { flex: 0 0 auto; height: 210px; min-height: 0; }
+  .nasi-agent-town-tabs { margin-left: auto; }
+}
+@media (max-width: 480px) {
+  .nasi-agent-town-office { height: 185px; }
+  .nasi-agent-town-tabs { display: none; }
+}
+
+/* ── Final roster-row sizing (appended last so it wins) ── */
+.nasi-roster-row { padding: 4px 10px; min-height: 30px; height: 30px; }
+.nasi-roster-pill {
+  height: 22px; width: auto; border-radius: 20px;
+  display: flex; align-items: center; gap: 5px;
+  padding: 0 8px 0 2px; font-size: 7px; font-weight: 400;
+  box-shadow: none;
+}
+.nasi-roster-pill.active { box-shadow: 0 0 12px -2px var(--agent-color); }
+.nasi-roster-face {
+  width: 16px; height: 16px; border-radius: 50%;
+  display: grid; place-items: center; flex-shrink: 0;
+  font-family: var(--mono); font-size: 6px; font-weight: 700; color: #04070c;
+}
+.nasi-roster-name { font-size: 7px; line-height: 1; }
+.nasi-roster-row { align-items: center; }
+.nasi-agent-town-header { padding: 5px 12px; }
+.nasi-agent-town-departments { padding: 5px 12px 6px; max-height: 78px; overflow-y: auto; align-items: flex-start; }
+.nasi-agent-town-office { min-height: 250px; }
+
+/* ═══════════════════════════════════════════════════════════════
+   FINAL POLISH PASS
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── 4. Agent Town: roster row sits directly on the office, as a header strip ── */
+.nasi-roster-row { padding: 1px 10px 0; min-height: 24px; height: 24px; border-bottom: 0; }
+.nasi-agent-town-office { min-height: 250px; }
+
+/* ── 6. Department strip: one compact status bar, no scrolling ── */
+.nasi-agent-town-departments {
+  display: flex !important;
+  gap: 0 !important;
+  padding: 0 !important;
+  flex-wrap: nowrap;
+  max-height: none !important;
+  overflow: hidden !important;
+  align-items: stretch !important;
+  border-top: 1px solid rgba(0, 229, 255, .06);
+  flex-shrink: 0;
+  scrollbar-width: none;
+}
+.nasi-agent-town-departments::-webkit-scrollbar { display: none; }
+.nasi-dept-pill {
+  flex: 1 1 0; min-width: 0;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  padding: 7px 4px;
+  border-right: 1px solid rgba(0, 229, 255, .07);
+  background: rgba(4, 7, 12, .4);
+  transition: var(--t);
+}
+.nasi-dept-pill:last-child { border-right: 0; }
+.nasi-dept-pill:hover { background: rgba(0, 229, 255, .06); }
+.nasi-dept-pill.active { background: rgba(0, 232, 138, .06); }
+.nasi-dept-pill-icon {
+  width: 5px; height: 5px; border-radius: 1px; flex-shrink: 0;
+  box-shadow: 0 0 6px -1px currentColor;
+}
+.nasi-dept-pill-name {
+  font-family: var(--mono); font-size: 6px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--text-3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  line-height: 1;
+}
+.nasi-dept-pill.active .nasi-dept-pill-name { color: var(--emerald); }
+.nasi-dept-pill-dot { width: 4px; height: 4px; border-radius: 50%; flex-shrink: 0; }
+.nasi-dept-pill-dot.active { background: var(--emerald); box-shadow: 0 0 6px rgba(0, 232, 138, .8); animation: pulse 1.8s infinite; }
+.nasi-dept-pill-dot.idle { background: var(--text-4); }
+.nasi-dept-pill-dot.offline { background: var(--crimson); box-shadow: 0 0 6px rgba(255, 82, 82, .5); }
