@@ -218,3 +218,194 @@
 .nasi-dept-pill-dot.active { background: var(--emerald); box-shadow: 0 0 6px rgba(0, 232, 138, .8); animation: pulse 1.8s infinite; }
 .nasi-dept-pill-dot.idle { background: var(--text-4); }
 .nasi-dept-pill-dot.offline { background: var(--crimson); box-shadow: 0 0 6px rgba(255, 82, 82, .5); }
+
+/* ═══════════════════════════════════════════════════════════════
+   PREMIUM POLISH PASS — refinement only, no behaviour changes
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── 1 · TOPBAR ── */
+.nasi-brandname {
+  letter-spacing: .52em; margin-right: -.52em;
+  text-shadow: 0 0 10px rgba(0, 229, 255, .9), 0 0 28px rgba(0, 229, 255, .5), 0 0 70px rgba(0, 229, 255, .25);
+}
+.nasi-topbar-btn { border: 1px solid transparent; transition: all 200ms ease; }
+.nasi-topbar-btn:hover { color: var(--text-1, #cfe9f2); background: rgba(0, 229, 255, .04); }
+.nasi-topbar-btn.active {
+  background: linear-gradient(180deg, rgba(0, 229, 255, .16), rgba(0, 229, 255, .07));
+  border-color: rgba(0, 229, 255, .38);
+  color: #aef3ff;
+  box-shadow: 0 0 18px rgba(0, 229, 255, .22), inset 0 0 12px rgba(0, 229, 255, .08);
+  text-shadow: 0 0 10px rgba(0, 229, 255, .65);
+}
+.nasi-topbar-actions { gap: 7px; }
+.nasi-icon-btn { width: 30px; height: 30px; transition: all 200ms ease; }
+.nasi-icon-btn:hover {
+  color: var(--cyan); background: rgba(0, 229, 255, .08); border-color: rgba(0, 229, 255, .3);
+  box-shadow: 0 0 16px rgba(0, 229, 255, .22), inset 0 0 8px rgba(0, 229, 255, .06);
+  text-shadow: 0 0 8px rgba(0, 229, 255, .5);
+}
+.nasi-topbar .nasi-status-dot { width: 7px; height: 7px; }
+
+/* ── 2 · LEFT PANEL — status feed ── */
+.nasi-feed-event { transition: all 200ms ease; }
+.nasi-feed-event + .nasi-feed-event { border-top: 1px solid rgba(0, 229, 255, .045); }
+.nasi-feed-event-time {
+  min-width: 32px; text-align: center;
+  padding: 1px 4px; border-radius: 2px;
+  background: rgba(0, 229, 255, .04);
+  border: 1px solid rgba(0, 229, 255, .07);
+  text-shadow: 0 0 6px currentColor;
+}
+.nasi-feed-card { transition: box-shadow 400ms ease, border-color 400ms ease; }
+.nasi-feed-card.online {
+  border-color: rgba(0, 232, 138, .35);
+  box-shadow: 0 0 16px rgba(0, 232, 138, .12), inset 0 0 18px rgba(0, 232, 138, .04);
+}
+.nasi-feed-card.offline {
+  border-color: rgba(255, 82, 82, .3);
+  box-shadow: 0 0 14px rgba(255, 82, 82, .1);
+}
+.nasi-feed-card-title { display: flex; align-items: center; gap: 7px; }
+.nasi-feed-card-dot {
+  width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0;
+  background: var(--emerald); box-shadow: 0 0 8px rgba(0, 232, 138, .9);
+  animation: pulse 2s infinite;
+}
+.nasi-feed-card.offline .nasi-feed-card-dot { background: var(--crimson); box-shadow: 0 0 8px rgba(255, 82, 82, .8); animation-duration: 1s; }
+
+/* ── 3 · CORE CARD ── */
+/* Bracket frame: brighter frame + four glowing corner brackets */
+.nasi-core-area::before {
+  border-color: rgba(0, 229, 255, .09);
+  box-shadow: 0 0 18px rgba(0, 229, 255, .05), inset 0 0 26px rgba(0, 229, 255, .018);
+  background-image:
+    linear-gradient(rgba(0, 229, 255, .5), rgba(0, 229, 255, .5)),
+    linear-gradient(rgba(0, 229, 255, .5), rgba(0, 229, 255, .5)),
+    linear-gradient(rgba(0, 229, 255, .5), rgba(0, 229, 255, .5)),
+    linear-gradient(rgba(0, 229, 255, .5), rgba(0, 229, 255, .5)),
+    linear-gradient(rgba(0, 229, 255, .5), rgba(0, 229, 255, .5)),
+    linear-gradient(rgba(0, 229, 255, .5), rgba(0, 229, 255, .5)),
+    linear-gradient(rgba(0, 229, 255, .5), rgba(0, 229, 255, .5)),
+    linear-gradient(rgba(0, 229, 255, .5), rgba(0, 229, 255, .5)),
+    radial-gradient(ellipse at 50% 50%, rgba(0, 229, 255, .02), transparent 70%);
+  background-repeat: no-repeat;
+  background-size: 16px 1.5px, 1.5px 16px, 16px 1.5px, 1.5px 16px, 16px 1.5px, 1.5px 16px, 16px 1.5px, 1.5px 16px, 100% 100%;
+  background-position: left top, left top, right top, right top, left bottom, left bottom, right bottom, right bottom, 0 0;
+  filter: drop-shadow(0 0 5px rgba(0, 229, 255, .28));
+}
+.nasi-core-area::after {
+  border-color: rgba(0, 229, 255, .55);
+  box-shadow: 0 0 10px rgba(0, 229, 255, .3);
+}
+/* Pipeline label: bigger + breathing */
+.nasi-core-card-label {
+  font-size: 8.5px; letter-spacing: .26em;
+  color: rgba(0, 229, 255, .7);
+  text-shadow: 0 0 10px rgba(0, 229, 255, .3);
+  animation: label-breathe 3.4s ease-in-out infinite;
+}
+@keyframes label-breathe { 0%, 100% { opacity: .75; } 50% { opacity: 1; } }
+.nasi-core-card-dot { width: 5px; height: 5px; }
+/* Nav hover: node glows hard, its own trace brightens, siblings dim */
+.nasi-routing-node:hover {
+  border-color: color-mix(in srgb, var(--node-color) 55%, transparent);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--node-color) 28%, transparent), inset 0 0 14px color-mix(in srgb, var(--node-color) 10%, transparent);
+  background: linear-gradient(100deg, rgba(10, 18, 28, .97), rgba(7, 12, 19, .92));
+}
+.nasi-routing-node:hover .nasi-routing-node-dot { box-shadow: 0 0 10px var(--node-color); }
+.nasi-routing-nodes:has(.nasi-routing-node[data-node-id="MEMORY"]:hover) ~ .nasi-routing-overlay [data-route-id="MEMORY"] .nasi-route-base,
+.nasi-routing-nodes:has(.nasi-routing-node[data-node-id="SKILLS"]:hover) ~ .nasi-routing-overlay [data-route-id="SKILLS"] .nasi-route-base,
+.nasi-routing-nodes:has(.nasi-routing-node[data-node-id="SOUL"]:hover) ~ .nasi-routing-overlay [data-route-id="SOUL"] .nasi-route-base,
+.nasi-routing-nodes:has(.nasi-routing-node[data-node-id="SETTING"]:hover) ~ .nasi-routing-overlay [data-route-id="SETTING"] .nasi-route-base {
+  stroke-width: 2.4; opacity: 1;
+}
+.nasi-routing-nodes:has(.nasi-routing-node:hover) ~ .nasi-routing-overlay .nasi-route-glow { opacity: .1; }
+.nasi-routing-nodes:has(.nasi-routing-node[data-node-id="MEMORY"]:hover) ~ .nasi-routing-overlay [data-route-id="MEMORY"] .nasi-route-glow,
+.nasi-routing-nodes:has(.nasi-routing-node[data-node-id="SKILLS"]:hover) ~ .nasi-routing-overlay [data-route-id="SKILLS"] .nasi-route-glow,
+.nasi-routing-nodes:has(.nasi-routing-node[data-node-id="SOUL"]:hover) ~ .nasi-routing-overlay [data-route-id="SOUL"] .nasi-route-glow,
+.nasi-routing-nodes:has(.nasi-routing-node[data-node-id="SETTING"]:hover) ~ .nasi-routing-overlay [data-route-id="SETTING"] .nasi-route-glow { opacity: .5; }
+
+/* ── 4 · AGENT TOWN ── */
+.nasi-agent-town-dot {
+  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  transition: background 300ms ease;
+}
+.nasi-agent-town-dot.live {
+  background: var(--emerald); box-shadow: 0 0 9px rgba(0, 232, 138, .9);
+  animation: pulse 1.6s infinite;
+}
+.nasi-agent-town-dot.idle { background: var(--text-4); opacity: .6; }
+/* Roster pill tooltip (pure CSS, follows pill) */
+.nasi-roster-pill { position: relative; transition: all 200ms ease; }
+.nasi-roster-pill::after {
+  content: attr(data-tip);
+  position: absolute; left: 50%; bottom: calc(100% + 7px); transform: translateX(-50%) translateY(3px);
+  padding: 4px 9px; border-radius: 3px;
+  background: rgba(6, 12, 18, .96); border: 1px solid rgba(0, 229, 255, .25);
+  color: var(--text-1, #cfe9f2); font-family: var(--mono); font-size: 8px; letter-spacing: .08em;
+  white-space: nowrap; pointer-events: none; opacity: 0;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .6), 0 0 12px rgba(0, 229, 255, .12);
+  transition: opacity 160ms ease, transform 160ms ease; z-index: 60;
+}
+.nasi-roster-pill:hover::after { opacity: 1; transform: translateX(-50%) translateY(0); }
+@media (hover: none) { .nasi-roster-pill::after { display: none; } }
+
+/* ── 5 · RIGHT CONSOLE ── */
+.nasi-console-line { border-left: 2px solid transparent; transition: background 200ms ease, border-color 200ms ease; }
+.nasi-console-line:has(.nasi-console-badge.voice) { border-left-color: #5fd4ee; }
+.nasi-console-line:has(.nasi-console-badge.user) { border-left-color: var(--emerald); }
+.nasi-console-line:has(.nasi-console-badge.nasi) { border-left-color: var(--amber); }
+.nasi-console-line:has(.nasi-console-badge.error) { border-left-color: var(--crimson); }
+.nasi-console-line:has(.nasi-console-badge.system) { border-left-color: var(--steel); }
+.nasi-console-line:has(.nasi-console-badge.info) { border-left-color: var(--cyan); }
+.nasi-console-badge { transition: all 200ms ease; }
+/* Idle waveform: breathing WAITING indicator instead of blank bars */
+.nasi-wave-idle { display: flex; align-items: center; gap: 8px; }
+.nasi-wave-idle-dots { display: flex; gap: 3px; }
+.nasi-wave-idle-dots i {
+  width: 4px; height: 4px; border-radius: 50%; background: var(--cyan);
+  opacity: .25; animation: waitdot 1.4s ease-in-out infinite;
+  box-shadow: 0 0 6px rgba(0, 229, 255, .5);
+}
+.nasi-wave-idle-dots i:nth-child(2) { animation-delay: .22s; }
+.nasi-wave-idle-dots i:nth-child(3) { animation-delay: .44s; }
+@keyframes waitdot { 0%, 100% { opacity: .2; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-2px); } }
+.nasi-wave-idle-text {
+  font-family: var(--mono); font-size: 7px; font-weight: 600; letter-spacing: .3em;
+  color: var(--text-4); animation: label-breathe 2.6s ease-in-out infinite;
+}
+/* Command input placeholder: italic, dimmer, blinking caret */
+.nasi-input::placeholder { font-style: italic; color: var(--text-4); opacity: .65; }
+.nasi-input { caret-color: var(--cyan); animation: caret-blink 1.15s steps(1) infinite; }
+@keyframes caret-blink { 0%, 55% { caret-color: var(--cyan); } 56%, 100% { caret-color: transparent; } }
+
+/* ── 6 · GLOBAL MICRO-ANIMATIONS ── */
+.nasi-topbar-btn, .nasi-icon-btn, .nasi-console-tab, .nasi-agent-tab,
+.nasi-input-mic, .nasi-input-send, .nasi-live-btn, .nasi-dept-pill {
+  transition: all 200ms ease;
+}
+/* Every idle status dot breathes softly instead of sitting static */
+.nasi-roster-dot.idle, .nasi-dept-pill-dot.idle { animation: idle-breathe 3s ease-in-out infinite; }
+@keyframes idle-breathe { 0%, 100% { opacity: .45; } 50% { opacity: .95; } }
+/* Anything ACTIVE gets a living glow, not just a colour swap */
+.nasi-roster-pill.active { animation: active-glow 2.2s ease-in-out infinite; }
+.nasi-dept-pill.active { animation: active-glow-soft 2.4s ease-in-out infinite; }
+@keyframes active-glow {
+  0%, 100% { box-shadow: 0 0 10px -2px var(--agent-color); }
+  50% { box-shadow: 0 0 20px -1px var(--agent-color); }
+}
+@keyframes active-glow-soft {
+  0%, 100% { box-shadow: inset 0 0 8px rgba(0, 232, 138, .05); }
+  50% { box-shadow: inset 0 0 14px rgba(0, 232, 138, .12); }
+}
+.nasi-agent-town-delegate.working { animation: delegate-pulse 1.6s ease-in-out infinite; }
+@keyframes delegate-pulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(0, 232, 138, .15); }
+  50% { box-shadow: 0 0 16px rgba(0, 232, 138, .35); }
+}
+
+/* ── Mobile: keep parity, trim hover-only flourishes ── */
+@media (max-width: 768px) {
+  .nasi-brandname { letter-spacing: .38em; margin-right: -.38em; }
+  .nasi-feed-event-time { min-width: 28px; }
+}

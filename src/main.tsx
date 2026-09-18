@@ -165,8 +165,8 @@ function SystemFeed({ connectionStatus, coreState, memories, orchestrationText }
     <div className="nasi-feed">
       <div className="nasi-feed-section">
         <div className="nasi-feed-header"><Wifi size={9} /><span>META LINK</span><div className={`nasi-feed-status ${connectionStatus}`} /></div>
-        <div className="nasi-feed-card">
-          <div className="nasi-feed-card-title">SYSTEM {connectionStatus === 'online' ? 'ONLINE' : 'OFFLINE'}</div>
+        <div className={`nasi-feed-card ${connectionStatus === 'online' ? 'online' : 'offline'}`}>
+          <div className="nasi-feed-card-title"><span className="nasi-feed-card-dot" />SYSTEM {connectionStatus === 'online' ? 'ONLINE' : 'OFFLINE'}</div>
           <div className="nasi-feed-card-sub">NASI AI v1.0 — {coreState}</div>
         </div>
       </div>
@@ -199,6 +199,7 @@ function AgentTownPanel({ agents, onSelectAgent }: { agents: Agent[]; onSelectAg
   const livePhase = o.phase;
   const liveAgent = o.agent;
   const liveReason = o.route?.reason ?? null;
+  const anyAgentActive = liveAgents.some(a => isActiveStatus(a.status));
   const departments = useMemo(() => {
     const map = new Map<string, Agent[]>();
     liveAgents.forEach(a => { if (!map.has(a.department)) map.set(a.department, []); map.get(a.department)!.push(a); });
@@ -208,7 +209,7 @@ function AgentTownPanel({ agents, onSelectAgent }: { agents: Agent[]; onSelectAg
   return (
     <div className="nasi-agent-town">
       <div className="nasi-agent-town-header" onClick={() => setExpanded(!expanded)}>
-        <div className="nasi-agent-town-title"><Users size={11} /><span>AGENT TOWN</span><span className="nasi-agent-town-count">{liveAgents.filter(a => isActiveStatus(a.status) || a.status === 'Idle').length}/{liveAgents.length}</span></div>
+        <div className="nasi-agent-town-title"><span className={`nasi-agent-town-dot ${anyAgentActive ? 'live' : 'idle'}`} /><Users size={11} /><span>AGENT TOWN</span><span className="nasi-agent-town-count">{liveAgents.filter(a => isActiveStatus(a.status) || a.status === 'Idle').length}/{liveAgents.length}</span></div>
         {livePhase !== 'idle' && (
           <span className={`nasi-agent-town-delegate ${livePhase}`}>
             {livePhase === 'delegating' ? 'MANAGER DELEGATING…' : livePhase === 'working' ? `${(liveAgent || 'AGENT').toUpperCase()} WORKING` : 'TASK COMPLETE'}
@@ -229,7 +230,7 @@ function AgentTownPanel({ agents, onSelectAgent }: { agents: Agent[]; onSelectAg
             {liveAgents.map(a => (
               <button key={a.name} className={`nasi-roster-pill ${isActiveStatus(a.status) ? 'active' : ''}`}
                 style={{ '--agent-color': a.color } as any} onClick={() => onSelectAgent(a)}
-                title={`${a.name} · ${a.department} · ${a.status}`}>
+                data-tip={`${a.name} — ${a.status}`} aria-label={`${a.name}, ${a.status}`}>
                 <span className="nasi-roster-face" style={{ background: a.color }}>{a.initials}</span>
                 <span className="nasi-roster-name">{a.name}</span>
                 <span className={`nasi-roster-dot ${statusClass(a.status)}`} />
@@ -326,7 +327,14 @@ function LiveConsolePanel({
 
             {/* Waveform */}
             <div className={`nasi-waveform ${coreState === 'LISTENING' ? 'listening' : coreState === 'SPEAKING' ? 'speaking' : ''}`}>
-              {Array.from({ length: 40 }).map((_, i) => (<div key={i} className="nasi-wavebar" style={{ animationDelay: `${i * 0.025}s` }} />))}
+              {coreState === 'IDLE' ? (
+                <div className="nasi-wave-idle">
+                  <span className="nasi-wave-idle-dots"><i /><i /><i /></span>
+                  <span className="nasi-wave-idle-text">WAITING</span>
+                </div>
+              ) : (
+                Array.from({ length: 40 }).map((_, i) => (<div key={i} className="nasi-wavebar" style={{ animationDelay: `${i * 0.025}s` }} />))
+              )}
             </div>
 
             {errorMessage && <div className="nasi-error-bar"><AlertTriangle size={12} /><span>{errorMessage}</span></div>}
@@ -1010,7 +1018,7 @@ useEffect(() => {
       <header className="nasi-topbar">
         <div className="nasi-brand">
           <button className="nasi-icon-btn" onClick={() => setShowConversations(!showConversations)} title="Conversations">
-            {showConversations ? <ChevronLeft size={14} /> : <MessageSquare size={14} />}
+            {showConversations ? <ChevronLeft size={15} /> : <MessageSquare size={15} />}
           </button>
           <svg className="nasi-logo" viewBox="0 0 32 32">
             <circle cx="16" cy="16" r="14" fill="none" stroke="#122838" strokeWidth="0.7" opacity="0.7" />
@@ -1026,8 +1034,8 @@ useEffect(() => {
         </div>
         <div className="nasi-topbar-actions">
           <div className={`nasi-status-dot ${connectionStatus}`} title={`Backend: ${connectionStatus}`} />
-          <button className="nasi-icon-btn" onClick={() => setShowMemory(true)} title="Memory"><Database size={14} /></button>
-          <button className="nasi-icon-btn" onClick={() => setShowSettings(true)} title="Settings"><Settings2 size={14} /></button>
+          <button className="nasi-icon-btn" onClick={() => setShowMemory(true)} title="Memory"><Database size={16} /></button>
+          <button className="nasi-icon-btn" onClick={() => setShowSettings(true)} title="Settings"><Settings2 size={16} /></button>
         </div>
       </header>
 
@@ -1097,7 +1105,7 @@ useEffect(() => {
             {/* Circuit traces — measured from each node's right edge to the Core's exact center */}
             <svg className="nasi-routing-overlay">
               {routes.map((r, i) => (
-                <g key={r.id} className={`nasi-route-group ${activeNode === r.id ? 'active' : ''}`} style={{ color: r.color }}>
+                <g key={r.id} data-route-id={r.id} className={`nasi-route-group ${activeNode === r.id ? 'active' : ''}`} style={{ color: r.color }}>
                   <path className="nasi-route-glow" d={r.d} stroke={r.color} />
                   <path className="nasi-route-base" d={r.d} stroke={r.color} />
                   <path className="nasi-route-flow" d={r.d} stroke={r.color} style={{ animationDelay: `${i * 0.3}s` }} />
