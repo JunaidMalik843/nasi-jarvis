@@ -535,15 +535,15 @@ useEffect(() => {
   const body = document.body;
   const apply = (t: NasiSettings['theme']) => {
     if (t === 'cyan') {
-      root.style.setProperty('--cyan', '#00e5ff');
+      root.style.setProperty('--cyan', '#12ecff');
       root.style.setProperty('--cyan-dim', '#108fb0');
-      root.style.setProperty('--emerald', '#00ff88');
-      root.style.setProperty('--amber', '#ffaa00');
-      root.style.setProperty('--crimson', '#ff4444');
-      root.style.setProperty('--line', 'rgba(0, 240, 255, .14)');
-      root.style.setProperty('--line-2', 'rgba(0, 240, 255, .24)');
-      root.style.setProperty('--line-3', 'rgba(0, 240, 255, .34)');
-      root.style.setProperty('--glow-cyan', 'rgba(0, 240, 255, .48)');
+      root.style.setProperty('--emerald', '#0affa0');
+      root.style.setProperty('--amber', '#ffb61f');
+      root.style.setProperty('--crimson', '#ff5555');
+      root.style.setProperty('--line', 'rgba(0, 245, 255, .18)');
+      root.style.setProperty('--line-2', 'rgba(0, 245, 255, .34)');
+      root.style.setProperty('--line-3', 'rgba(0, 245, 255, .48)');
+      root.style.setProperty('--glow-cyan', 'rgba(0, 245, 255, .62)');
       body.style.background = '#000000';
     } else if (t === 'emerald') {
       root.style.setProperty('--cyan', '#00ff88');
@@ -551,10 +551,10 @@ useEffect(() => {
       root.style.setProperty('--emerald', '#66ffbb');
       root.style.setProperty('--amber', '#ffd24a');
       root.style.setProperty('--crimson', '#ff5a5a');
-      root.style.setProperty('--line', 'rgba(0, 255, 136, .14)');
-      root.style.setProperty('--line-2', 'rgba(0, 255, 136, .24)');
-      root.style.setProperty('--line-3', 'rgba(0, 255, 136, .34)');
-      root.style.setProperty('--glow-cyan', 'rgba(0, 255, 136, .45)');
+      root.style.setProperty('--line', 'rgba(0, 255, 136, .18)');
+      root.style.setProperty('--line-2', 'rgba(0, 255, 136, .34)');
+      root.style.setProperty('--line-3', 'rgba(0, 255, 136, .48)');
+      root.style.setProperty('--glow-cyan', 'rgba(0, 255, 136, .6)');
       body.style.background = '#000c06';
     } else if (t === 'crimson') {
       root.style.setProperty('--cyan', '#ff6644');
@@ -562,15 +562,15 @@ useEffect(() => {
       root.style.setProperty('--emerald', '#ff8a6a');
       root.style.setProperty('--amber', '#ffe2a0');
       root.style.setProperty('--crimson', '#ff2222');
-      root.style.setProperty('--line', 'rgba(255, 102, 68, .14)');
-      root.style.setProperty('--line-2', 'rgba(255, 102, 68, .24)');
-      root.style.setProperty('--line-3', 'rgba(255, 102, 68, .34)');
-      root.style.setProperty('--glow-cyan', 'rgba(255, 102, 68, .45)');
+      root.style.setProperty('--line', 'rgba(255, 102, 68, .18)');
+      root.style.setProperty('--line-2', 'rgba(255, 102, 68, .34)');
+      root.style.setProperty('--line-3', 'rgba(255, 102, 68, .48)');
+      root.style.setProperty('--glow-cyan', 'rgba(255, 102, 68, .6)');
       body.style.background = '#0c0202';
     }
   };
   apply(settings.theme);
-  return () => { root.style.setProperty('--cyan', '#00e5ff'); root.style.setProperty('--line', 'rgba(0, 240, 255, .14)'); body.style.background = '#000000'; };
+  return () => { root.style.setProperty('--cyan', '#12ecff'); root.style.setProperty('--line', 'rgba(0, 245, 255, .18)'); body.style.background = '#000000'; };
 }, [settings.theme]);
   const [settingsDraft, setSettingsDraft] = useState<NasiSettings>(settings);
   const [settingsSaved, setSettingsSaved] = useState(false);
@@ -620,7 +620,10 @@ useEffect(() => {
       // parallel-ish instead of all four piling into one spot. The top and bottom
       // lines get a single gentle elbow; the middle two are near-straight.
       const entryX = coreB.left - sb.left - 4;
-      if (entryX <= sx + 12) return;
+      // Bail only when the node's right edge actually reaches the orb. A
+      // larger threshold silently erased every trace whenever the card's
+      // flex layout shifted the nav column a few pixels toward the orb.
+      if (entryX <= sx + 2) return;
       const spread = Math.min(15, coreB.height * 0.085);
       const entryY = cy + (ni - 1.5) * spread;
       // Staggered bend points so no two elbows sit on the same vertical line.

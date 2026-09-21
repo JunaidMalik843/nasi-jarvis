@@ -87,9 +87,9 @@ export default function WorldGlobe() {
 
     // ── Background: dark satellite texture ──
     const bgGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w, h) * 0.7);
-    bgGrad.addColorStop(0, '#060a10');
-    bgGrad.addColorStop(0.5, '#040810');
-    bgGrad.addColorStop(1, '#020406');
+    bgGrad.addColorStop(0, '#08141c');
+    bgGrad.addColorStop(0.5, '#040c13');
+    bgGrad.addColorStop(1, '#010204');
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, w, h);
 
@@ -103,14 +103,17 @@ export default function WorldGlobe() {
       ctx.stroke();
     }
 
-    // ── Atmosphere glow ──
-    const atmoGrad = ctx.createRadialGradient(cx, cy, r * 0.82, cx, cy, r * 1.35);
-    atmoGrad.addColorStop(0, 'rgba(0,229,255,0.12)');
-    atmoGrad.addColorStop(0.4, 'rgba(0,229,255,0.04)');
+    // ── Atmosphere glow + depth vignette ──
+    // Two stacked radial falloffs read as a lit atmosphere bleeding into a dark
+    // surround, so the sphere has visible volume instead of flat line-art.
+    const atmoGrad = ctx.createRadialGradient(cx, cy, r * 0.78, cx, cy, r * 1.55);
+    atmoGrad.addColorStop(0, 'rgba(0, 235, 255, 0.30)');
+    atmoGrad.addColorStop(0.28, 'rgba(0, 240, 255, 0.13)');
+    atmoGrad.addColorStop(0.62, 'rgba(0, 240, 255, 0.045)');
     atmoGrad.addColorStop(1, 'transparent');
     ctx.fillStyle = atmoGrad;
     ctx.beginPath();
-    ctx.arc(cx, cy, r * 1.35, 0, Math.PI * 2);
+    ctx.arc(cx, cy, r * 1.55, 0, Math.PI * 2);
     ctx.fill();
 
     // ── Globe body ──
@@ -123,12 +126,27 @@ export default function WorldGlobe() {
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.fill();
 
-    // Globe border — bright ring
-    ctx.strokeStyle = 'rgba(0,229,255,0.25)';
-    ctx.lineWidth = 1.2;
+    // Limb darkening — the sphere's limb falls off to black, which is what
+    // actually sells the 3D volume (a flat disc keeps reading as a wireframe).
+    const limb = ctx.createRadialGradient(cx, cy, r * 0.52, cx, cy, r);
+    limb.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    limb.addColorStop(0.72, 'rgba(0, 0, 0, 0.28)');
+    limb.addColorStop(1, 'rgba(0, 0, 0, 0.78)');
+    ctx.fillStyle = limb;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Globe border — bright ring with its own bloom
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 235, 255, 0.7)';
+    ctx.shadowBlur = 10;
+    ctx.strokeStyle = 'rgba(120, 245, 255, 0.5)';
+    ctx.lineWidth = 1.4;
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.stroke();
+    ctx.restore();
 
     // Secondary ring
     ctx.strokeStyle = 'rgba(0,229,255,0.08)';
@@ -141,7 +159,7 @@ export default function WorldGlobe() {
 
     // ── Graticule (lat/lon grid) ──
     const graticule = geoGraticule10();
-    ctx.strokeStyle = 'rgba(0,229,255,0.1)';
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.14)';
     ctx.lineWidth = 0.4;
     ctx.beginPath();
     path.context(ctx)(graticule);
@@ -150,13 +168,20 @@ export default function WorldGlobe() {
     // ── Continent landmass (satellite texture) ──
     // Subtle two-pass fill+stroke reads as real geography under the scanlines
     // while staying far too dim to break the black theme.
+    ctx.save();
     ctx.beginPath();
     path.context(ctx)(LAND);
-    ctx.fillStyle = 'rgba(14, 30, 36, 0.5)';
+    // Real landmass is the single strongest "this is a satellite display" cue,
+    // so it gets real contrast: a lit teal continent mass with a glowing coast.
+    ctx.fillStyle = 'rgba(40, 96, 110, 0.92)';
+    ctx.shadowColor = 'rgba(0, 240, 255, 0.35)';
+    ctx.shadowBlur = 9;
     ctx.fill();
-    ctx.strokeStyle = 'rgba(0, 240, 255, 0.15)';
-    ctx.lineWidth = 0.45;
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(140, 250, 255, 0.5)';
+    ctx.lineWidth = 0.55;
     ctx.stroke();
+    ctx.restore();
 
     // ── Heat zones ──
     const t = Date.now() / 1000;
@@ -208,13 +233,37 @@ export default function WorldGlobe() {
 
     // Soft outer glow ring around the whole radar face
     ctx.save();
-    ctx.shadowColor = 'rgba(0, 240, 255, 0.55)';
-    ctx.shadowBlur = 14;
-    ctx.strokeStyle = 'rgba(0, 240, 255, 0.3)';
-    ctx.lineWidth = 1.5;
+    ctx.shadowColor = 'rgba(0, 240, 255, 0.85)';
+    ctx.shadowBlur = 26;
+    ctx.strokeStyle = 'rgba(130, 248, 255, 0.6)';
+    ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(cx, cy, r + 3, 0, Math.PI * 2);
     ctx.stroke();
+    ctx.restore();
+
+    // Instrument frame: a dashed range ring plus a HUD tick bezel, so the face
+    // reads as a mounted satellite sensor rather than a drawn circle.
+    ctx.save();
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.22)';
+    ctx.lineWidth = 0.7;
+    ctx.setLineDash([2, 4]);
+    ctx.beginPath();
+    ctx.arc(cx, cy, r + 10, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    for (let i = 0; i < 60; i++) {
+      const ang = (i / 60) * Math.PI * 2;
+      const major = i % 5 === 0;
+      const inner = r + 14;
+      const outer = r + (major ? 26 : 20);
+      ctx.strokeStyle = major ? 'rgba(0, 240, 255, 0.42)' : 'rgba(0, 240, 255, 0.22)';
+      ctx.lineWidth = major ? 1.1 : 0.7;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(ang) * inner, cy + Math.sin(ang) * inner);
+      ctx.lineTo(cx + Math.cos(ang) * outer, cy + Math.sin(ang) * outer);
+      ctx.stroke();
+    }
     ctx.restore();
 
     MARKERS.forEach((m, idx) => {
@@ -226,17 +275,17 @@ export default function WorldGlobe() {
       if (dx * dx + dy * dy > r * r) return;
 
       const [mr, mg, mb] = hexToRgb(m.color);
-      const pulseR = m.status === 'critical' ? 3.5 + Math.sin(t * 5 + idx) * 1.5 :
-                     m.status === 'warning' ? 3 + Math.sin(t * 3 + idx) * 1 : 2.5;
+      const pulseR = m.status === 'critical' ? 5.4 + Math.sin(t * 5 + idx) * 1.6 :
+                     m.status === 'warning' ? 4.6 + Math.sin(t * 3 + idx) * 1.2 : 4.1;
 
       // Radar "ping" — expanding, fading ripple every ~2.3s per marker
       // (staggered by index so the map never ripples in unison).
       const pingPeriod = 46;
       const pingPhase = ((t * 20 + idx * 2.9) % pingPeriod) / pingPeriod; // 0..1
-      const pingR = pulseR + 2 + pingPhase * 15;
-      const pingA = (1 - pingPhase) * 0.45;
+      const pingR = pulseR + 3 + pingPhase * 24;
+      const pingA = (1 - pingPhase) * 0.72;
       ctx.strokeStyle = `rgba(${mr},${mg},${mb},${pingA})`;
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.arc(px, py, pingR, 0, Math.PI * 2);
       ctx.stroke();
@@ -249,35 +298,40 @@ export default function WorldGlobe() {
       const sweepBoost = swept ? 0.28 * (1 - a / sweepTrailing) : 0;
 
       // Glow aura (brightens as the sweep passes)
-      const auraGrad = ctx.createRadialGradient(px, py, 0, px, py, pulseR * 3);
-      auraGrad.addColorStop(0, `rgba(${mr},${mg},${mb},${0.2 + sweepBoost})`);
+      const auraGrad = ctx.createRadialGradient(px, py, 0, px, py, pulseR * 4.4);
+      auraGrad.addColorStop(0, `rgba(${mr},${mg},${mb},${0.4 + sweepBoost})`);
+      auraGrad.addColorStop(0.42, `rgba(${mr},${mg},${mb},${0.13 + sweepBoost * 0.45})`);
       auraGrad.addColorStop(1, 'transparent');
       ctx.fillStyle = auraGrad;
       ctx.beginPath();
-      ctx.arc(px, py, pulseR * 3, 0, Math.PI * 2);
+      ctx.arc(px, py, pulseR * 4.4, 0, Math.PI * 2);
       ctx.fill();
 
-      // Core dot
+      // Core dot — with its own bloom so it is a clear focal point
+      ctx.save();
+      ctx.shadowColor = `rgba(${mr},${mg},${mb},0.95)`;
+      ctx.shadowBlur = 14;
       ctx.fillStyle = m.color;
       ctx.beginPath();
       ctx.arc(px, py, pulseR, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
 
       // Inner bright core
-      ctx.fillStyle = `rgba(255,255,255,0.6)`;
+      ctx.fillStyle = `rgba(255,255,255,0.88)`;
       ctx.beginPath();
-      ctx.arc(px, py, pulseR * 0.35, 0, Math.PI * 2);
+      ctx.arc(px, py, pulseR * 0.4, 0, Math.PI * 2);
       ctx.fill();
 
       // Label (dim until swept, then pops)
-      ctx.fillStyle = `rgba(${mr},${mg},${mb},${0.55 + sweepBoost * 1.5})`;
-      ctx.font = `bold 7px "JetBrains Mono", monospace`;
+      ctx.fillStyle = `rgba(${mr},${mg},${mb},${Math.min(1, 0.82 + sweepBoost * 1.5)})`;
+      ctx.font = `bold 7.5px "JetBrains Mono", monospace`;
       ctx.textAlign = 'center';
-      ctx.fillText(m.name, px, py - pulseR - 5);
+      ctx.fillText(m.name, px, py - pulseR - 6);
 
       // Status sub-label
-      ctx.fillStyle = `rgba(${mr},${mg},${mb},0.4)`;
-      ctx.font = `5px "JetBrains Mono", monospace`;
+      ctx.fillStyle = `rgba(${mr},${mg},${mb},0.58)`;
+      ctx.font = `5.5px "JetBrains Mono", monospace`;
       ctx.fillText(m.label, px, py - pulseR - 0);
     });
 
