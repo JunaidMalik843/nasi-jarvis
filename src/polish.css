@@ -66,9 +66,9 @@
   min-height: 0;
   flex: 1 1 auto;
   box-shadow:
-    0 0 34px rgba(0, 229, 255, .09),
+    0 0 34px rgba(0, 240, 255, .09),
     0 12px 34px rgba(0, 0, 0, .6),
-    inset 0 0 30px rgba(0, 229, 255, .012);
+    inset 0 0 30px rgba(0, 240, 255, .012);
 }
 .nasi-agent-town-office { flex: 1 1 auto; min-height: 250px; }
 
@@ -94,12 +94,12 @@
   display: flex; align-items: center; gap: 5px;
   padding: 6px 10px; flex-shrink: 0;
   overflow-x: auto; overflow-y: hidden;
-  border-bottom: 1px solid rgba(0, 229, 255, .06);
+  border-bottom: 1px solid rgba(0, 240, 255, .06);
   background: rgba(4, 7, 12, .55);
   scrollbar-width: thin;
 }
 .nasi-roster-row::-webkit-scrollbar { height: 3px; }
-.nasi-roster-row::-webkit-scrollbar-thumb { background: rgba(0, 229, 255, .12); border-radius: 2px; }
+.nasi-roster-row::-webkit-scrollbar-thumb { background: rgba(0, 240, 255, .12); border-radius: 2px; }
 .nasi-roster-pill {
   display: flex; align-items: center; gap: 5px;
   padding: 2px 8px 2px 2px; border-radius: 20px;
@@ -107,10 +107,10 @@
   background: rgba(8, 12, 18, .7);
   transition: var(--t); white-space: nowrap; flex-shrink: 0;
 }
-.nasi-roster-pill:hover { border-color: var(--line-2); background: rgba(0, 229, 255, .05); }
+.nasi-roster-pill:hover { border-color: var(--line-2); background: rgba(0, 240, 255, .05); }
 .nasi-roster-pill.active {
   border-color: var(--agent-color);
-  background: rgba(0, 229, 255, .06);
+  background: rgba(0, 240, 255, .06);
   box-shadow: 0 0 12px -2px var(--agent-color);
 }
 .nasi-roster-face {
@@ -187,7 +187,7 @@
   max-height: none !important;
   overflow: hidden !important;
   align-items: stretch !important;
-  border-top: 1px solid rgba(0, 229, 255, .06);
+  border-top: 1px solid rgba(0, 240, 255, .06);
   flex-shrink: 0;
   scrollbar-width: none;
 }
@@ -196,12 +196,12 @@
   flex: 1 1 0; min-width: 0;
   display: flex; align-items: center; justify-content: center; gap: 5px;
   padding: 7px 4px;
-  border-right: 1px solid rgba(0, 229, 255, .07);
+  border-right: 1px solid rgba(0, 240, 255, .07);
   background: rgba(4, 7, 12, .4);
   transition: var(--t);
 }
 .nasi-dept-pill:last-child { border-right: 0; }
-.nasi-dept-pill:hover { background: rgba(0, 229, 255, .06); }
+.nasi-dept-pill:hover { background: rgba(0, 240, 255, .06); }
 .nasi-dept-pill.active { background: rgba(0, 232, 138, .06); }
 .nasi-dept-pill-icon {
   width: 5px; height: 5px; border-radius: 1px; flex-shrink: 0;
@@ -226,34 +226,34 @@
 /* ── 1 · TOPBAR ── */
 .nasi-brandname {
   letter-spacing: .52em; margin-right: -.52em;
-  text-shadow: 0 0 10px rgba(0, 229, 255, .9), 0 0 28px rgba(0, 229, 255, .5), 0 0 70px rgba(0, 229, 255, .25);
+  text-shadow: 0 0 10px rgba(0, 240, 255, .9), 0 0 28px rgba(0, 240, 255, .5), 0 0 70px rgba(0, 240, 255, .25);
 }
 .nasi-topbar-btn { border: 1px solid transparent; transition: all 200ms ease; }
-.nasi-topbar-btn:hover { color: var(--text-1, #cfe9f2); background: rgba(0, 229, 255, .04); }
+.nasi-topbar-btn:hover { color: var(--text-1, #cfe9f2); background: rgba(0, 240, 255, .04); }
 .nasi-topbar-btn.active {
-  background: linear-gradient(180deg, rgba(0, 229, 255, .16), rgba(0, 229, 255, .07));
-  border-color: rgba(0, 229, 255, .38);
+  background: linear-gradient(180deg, rgba(0, 240, 255, .16), rgba(0, 240, 255, .07));
+  border-color: rgba(0, 240, 255, .38);
   color: #aef3ff;
-  box-shadow: 0 0 18px rgba(0, 229, 255, .22), inset 0 0 12px rgba(0, 229, 255, .08);
-  text-shadow: 0 0 10px rgba(0, 229, 255, .65);
+  box-shadow: 0 0 18px rgba(0, 240, 255, .22), inset 0 0 12px rgba(0, 240, 255, .08);
+  text-shadow: 0 0 10px rgba(0, 240, 255, .65);
 }
 .nasi-topbar-actions { gap: 7px; }
 .nasi-icon-btn { width: 30px; height: 30px; transition: all 200ms ease; }
 .nasi-icon-btn:hover {
-  color: var(--cyan); background: rgba(0, 229, 255, .08); border-color: rgba(0, 229, 255, .3);
-  box-shadow: 0 0 16px rgba(0, 229, 255, .22), inset 0 0 8px rgba(0, 229, 255, .06);
-  text-shadow: 0 0 8px rgba(0, 229, 255, .5);
+  color: var(--cyan); background: rgba(0, 240, 255, .08); border-color: rgba(0, 240, 255, .3);
+  box-shadow: 0 0 16px rgba(0, 240, 255, .22), inset 0 0 8px rgba(0, 240, 255, .06);
+  text-shadow: 0 0 8px rgba(0, 240, 255, .5);
 }
 .nasi-topbar .nasi-status-dot { width: 7px; height: 7px; }
 
 /* ── 2 · LEFT PANEL — status feed ── */
 .nasi-feed-event { transition: all 200ms ease; }
-.nasi-feed-event + .nasi-feed-event { border-top: 1px solid rgba(0, 229, 255, .045); }
+.nasi-feed-event + .nasi-feed-event { border-top: 1px solid rgba(0, 240, 255, .045); }
 .nasi-feed-event-time {
   min-width: 32px; text-align: center;
   padding: 1px 4px; border-radius: 2px;
-  background: rgba(0, 229, 255, .04);
-  border: 1px solid rgba(0, 229, 255, .07);
+  background: rgba(0, 240, 255, .04);
+  border: 1px solid rgba(0, 240, 255, .07);
   text-shadow: 0 0 6px currentColor;
 }
 .nasi-feed-card { transition: box-shadow 400ms ease, border-color 400ms ease; }
@@ -276,32 +276,32 @@
 /* ── 3 · CORE CARD ── */
 /* Bracket frame: brighter frame + four glowing corner brackets */
 .nasi-core-area::before {
-  border-color: rgba(0, 229, 255, .09);
-  box-shadow: 0 0 18px rgba(0, 229, 255, .05), inset 0 0 26px rgba(0, 229, 255, .018);
+  border-color: rgba(0, 240, 255, .09);
+  box-shadow: 0 0 18px rgba(0, 240, 255, .05), inset 0 0 26px rgba(0, 240, 255, .018);
   background-image:
-    linear-gradient(rgba(0, 229, 255, .5), rgba(0, 229, 255, .5)),
-    linear-gradient(rgba(0, 229, 255, .5), rgba(0, 229, 255, .5)),
-    linear-gradient(rgba(0, 229, 255, .5), rgba(0, 229, 255, .5)),
-    linear-gradient(rgba(0, 229, 255, .5), rgba(0, 229, 255, .5)),
-    linear-gradient(rgba(0, 229, 255, .5), rgba(0, 229, 255, .5)),
-    linear-gradient(rgba(0, 229, 255, .5), rgba(0, 229, 255, .5)),
-    linear-gradient(rgba(0, 229, 255, .5), rgba(0, 229, 255, .5)),
-    linear-gradient(rgba(0, 229, 255, .5), rgba(0, 229, 255, .5)),
-    radial-gradient(ellipse at 50% 50%, rgba(0, 229, 255, .02), transparent 70%);
+    linear-gradient(rgba(0, 240, 255, .5), rgba(0, 240, 255, .5)),
+    linear-gradient(rgba(0, 240, 255, .5), rgba(0, 240, 255, .5)),
+    linear-gradient(rgba(0, 240, 255, .5), rgba(0, 240, 255, .5)),
+    linear-gradient(rgba(0, 240, 255, .5), rgba(0, 240, 255, .5)),
+    linear-gradient(rgba(0, 240, 255, .5), rgba(0, 240, 255, .5)),
+    linear-gradient(rgba(0, 240, 255, .5), rgba(0, 240, 255, .5)),
+    linear-gradient(rgba(0, 240, 255, .5), rgba(0, 240, 255, .5)),
+    linear-gradient(rgba(0, 240, 255, .5), rgba(0, 240, 255, .5)),
+    radial-gradient(ellipse at 50% 50%, rgba(0, 240, 255, .02), transparent 70%);
   background-repeat: no-repeat;
   background-size: 16px 1.5px, 1.5px 16px, 16px 1.5px, 1.5px 16px, 16px 1.5px, 1.5px 16px, 16px 1.5px, 1.5px 16px, 100% 100%;
   background-position: left top, left top, right top, right top, left bottom, left bottom, right bottom, right bottom, 0 0;
-  filter: drop-shadow(0 0 5px rgba(0, 229, 255, .28));
+  filter: drop-shadow(0 0 5px rgba(0, 240, 255, .28));
 }
 .nasi-core-area::after {
-  border-color: rgba(0, 229, 255, .55);
-  box-shadow: 0 0 10px rgba(0, 229, 255, .3);
+  border-color: rgba(0, 240, 255, .55);
+  box-shadow: 0 0 10px rgba(0, 240, 255, .3);
 }
 /* Pipeline label: bigger + breathing */
 .nasi-core-card-label {
   font-size: 8.5px; letter-spacing: .26em;
-  color: rgba(0, 229, 255, .7);
-  text-shadow: 0 0 10px rgba(0, 229, 255, .3);
+  color: rgba(0, 240, 255, .7);
+  text-shadow: 0 0 10px rgba(0, 240, 255, .3);
   animation: label-breathe 3.4s ease-in-out infinite;
 }
 @keyframes label-breathe { 0%, 100% { opacity: .75; } 50% { opacity: 1; } }
@@ -341,10 +341,10 @@
   content: attr(data-tip);
   position: absolute; left: 50%; bottom: calc(100% + 7px); transform: translateX(-50%) translateY(3px);
   padding: 4px 9px; border-radius: 3px;
-  background: rgba(6, 12, 18, .96); border: 1px solid rgba(0, 229, 255, .25);
+  background: rgba(6, 12, 18, .96); border: 1px solid rgba(0, 240, 255, .25);
   color: var(--text-1, #cfe9f2); font-family: var(--mono); font-size: 8px; letter-spacing: .08em;
   white-space: nowrap; pointer-events: none; opacity: 0;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, .6), 0 0 12px rgba(0, 229, 255, .12);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .6), 0 0 12px rgba(0, 240, 255, .12);
   transition: opacity 160ms ease, transform 160ms ease; z-index: 60;
 }
 .nasi-roster-pill:hover::after { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -365,7 +365,7 @@
 .nasi-wave-idle-dots i {
   width: 4px; height: 4px; border-radius: 50%; background: var(--cyan);
   opacity: .25; animation: waitdot 1.4s ease-in-out infinite;
-  box-shadow: 0 0 6px rgba(0, 229, 255, .5);
+  box-shadow: 0 0 6px rgba(0, 240, 255, .5);
 }
 .nasi-wave-idle-dots i:nth-child(2) { animation-delay: .22s; }
 .nasi-wave-idle-dots i:nth-child(3) { animation-delay: .44s; }
@@ -408,4 +408,153 @@
 @media (max-width: 768px) {
   .nasi-brandname { letter-spacing: .38em; margin-right: -.38em; }
   .nasi-feed-event-time { min-width: 28px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   FINAL PREMIUM PASS — AAA-HUD polish layer
+   (loads last: overrides everything above it)
+   ═══════════════════════════════ polish.css ═══════════════════════ */
+
+/* ── 2 · PREMIUM BUTTONS — one treatment across the board ── */
+/* Layered gradient fill + crisp border + glass sheen + press state. */
+.nasi-topbar-btn, .nasi-icon-btn, .nasi-console-tab, .nasi-agent-tab,
+.nasi-dept-pill, .nasi-roster-pill, .nasi-stop-btn, .nasi-live-btn,
+.nasi-input-send, .nasi-input-mic {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(120, 200, 230, .09) 0%, rgba(0, 240, 255, .02) 38%, transparent 55%),
+    linear-gradient(180deg, #17232b 0%, #0c151b 100%);
+  border: 1px solid rgba(0, 240, 255, .2);
+  box-shadow:
+    inset 0 1px 0 rgba(185, 240, 255, .12),
+    0 2px 5px rgba(0, 0, 0, .5),
+    0 0 12px rgba(0, 240, 255, .05);
+  transition: all 180ms cubic-bezier(.4, 0, .2, 1);
+}
+.nasi-topbar-btn:hover, .nasi-icon-btn:hover, .nasi-console-tab:hover, .nasi-agent-tab:hover,
+.nasi-dept-pill:hover, .nasi-roster-pill:hover, .nasi-stop-btn:hover:not(:disabled), .nasi-live-btn:hover,
+.nasi-input-send:hover:not(:disabled), .nasi-input-mic:hover {
+  border-color: rgba(0, 240, 255, .45);
+  box-shadow:
+    inset 0 1px 0 rgba(185, 240, 255, .16),
+    0 2px 6px rgba(0, 0, 0, .5),
+    0 0 18px rgba(0, 240, 255, .16),
+    0 0 42px rgba(0, 240, 255, .06);
+  filter: brightness(1.12);
+}
+.nasi-topbar-btn:active, .nasi-icon-btn:active, .nasi-console-tab:active, .nasi-agent-tab:active,
+.nasi-dept-pill:active, .nasi-roster-pill:active, .nasi-stop-btn:active:not(:disabled), .nasi-live-btn:active,
+.nasi-input-send:active:not(:disabled), .nasi-input-mic:active {
+  transform: scale(.965);
+  filter: brightness(.88);
+  box-shadow:
+    inset 0 1px 0 rgba(185, 240, 255, .08),
+    0 1px 2px rgba(0, 0, 0, .6),
+    0 0 8px rgba(0, 240, 255, .06);
+}
+/* Keep the active/filled states readable on top of the new base */
+.nasi-topbar-btn.active {
+  background:
+    linear-gradient(180deg, rgba(0, 240, 255, .17), rgba(0, 240, 255, .06)),
+    linear-gradient(180deg, #14262e 0%, #0a141a 100%);
+  border-color: rgba(0, 240, 255, .4);
+  box-shadow:
+    inset 0 1px 0 rgba(185, 240, 255, .18),
+    0 2px 5px rgba(0, 0, 0, .5),
+    0 0 18px rgba(0, 240, 255, .18);
+}
+.nasi-console-tab.active {
+  background:
+    linear-gradient(180deg, rgba(0, 240, 255, .1), rgba(0, 240, 255, .03)),
+    linear-gradient(180deg, #14262e, #0a141a);
+}
+.nasi-agent-tab.active, .nasi-dept-pill.active, .nasi-roster-pill:has(.nasi-roster-dot.active),
+.nasi-live-btn.active {
+  filter: brightness(1.14);
+  border-color: rgba(0, 240, 255, .42);
+}
+/* The round mic keeps its radial treatment, upgraded to match */
+.nasi-mic {
+  background:
+    radial-gradient(circle at 38% 30%, rgba(160, 230, 255, .16), transparent 55%),
+    linear-gradient(180deg, #16262e 0%, #08121a 100%);
+  border: 1px solid rgba(0, 240, 255, .32);
+  box-shadow:
+    inset 0 1px 0 rgba(185, 240, 255, .2),
+    0 3px 8px rgba(0, 0, 0, .55),
+    0 0 20px rgba(0, 240, 255, .14);
+}
+.nasi-mic:active { transform: scale(.95); filter: brightness(.9); }
+.nasi-mic svg { filter: drop-shadow(0 0 5px rgba(0, 240, 255, .55)); }
+/* Icon drop-shadows everywhere */
+.nasi-topbar-btn svg, .nasi-icon-btn svg, .nasi-console-tab svg, .nasi-agent-tab svg,
+.nasi-stop-btn svg, .nasi-live-btn svg, .nasi-input-send svg, .nasi-input-mic svg {
+  filter: drop-shadow(0 0 3px rgba(0, 240, 255, .3));
+}
+
+/* ── 3 · UNIFIED SECTION HEADERS ── */
+/* Every card header: dot + tracked label + thin gradient divider. */
+.nasi-feed-header, .nasi-core-card-label, .nasi-agent-town-header,
+.nasi-console-tabs, .nasi-voice-section-label {
+  position: relative;
+  align-items: center;
+}
+.nasi-feed-header, .nasi-core-card-label, .nasi-agent-town-header,
+.nasi-voice-section-label {
+  letter-spacing: .22em;
+}
+.nasi-feed-header, .nasi-core-card-label, .nasi-agent-town-header {
+  padding-bottom: 4px;
+}
+.nasi-feed-header::after, .nasi-core-card-label::after,
+.nasi-agent-town-header::after, .nasi-voice-section-label::after {
+  content: '';
+  position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
+  background: linear-gradient(90deg, rgba(0, 240, 255, .38), rgba(0, 240, 255, .1) 45%, transparent 90%);
+  box-shadow: 0 0 7px rgba(0, 240, 255, .14);
+  pointer-events: none;
+}
+.nasi-feed-header::after { left: 0; }
+.nasi-core-card-label::after { left: 14px; right: 14px; }
+.nasi-agent-town-header::after { left: 12px; right: 12px; }
+.nasi-voice-section-label::after { left: 2px; right: 2px; }
+.nasi-console-tabs::after { content: none; }
+.nasi-agent-town-header { text-shadow: 0 0 10px rgba(0, 240, 255, .25); }
+
+/* ── 5 · LAYERED DEPTH SHADOWS on every card ── */
+/* Tight dark contact shadow (physical depth) + soft outer glow (sci-fi). */
+.nasi-left-panel, .nasi-agent-town, .nasi-console-panel {
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, .72),
+    0 10px 26px rgba(0, 0, 0, .5),
+    0 0 26px rgba(0, 240, 255, .07),
+    0 0 68px rgba(0, 240, 255, .028),
+    inset 0 1px 0 rgba(185, 240, 255, .05);
+}
+/* Core card uses filter drop-shadows (clip-path clips box-shadow); stack
+   a tight dark + soft glow pair there too. */
+.nasi-core-card {
+  filter:
+    drop-shadow(0 2px 5px rgba(0, 0, 0, .66))
+    drop-shadow(0 12px 26px rgba(0, 0, 0, .45))
+    drop-shadow(0 0 24px rgba(0, 240, 255, .08))
+    drop-shadow(0 0 60px rgba(0, 240, 255, .03));
+}
+
+/* ── 6 · VIEW/TAB TRANSITIONS — 150-200ms fade+rise, never a snap ── */
+@keyframes viewIn {
+  from { opacity: 0; transform: translateY(7px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.nasi-command-center, .nasi-chat-view {
+  animation: viewIn 190ms cubic-bezier(.25, .6, .3, 1) both;
+}
+.nasi-voice-section, .nasi-agent-console-list, .nasi-notes-section {
+  animation: viewIn 170ms cubic-bezier(.25, .6, .3, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nasi-command-center, .nasi-chat-view,
+  .nasi-voice-section, .nasi-agent-console-list, .nasi-notes-section {
+    animation: none;
+  }
 }
