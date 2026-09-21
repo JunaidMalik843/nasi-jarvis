@@ -23,20 +23,22 @@ export default function NASICore({ state }: { state: CoreState }) {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const W = 240, H = 240, dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // v3: +15% (240→276) so the orb fills more of its card, with a denser,
+    // wider particle cloud to match the reference's full-bodied sphere.
+    const W = 276, H = 276, dpr = Math.min(window.devicePixelRatio || 1, 2);
     // Absolute pixel offsets scale with the orb so the rings/waves keep their
     // proportions after the 20% size reduction.
     const K = W / 300;
     canvas.width = W * dpr; canvas.height = H * dpr;
     canvas.style.width = W + 'px'; canvas.style.height = H + 'px'; canvas.style.borderRadius = '50%';
     ctx.scale(dpr, dpr);
-    const cx = W / 2, cy = H / 2, R = 93;
+    const cx = W / 2, cy = H / 2, R = 107;
 
     if (particlesRef.current.length === 0) {
       const shells = [
-        { count: 280, rMin: 0.2, rMax: 0.6 },
-        { count: 240, rMin: 0.58, rMax: 0.9 },
-        { count: 170, rMin: 0.88, rMax: 1.06 },
+        { count: 340, rMin: 0.2, rMax: 0.62 },
+        { count: 300, rMin: 0.58, rMax: 0.92 },
+        { count: 230, rMin: 0.88, rMax: 1.08 },
       ];
       for (const shell of shells) {
         for (let i = 0; i < shell.count; i++) {
@@ -46,7 +48,7 @@ export default function NASICore({ state }: { state: CoreState }) {
           particlesRef.current.push({
             x: r * Math.sin(phi) * Math.cos(theta), y: r * Math.sin(phi) * Math.sin(theta), z: r * Math.cos(phi),
             vx: (Math.random() - 0.5) * 0.06, vy: (Math.random() - 0.5) * 0.06, vz: (Math.random() - 0.5) * 0.06,
-            size: 0.35 + Math.random() * 1.9, hue: 172 + Math.random() * 42, brightness: 0.45 + Math.random() * 0.55,
+            size: 0.4 + Math.random() * 2.1, hue: 172 + Math.random() * 42, brightness: 0.45 + Math.random() * 0.55,
           });
         }
       }
@@ -59,7 +61,7 @@ export default function NASICore({ state }: { state: CoreState }) {
         case 'THINKING': return { r: 255, g: 179, b: 71, intensity: 0.9, glow: 0.55 };
         case 'SPEAKING': return { r: 0, g: 232, b: 138, intensity: 1.0, glow: 0.7 };
         case 'ERROR': return { r: 255, g: 82, b: 82, intensity: 0.95, glow: 0.6 };
-        default: return { r: 0, g: 190, b: 235, intensity: 0.5, glow: 0.26 };
+        default: return { r: 0, g: 202, b: 244, intensity: 0.5, glow: 0.26 };
       }
     };
 

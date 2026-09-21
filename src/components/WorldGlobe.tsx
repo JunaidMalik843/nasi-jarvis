@@ -1,5 +1,14 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { geoOrthographic, geoGraticule10, geoPath, geoInterpolate } from 'd3-geo';
+import { feature } from 'topojson-client';
+import topo from 'world-atlas/countries-110m.json';
+
+// Real continent outlines (110m Natural Earth via world-atlas) — gives the
+// radar a faint satellite texture instead of a bare wireframe sphere.
+const LAND: GeoJSON.FeatureCollection = feature(
+  topo as unknown as Parameters<typeof feature>[0],
+  (topo as unknown as { objects: { countries: never } }).objects.countries,
+) as unknown as GeoJSON.FeatureCollection;
 
 interface Marker {
   name: string;
@@ -138,6 +147,17 @@ export default function WorldGlobe() {
     path.context(ctx)(graticule);
     ctx.stroke();
 
+    // ── Continent landmass (satellite texture) ──
+    // Subtle two-pass fill+stroke reads as real geography under the scanlines
+    // while staying far too dim to break the black theme.
+    ctx.beginPath();
+    path.context(ctx)(LAND);
+    ctx.fillStyle = 'rgba(14, 30, 36, 0.5)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.15)';
+    ctx.lineWidth = 0.45;
+    ctx.stroke();
+
     // ── Heat zones ──
     const t = Date.now() / 1000;
     HEAT_ZONES.forEach(zone => {
@@ -162,6 +182,41 @@ export default function WorldGlobe() {
     });
 
     // ── Markers ──
+    // Radar sweep geometry (shared with marker highlighting below):
+    // one thin bright leading edge + a fading trailing wedge, ~24s per revolution.
+    const sweepAngle = (t * 0.26) % (Math.PI * 2);
+    const sweepTrailing = Math.PI * 0.62; // ~112° fade behind the leading edge
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 0.995, 0, Math.PI * 2);
+    ctx.clip();
+    const swGrad = ctx.createConicGradient(sweepAngle - sweepTrailing, cx, cy);
+    swGrad.addColorStop(0, 'rgba(0, 240, 255, 0)');
+    swGrad.addColorStop(sweepTrailing / (Math.PI * 2), 'rgba(0, 240, 255, 0.035)');
+    swGrad.addColorStop(sweepTrailing / (Math.PI * 2) + 0.002, 'rgba(0, 240, 255, 0)');
+    swGrad.addColorStop(1, 'rgba(0, 240, 255, 0)');
+    ctx.fillStyle = swGrad;
+    ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+    // Leading edge line
+    ctx.strokeStyle = 'rgba(140, 245, 255, 0.4)';
+    ctx.lineWidth = 1.1;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(sweepAngle) * r * 0.99, cy + Math.sin(sweepAngle) * r * 0.99);
+    ctx.stroke();
+    ctx.restore();
+
+    // Soft outer glow ring around the whole radar face
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 240, 255, 0.55)';
+    ctx.shadowBlur = 14;
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.3)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r + 3, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
     MARKERS.forEach((m, idx) => {
       const projected = projection([m.lon, m.lat]);
       if (!projected) return;
@@ -174,17 +229,28 @@ export default function WorldGlobe() {
       const pulseR = m.status === 'critical' ? 3.5 + Math.sin(t * 5 + idx) * 1.5 :
                      m.status === 'warning' ? 3 + Math.sin(t * 3 + idx) * 1 : 2.5;
 
-      // Outer pulse ring
-      const ringR = pulseR + 4 + Math.sin(t * 2.5 + idx * 1.1) * 2;
-      ctx.strokeStyle = `rgba(${mr},${mg},${mb},${m.status === 'critical' ? 0.35 : 0.2})`;
-      ctx.lineWidth = m.status === 'critical' ? 1 : 0.7;
+      // Radar "ping" — expanding, fading ripple every ~2.3s per marker
+      // (staggered by index so the map never ripples in unison).
+      const pingPeriod = 46;
+      const pingPhase = ((t * 20 + idx * 2.9) % pingPeriod) / pingPeriod; // 0..1
+      const pingR = pulseR + 2 + pingPhase * 15;
+      const pingA = (1 - pingPhase) * 0.45;
+      ctx.strokeStyle = `rgba(${mr},${mg},${mb},${pingA})`;
+      ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.arc(px, py, ringR, 0, Math.PI * 2);
+      ctx.arc(px, py, pingR, 0, Math.PI * 2);
       ctx.stroke();
 
-      // Glow aura
+      // Sweep highlight: markers recently swept by the beam light up briefly
+      let a = sweepAngle - Math.atan2(py - cy, px - cx);
+      while (a < 0) a += Math.PI * 2;
+      while (a >= Math.PI * 2) a -= Math.PI * 2;
+      const swept = a < sweepTrailing;
+      const sweepBoost = swept ? 0.28 * (1 - a / sweepTrailing) : 0;
+
+      // Glow aura (brightens as the sweep passes)
       const auraGrad = ctx.createRadialGradient(px, py, 0, px, py, pulseR * 3);
-      auraGrad.addColorStop(0, `rgba(${mr},${mg},${mb},0.2)`);
+      auraGrad.addColorStop(0, `rgba(${mr},${mg},${mb},${0.2 + sweepBoost})`);
       auraGrad.addColorStop(1, 'transparent');
       ctx.fillStyle = auraGrad;
       ctx.beginPath();
@@ -203,8 +269,8 @@ export default function WorldGlobe() {
       ctx.arc(px, py, pulseR * 0.35, 0, Math.PI * 2);
       ctx.fill();
 
-      // Label
-      ctx.fillStyle = `rgba(${mr},${mg},${mb},0.7)`;
+      // Label (dim until swept, then pops)
+      ctx.fillStyle = `rgba(${mr},${mg},${mb},${0.55 + sweepBoost * 1.5})`;
       ctx.font = `bold 7px "JetBrains Mono", monospace`;
       ctx.textAlign = 'center';
       ctx.fillText(m.name, px, py - pulseR - 5);
@@ -245,9 +311,7 @@ export default function WorldGlobe() {
     // Bottom-left
     ctx.beginPath(); ctx.moveTo(6, h - 6 - bSize); ctx.lineTo(6, h - 6); ctx.lineTo(6 + bSize, h - 6); ctx.stroke();
     // Bottom-right
-    ctx.beginPath(); ctx.moveTo(w - 6 - bSize, h - 6); ctx.lineTo(w - 6, h - 6); ctx.lineTo(w - 6, h - 6 - bSize); ctx.stroke();
-
-    // ── HUD labels ──
+    ctx.beginPath(); ctx.moveTo(w - 6 - bSize, h - 6); ctx.lineTo(w - 6, h - 6); ctx.lineTo(w - 6, h - 6 - bSize); ctx.stroke();    // ── HUD labels ──
     ctx.fillStyle = 'rgba(0,229,255,0.35)';
     ctx.font = '6px "JetBrains Mono", monospace';
     ctx.textAlign = 'left';
@@ -261,16 +325,7 @@ export default function WorldGlobe() {
     const activeCount = MARKERS.filter(m => m.status === 'active').length;
     ctx.fillText(`${activeCount} ONLINE`, w - 10, 24);
 
-    // ── Scan line ──
-    const scanAngle = t * 0.8;
-    const scanX = cx + Math.cos(scanAngle) * r * 0.95;
-    const scanY = cy + Math.sin(scanAngle) * r * 0.95;
-    ctx.strokeStyle = 'rgba(0,229,255,0.08)';
-    ctx.lineWidth = 0.5;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(scanX, scanY);
-    ctx.stroke();
+    // (legacy straight scan line superseded by the conic sweep wedge above)
 
     animRef.current = requestAnimationFrame(draw);
   }, []);
@@ -334,14 +389,20 @@ export default function WorldGlobe() {
         position: 'absolute', bottom: 8, right: 8, display: 'flex', flexDirection: 'column', gap: 2, zIndex: 5,
       }}>
         <button onClick={() => handleZoom(0.2)} style={{
-          width: 22, height: 22, borderRadius: 3, background: 'rgba(6,10,16,0.85)',
-          border: '1px solid rgba(0,229,255,0.15)', color: 'rgba(0,229,255,0.5)',
+          width: 22, height: 22, borderRadius: 3,
+          background: 'linear-gradient(180deg, rgba(30,44,54,.95), rgba(9,16,22,.95))',
+          border: '1px solid rgba(0,240,255,0.22)', color: 'rgba(140,240,255,0.85)',
           fontFamily: 'var(--mono)', fontSize: 11, cursor: 'pointer', display: 'grid', placeItems: 'center',
+          boxShadow: '0 1px 4px rgba(0,0,0,.55), inset 0 1px 0 rgba(180,240,255,.14), 0 0 10px rgba(0,240,255,.05)',
+          textShadow: '0 0 6px rgba(0,240,255,.5)',
         }} title="Zoom in">+</button>
         <button onClick={() => handleZoom(-0.2)} style={{
-          width: 22, height: 22, borderRadius: 3, background: 'rgba(6,10,16,0.85)',
-          border: '1px solid rgba(0,229,255,0.15)', color: 'rgba(0,229,255,0.5)',
+          width: 22, height: 22, borderRadius: 3,
+          background: 'linear-gradient(180deg, rgba(30,44,54,.95), rgba(9,16,22,.95))',
+          border: '1px solid rgba(0,240,255,0.22)', color: 'rgba(140,240,255,0.85)',
           fontFamily: 'var(--mono)', fontSize: 11, cursor: 'pointer', display: 'grid', placeItems: 'center',
+          boxShadow: '0 1px 4px rgba(0,0,0,.55), inset 0 1px 0 rgba(180,240,255,.14), 0 0 10px rgba(0,240,255,.05)',
+          textShadow: '0 0 6px rgba(0,240,255,.5)',
         }} title="Zoom out">−</button>
       </div>
     </div>

@@ -540,10 +540,10 @@ useEffect(() => {
       root.style.setProperty('--emerald', '#00ff88');
       root.style.setProperty('--amber', '#ffaa00');
       root.style.setProperty('--crimson', '#ff4444');
-      root.style.setProperty('--line', 'rgba(0, 229, 255, .14)');
-      root.style.setProperty('--line-2', 'rgba(0, 229, 255, .24)');
-      root.style.setProperty('--line-3', 'rgba(0, 229, 255, .34)');
-      root.style.setProperty('--glow-cyan', 'rgba(0, 229, 255, .48)');
+      root.style.setProperty('--line', 'rgba(0, 240, 255, .14)');
+      root.style.setProperty('--line-2', 'rgba(0, 240, 255, .24)');
+      root.style.setProperty('--line-3', 'rgba(0, 240, 255, .34)');
+      root.style.setProperty('--glow-cyan', 'rgba(0, 240, 255, .48)');
       body.style.background = '#000000';
     } else if (t === 'emerald') {
       root.style.setProperty('--cyan', '#00ff88');
@@ -570,7 +570,7 @@ useEffect(() => {
     }
   };
   apply(settings.theme);
-  return () => { root.style.setProperty('--cyan', '#00e5ff'); root.style.setProperty('--line', 'rgba(0, 229, 255, .14)'); body.style.background = '#000000'; };
+  return () => { root.style.setProperty('--cyan', '#00e5ff'); root.style.setProperty('--line', 'rgba(0, 240, 255, .14)'); body.style.background = '#000000'; };
 }, [settings.theme]);
   const [settingsDraft, setSettingsDraft] = useState<NasiSettings>(settings);
   const [settingsSaved, setSettingsSaved] = useState(false);
@@ -1251,7 +1251,7 @@ useEffect(() => {
               <div className="nasi-settings-field">
                 <label className="nasi-settings-field-label">ACCENT COLOR</label>
                 <div className="nasi-settings-row-group">
-                  <button className="nasi-theme-chip" onClick={() => setSettingsDraft(s => ({ ...s, theme: 'cyan' }))} style={{ borderColor: 'rgba(0,229,255,.6)', boxShadow: '0 0 10px rgba(0,229,255,.25)' }}><span style={{ background: 'var(--cyan)', width: 14, height: 14, borderRadius: '50%', display: 'inline-block', marginRight: 6, boxShadow: '0 0 8px var(--cyan)' }} />CYAN</button>
+                  <button className="nasi-theme-chip" onClick={() => setSettingsDraft(s => ({ ...s, theme: 'cyan' }))} style={{ borderColor: 'rgba(0,240,255,.6)', boxShadow: '0 0 10px rgba(0,240,255,.25)' }}><span style={{ background: 'var(--cyan)', width: 14, height: 14, borderRadius: '50%', display: 'inline-block', marginRight: 6, boxShadow: '0 0 8px var(--cyan)' }} />CYAN</button>
                   <button className="nasi-theme-chip" onClick={() => setSettingsDraft(s => ({ ...s, theme: 'emerald' }))} style={{ borderColor: 'rgba(0,255,136,.6)', boxShadow: '0 0 10px rgba(0,255,136,.25)' }}><span style={{ background: 'var(--emerald)', width: 14, height: 14, borderRadius: '50%', display: 'inline-block', marginRight: 6, boxShadow: '0 0 8px var(--emerald)' }} />EMERALD</button>
                   <button className="nasi-theme-chip" onClick={() => setSettingsDraft(s => ({ ...s, theme: 'crimson' }))} style={{ borderColor: 'rgba(255,102,68,.6)', boxShadow: '0 0 10px rgba(255,102,68,.25)' }}><span style={{ background: 'var(--crimson)', width: 14, height: 14, borderRadius: '50%', display: 'inline-block', marginRight: 6, boxShadow: '0 0 8px var(--crimson)' }} />CRIMSON</button>
                 </div>
