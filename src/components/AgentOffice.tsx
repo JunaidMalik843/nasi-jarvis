@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { getOrchestration, applyLiveStatus } from '../lib/orchestration';
 import { isActiveStatus } from '../lib/agentRouter';
+import { subscribe } from '../lib/animLoop';
 
 interface Agent {
   name: string;
@@ -99,11 +100,80 @@ function pickDesk(list: Agent[], W: number, H: number, x: number, y: number): De
   return null;
 }
 
+/**
+ * Static floor layer — checkerboard tiles, panel seams, tile grid, scuffs and
+ * the ambient light pools. Nothing here changes between frames, yet it used to
+ * be redrawn on every single frame: ~250 fillRect + ~250 strokeRect calls plus
+ * six radial gradients per paint. It is now rendered once into an offscreen
+ * canvas and blitted in one drawImage.
+ */
+function drawFloorLayer(g: CanvasRenderingContext2D, W: number, H: number, cellW: number) {
+  g.fillStyle = '#070809';
+  g.fillRect(0, 0, W, H);
+  for (let c = 0; c < Math.ceil(W / TILE); c++) {
+    for (let r = 0; r < Math.ceil(H / TILE); r++) {
+      const x = c * TILE, y = r * TILE;
+      g.fillStyle = (c + r) % 2 === 0 ? '#080a0d' : '#090c0f';
+      g.fillRect(x, y, TILE, TILE);
+    }
+  }
+
+  // Panel seams — larger floor bays every 3 tiles, brighter than the grid.
+  g.strokeStyle = 'rgba(140, 180, 205, .055)';
+  g.lineWidth = 1;
+  for (let c = 0; c <= Math.ceil(W / TILE); c += 3) {
+    g.beginPath(); g.moveTo(c * TILE + 0.5, 0); g.lineTo(c * TILE + 0.5, H); g.stroke();
+  }
+  for (let r = 0; r <= Math.ceil(H / TILE); r += 3) {
+    g.beginPath(); g.moveTo(0, r * TILE + 0.5); g.lineTo(W, r * TILE + 0.5); g.stroke();
+  }
+
+  // Fine tile grid — subtle, keeps the checkerboard legible.
+  g.strokeStyle = 'rgba(0, 240, 255, .038)';
+  g.lineWidth = 0.5;
+  for (let c = 0; c < Math.ceil(W / TILE); c++) {
+    for (let r = 0; r < Math.ceil(H / TILE); r++) {
+      g.strokeRect(c * TILE + 0.25, r * TILE + 0.25, TILE - 0.5, TILE - 0.5);
+    }
+  }
+
+  // Scuffs / scratches — deterministic diagonal marks so the surface looks worn.
+  g.lineWidth = 0.7;
+  for (let n = 0; n < 46; n++) {
+    const sx0 = ((n * 197) % (W + 120)) - 60;
+    const sy0 = ((n * 331) % H);
+    const len = 9 + (n % 5) * 5;
+    g.strokeStyle = n % 3 === 0 ? 'rgba(160, 195, 215, .04)' : 'rgba(90, 120, 140, .035)';
+    g.beginPath();
+    g.moveTo(sx0, sy0);
+    g.lineTo(sx0 + len * 0.7, sy0 + len * 0.28);
+    g.stroke();
+  }
+
+  // Ambient ceiling lights: 1–2 soft light pools per zone column, cast low
+  // on the floor so the surface reads as lit rather than uniformly flat.
+  for (let c = 0; c < GRID_COLS; c++) {
+    const cxm = (c + 0.5) * cellW;
+    for (const [ly, lr, la] of [[H * 0.38, cellW * 0.62, 0.016], [H * 0.72, cellW * 0.5, 0.011]] as const) {
+      const pool = g.createRadialGradient(cxm, ly, 6, cxm, ly, lr);
+      pool.addColorStop(0, `rgba(120, 195, 225, ${la})`);
+      pool.addColorStop(0.55, `rgba(120, 195, 225, ${la * 0.4})`);
+      pool.addColorStop(1, 'transparent');
+      g.fillStyle = pool;
+      g.fillRect(c * cellW, 0, cellW, H);
+    }
+  }
+}
+
 export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }: AgentOfficeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const animRef = useRef(0);
   const timeRef = useRef(0);
+  /** Canvas CSS size, tracked by a ResizeObserver instead of being read from
+   *  the DOM (which forces layout) on every frame. */
+  const sizeRef = useRef({ w: 0, h: 0 });
+  /** Cached static floor layer (offscreen canvas) + the key it was built for. */
+  const floorRef = useRef<{ key: string; canvas: HTMLCanvasElement } | null>(null);
   const hoverRef = useRef<{ x: number; y: number } | null>(null);
   const agentsRef = useRef(agents);
   agentsRef.current = agents;
@@ -216,16 +286,14 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
     ctx.fillText('\u25b8 BREAK AREA', left + 8, top + (seed % 2 === 0 ? 36 : 18));
   };
 
-  const draw = useCallback(() => {
+  const draw = useCallback((dt = 1) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const parent = containerRef.current;
-    if (!parent) return;
-    const W = parent.clientWidth;
-    const H = parent.clientHeight;
-    if (W < 10 || H < 10) { animRef.current = requestAnimationFrame(draw); return; }
+    const W = sizeRef.current.w;
+    const H = sizeRef.current.h;
+    if (W < 10 || H < 10) return;
 
     const dpr = window.devicePixelRatio || 1;
     if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) {
@@ -236,7 +304,7 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    const t = (timeRef.current += 0.016);
+    const t = (timeRef.current += 0.016 * dt);
     const list = agentsRef.current;
     // Live orchestration state → real Active/Working statuses on the floor.
     const orch = getOrchestration();
@@ -244,63 +312,22 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
     const layout = computeLayout(liveList, W, H);
     const s = layout.scale;
 
-    // ══ FLOOR ══ Base + checkerboard tiles, deliberately a touch above the page
-    // black so the floor reads as a surface rather than a void.
-    ctx.fillStyle = '#070809';
-    ctx.fillRect(0, 0, W, H);
-    for (let c = 0; c < Math.ceil(W / TILE); c++) {
-      for (let r = 0; r < Math.ceil(H / TILE); r++) {
-        const x = c * TILE, y = r * TILE;
-        ctx.fillStyle = (c + r) % 2 === 0 ? '#080a0d' : '#090c0f';
-        ctx.fillRect(x, y, TILE, TILE);
+    // ══ FLOOR ══ Blitted from the cached static layer (see drawFloorLayer).
+    // Deliberately a touch above the page black so the floor reads as a surface
+    // rather than a void.
+    const floorKey = `${Math.round(W)}x${Math.round(H)}x${Math.round(layout.cellW)}x${dpr}`;
+    if (!floorRef.current || floorRef.current.key !== floorKey) {
+      const off = document.createElement('canvas');
+      off.width = Math.max(1, Math.round(W * dpr));
+      off.height = Math.max(1, Math.round(H * dpr));
+      const octx = off.getContext('2d');
+      if (octx) {
+        octx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        drawFloorLayer(octx, W, H, layout.cellW);
       }
+      floorRef.current = { key: floorKey, canvas: off };
     }
-
-    // Panel seams — larger floor bays every 3 tiles, brighter than the grid.
-    ctx.strokeStyle = 'rgba(140, 180, 205, .055)';
-    ctx.lineWidth = 1;
-    for (let c = 0; c <= Math.ceil(W / TILE); c += 3) {
-      ctx.beginPath(); ctx.moveTo(c * TILE + 0.5, 0); ctx.lineTo(c * TILE + 0.5, H); ctx.stroke();
-    }
-    for (let r = 0; r <= Math.ceil(H / TILE); r += 3) {
-      ctx.beginPath(); ctx.moveTo(0, r * TILE + 0.5); ctx.lineTo(W, r * TILE + 0.5); ctx.stroke();
-    }
-
-    // Fine tile grid — subtle, keeps the checkerboard legible.
-    ctx.strokeStyle = 'rgba(0, 240, 255, .038)';
-    ctx.lineWidth = 0.5;
-    for (let c = 0; c < Math.ceil(W / TILE); c++) {
-      for (let r = 0; r < Math.ceil(H / TILE); r++) {
-        ctx.strokeRect(c * TILE + 0.25, r * TILE + 0.25, TILE - 0.5, TILE - 0.5);
-      }
-    }
-
-    // Scuffs / scratches — deterministic diagonal marks so the surface looks worn.
-    ctx.lineWidth = 0.7;
-    for (let n = 0; n < 46; n++) {
-      const sx0 = ((n * 197) % (W + 120)) - 60;
-      const sy0 = ((n * 331) % H);
-      const len = 9 + (n % 5) * 5;
-      ctx.strokeStyle = n % 3 === 0 ? 'rgba(160, 195, 215, .04)' : 'rgba(90, 120, 140, .035)';
-      ctx.beginPath();
-      ctx.moveTo(sx0, sy0);
-      ctx.lineTo(sx0 + len * 0.7, sy0 + len * 0.28);
-      ctx.stroke();
-    }
-
-    // Ambient ceiling lights: 1–2 soft light pools per zone column, cast low
-    // on the floor so the surface reads as lit rather than uniformly flat.
-    for (let c = 0; c < GRID_COLS; c++) {
-      const cxm = (c + 0.5) * layout.cellW;
-      for (const [ly, lr, la] of [[H * 0.38, layout.cellW * 0.62, 0.016], [H * 0.72, layout.cellW * 0.5, 0.011]] as const) {
-        const g = ctx.createRadialGradient(cxm, ly, 6, cxm, ly, lr);
-        g.addColorStop(0, `rgba(120, 195, 225, ${la})`);
-        g.addColorStop(0.55, `rgba(120, 195, 225, ${la * 0.4})`);
-        g.addColorStop(1, 'transparent');
-        ctx.fillStyle = g;
-        ctx.fillRect(c * layout.cellW, 0, layout.cellW, H);
-      }
-    }
+    ctx.drawImage(floorRef.current.canvas, 0, 0, W, H);
 
     // ══ WALLS ══ Thin baseline only — the roster row directly above acts as
     // this canvas's header, so no top band is wasted here.
@@ -623,13 +650,32 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
     ctx.fillStyle = vg;
     ctx.fillRect(0, 0, W, H);
 
-    animRef.current = requestAnimationFrame(draw);
-  }, [agents]); // eslint-disable-line
+  }, []); // eslint-disable-line
 
   useEffect(() => {
-    animRef.current = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(animRef.current);
+    // 16fps idle is smooth for a slow breathing office and costs ~4x less than
+    // a full-refresh repaint; a delegating/working office gets 30fps. Driven by
+    // the shared single-rAF loop, and it stops while scrolled out of view.
+    return subscribe(draw, {
+      fps: () => (getOrchestration().phase === 'idle' ? 16 : 30),
+      element: canvasRef.current,
+    });
   }, [draw]);
+
+  // Track the canvas size once + on resize (ResizeObserver), replacing the
+  // per-frame clientWidth/clientHeight reads that forced a layout each frame.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const measure = () => {
+      sizeRef.current = { w: el.clientWidth, h: el.clientHeight };
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Hover + click interaction
   useEffect(() => {

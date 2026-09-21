@@ -132,7 +132,8 @@ input { border: 0; background: none; outline: none; }
   background: var(--card-bg);
   overflow: hidden;
   clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
-  backdrop-filter: blur(8px);
+  /* No backdrop-filter: everything behind these cards is flat near-black, so
+     the blur was invisible but re-filtered the backdrop every frame. */
   box-shadow: 0 0 34px rgba(0, 240, 255, .09), 0 12px 34px rgba(0, 0, 0, .6), inset 0 0 30px rgba(0, 240, 255, .012);
 }
 .nasi-left-globe {
@@ -217,7 +218,6 @@ input { border: 0; background: none; outline: none; }
   /* clip-path removes the corner's border, so a same-geometry ::before edge
      re-draws the angled cut; drop-shadow keeps the glow OUTSIDE the clip. */
   clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
-  backdrop-filter: blur(8px);
   filter: drop-shadow(0 0 26px rgba(0, 240, 255, .1)) drop-shadow(0 14px 24px rgba(0, 0, 0, .55));
 }
 .nasi-core-card::after {
@@ -261,7 +261,6 @@ input { border: 0; background: none; outline: none; }
   color: color-mix(in srgb, var(--node-color) 80%, #fff);
   font-family: var(--mono); font-size: 8px; font-weight: 500; letter-spacing: .2em;
   text-transform: uppercase; cursor: pointer; transition: all 300ms ease;
-  backdrop-filter: blur(10px);
   box-shadow:
     0 0 14px color-mix(in srgb, var(--node-color) 7%, transparent),
     inset 0 0 12px color-mix(in srgb, var(--node-color) 4%, transparent);
@@ -429,7 +428,6 @@ input { border: 0; background: none; outline: none; }
   background: var(--card-bg);
   overflow: hidden; height: calc(100% - 28px);
   clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
-  backdrop-filter: blur(8px);
   box-shadow: 0 0 34px rgba(0, 240, 255, .09), 0 12px 34px rgba(0, 0, 0, .6), inset 0 0 30px rgba(0, 240, 255, .012);
 }
 .nasi-console-tabs {
@@ -505,7 +503,6 @@ input { border: 0; background: none; outline: none; }
   padding: 6px 14px;
   background: rgba(5, 9, 15, .85);
   border: 1px solid var(--line); border-radius: 28px;
-  backdrop-filter: blur(12px);
   box-shadow: 0 6px 20px rgba(0, 0, 0, .45), inset 0 0 14px rgba(0, 240, 255, .02);
 }
 .nasi-mic {
@@ -558,7 +555,7 @@ input { border: 0; background: none; outline: none; }
   width: 100%; max-width: 380px;
   background: rgba(5, 9, 15, .9); border: 1px solid var(--line);
   border-radius: 24px; padding: 4px 6px 4px 15px;
-  backdrop-filter: blur(12px); transition: var(--t);
+  transition: var(--t);
   box-shadow: 0 6px 18px rgba(0, 0, 0, .5), inset 0 0 14px rgba(0, 240, 255, .02);
 }
 .nasi-command-input:focus-within {
@@ -569,7 +566,7 @@ input { border: 0; background: none; outline: none; }
 .nasi-input::placeholder { color: var(--text-4); }
 .nasi-input-mic { width: 27px; height: 27px; border-radius: 50%; display: grid; place-items: center; color: var(--text-4); transition: var(--t); }
 .nasi-input-mic:hover { color: var(--cyan); }
-.nasi-input-mic.listening { color: var(--cyan); animation: pulse 1s infinite; filter: drop-shadow(0 0 6px rgba(0, 240, 255, .6)); }
+.nasi-input-mic.listening { color: var(--cyan); animation: pulse 1s infinite; box-shadow: 0 0 10px rgba(0, 240, 255, .55); }
 .nasi-input-send {
   width: 29px; height: 29px; border-radius: 50%;
   background: rgba(0, 240, 255, .07); border: 1px solid rgba(0, 240, 255, .16);
@@ -598,7 +595,6 @@ input { border: 0; background: none; outline: none; }
   min-height: 500px;
   display: flex; flex-direction: column;
   clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
-  backdrop-filter: blur(8px);
   box-shadow: 0 -10px 42px rgba(0, 0, 0, .65), 0 0 40px rgba(0, 240, 255, .09), inset 0 0 44px rgba(0, 240, 255, .012);
 }
 .nasi-agent-town-header {
@@ -728,7 +724,9 @@ input { border: 0; background: none; outline: none; }
 /* ═══════ MODALS ═══════ */
 .nasi-modal-bg {
   position: fixed; inset: 0;
-  background: rgba(1, 3, 5, .82); backdrop-filter: blur(12px);
+  /* Near-opaque overlay instead of a full-page backdrop blur — the blur
+     re-filtered the whole viewport (canvases included) every frame. */
+  background: rgba(1, 3, 5, .94);
   display: grid; place-items: center; z-index: 60; padding: 16px;
 }
 .nasi-modal {
