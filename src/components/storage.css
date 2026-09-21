@@ -197,12 +197,12 @@
 }
 
 .conversation-delete-btn:hover {
-  color: #c86a6a;
-  background: rgba(200, 80, 80, .1);
+  color: var(--crimson);
+  background: rgba(255, 82, 82, .1);
 }
 
 .conversation-delete.confirming .conversation-delete-btn {
-  color: #eb6e69;
+  color: var(--crimson);
   animation: pulse 1s infinite;
 }
 
@@ -310,9 +310,9 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  background: rgba(200, 80, 80, .1);
+  background: rgba(255, 82, 82, .1);
   border: 1px solid #3a2a2a;
-  color: #c86a6a;
+  color: var(--crimson);
   padding: 4px 8px;
   border-radius: 4px;
   font: 7px 'DM Mono', monospace;
@@ -322,8 +322,8 @@
 }
 
 .memory-clear-btn:hover:not(:disabled) {
-  background: rgba(200, 80, 80, .2);
-  box-shadow: 0 0 12px rgba(200, 80, 80, .15);
+  background: rgba(255, 82, 82, .2);
+  box-shadow: 0 0 12px rgba(255, 82, 82, .15);
 }
 
 .memory-clear-btn:disabled {
@@ -448,7 +448,7 @@
 }
 
 .memory-category-icon.task {
-  color: #e9954c;
+  color: var(--amber);
 }
 
 .memory-category-icon.project {
@@ -548,9 +548,9 @@
 }
 
 .importance-badge.high {
-  color: #e9954c;
+  color: var(--amber);
   border-color: #5a3a1a;
-  background: rgba(233, 149, 76, .1);
+  background: rgba(255, 176, 32, .1);
 }
 
 .importance-badge.medium {
@@ -588,8 +588,8 @@
 }
 
 .memory-delete-btn:hover {
-  color: #c86a6a;
-  background: rgba(200, 80, 80, .1);
+  color: var(--crimson);
+  background: rgba(255, 82, 82, .1);
 }
 
 .memory-item-details {

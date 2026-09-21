@@ -57,11 +57,14 @@ export default function NASICore({ state }: { state: CoreState }) {
     let rotY = Math.random() * Math.PI * 2, rotX = 0.28;
     const getStateColor = () => {
       switch (stateRef.current) {
-        case 'LISTENING': return { r: 0, g: 217, b: 255, intensity: 1.0, glow: 0.7 };
-        case 'THINKING': return { r: 255, g: 179, b: 71, intensity: 0.9, glow: 0.55 };
+        // Colour values mirror the canonical CSS palette (#00ebf0 cyan,
+        // #ffb020 amber, #00e88a emerald, #ff5252 crimson) so the orb edge
+        // matches the rest of the interface instead of drifting blue.
+        case 'LISTENING': return { r: 0, g: 228, b: 240, intensity: 1.0, glow: 0.7 };
+        case 'THINKING': return { r: 255, g: 176, b: 32, intensity: 0.9, glow: 0.55 };
         case 'SPEAKING': return { r: 0, g: 232, b: 138, intensity: 1.0, glow: 0.7 };
         case 'ERROR': return { r: 255, g: 82, b: 82, intensity: 0.95, glow: 0.6 };
-        default: return { r: 0, g: 202, b: 244, intensity: 0.5, glow: 0.26 };
+        default: return { r: 0, g: 216, b: 232, intensity: 0.5, glow: 0.26 };
       }
     };
 
@@ -144,9 +147,9 @@ export default function NASICore({ state }: { state: CoreState }) {
       ctx.beginPath(); ctx.arc(cx, cy, R + 8 * K, 0, Math.PI * 2); ctx.stroke();
 
       // State effects
-      if (st === 'LISTENING') { for (let w = 0; w < 3; w++) { const waveR = R + (30 + w * 15) * K + Math.sin(t * 4 - w * 0.8) * 8 * K; ctx.strokeStyle = `rgba(44,184,212,${0.12 - w * 0.03})`; ctx.lineWidth = 0.7; ctx.beginPath(); ctx.arc(cx, cy, waveR, 0, Math.PI * 2); ctx.stroke(); } }
-      if (st === 'THINKING') { for (let a = 0; a < 3; a++) { const arcStart = t * 2 + a * (Math.PI * 2 / 3); const arcLen = 0.8 + Math.sin(t * 3 + a) * 0.3; ctx.strokeStyle = `rgba(34,150,190,${0.2 - a * 0.05})`; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(cx, cy, R * 0.75, arcStart, arcStart + arcLen); ctx.stroke(); } }
-      if (st === 'SPEAKING') { const speakPulse = Math.sin(t * 8) * 0.5 + 0.5; ctx.strokeStyle = `rgba(46,188,122,${0.18 * speakPulse})`; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.arc(cx, cy, R * 0.55, 0, Math.PI * 2); ctx.stroke(); }
+      if (st === 'LISTENING') { for (let w = 0; w < 3; w++) { const waveR = R + (30 + w * 15) * K + Math.sin(t * 4 - w * 0.8) * 8 * K; ctx.strokeStyle = `rgba(0, 235, 240,${0.12 - w * 0.03})`; ctx.lineWidth = 0.7; ctx.beginPath(); ctx.arc(cx, cy, waveR, 0, Math.PI * 2); ctx.stroke(); } }
+      if (st === 'THINKING') { for (let a = 0; a < 3; a++) { const arcStart = t * 2 + a * (Math.PI * 2 / 3); const arcLen = 0.8 + Math.sin(t * 3 + a) * 0.3; ctx.strokeStyle = `rgba(0, 235, 240,${0.2 - a * 0.05})`; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(cx, cy, R * 0.75, arcStart, arcStart + arcLen); ctx.stroke(); } }
+      if (st === 'SPEAKING') { const speakPulse = Math.sin(t * 8) * 0.5 + 0.5; ctx.strokeStyle = `rgba(0, 232, 138,${0.18 * speakPulse})`; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.arc(cx, cy, R * 0.55, 0, Math.PI * 2); ctx.stroke(); }
 
     };
     // The orb is the focal element: keep a real frame budget while it is

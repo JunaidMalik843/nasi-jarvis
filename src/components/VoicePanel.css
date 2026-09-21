@@ -18,9 +18,9 @@
 }
 .voice-idle-text { color: #6e9da1; background: rgba(110, 157, 161, .1); border: 1px solid #1a2a30; }
 .voice-listening-text { color: #4ce7df; background: rgba(76, 231, 223, .1); border: 1px solid #2a6a6e; animation: pulse 1s infinite; }
-.voice-thinking-text { color: #eaa247; background: rgba(234, 162, 71, .1); border: 1px solid #3a3a1a; }
+.voice-thinking-text { color: var(--amber); background: rgba(255, 176, 32, .1); border: 1px solid #3a3a1a; }
 .voice-speaking-text { color: #4ce7df; background: rgba(76, 231, 223, .1); border: 1px solid #2a6a6e; }
-.voice-error-text { color: #eb6e69; background: rgba(235, 110, 105, .1); border: 1px solid #5a2a2a; }
+.voice-error-text { color: var(--crimson); background: rgba(255, 82, 82, .1); border: 1px solid #5a2a2a; }
 
 .voice-status-bar {
   display: flex;
@@ -50,9 +50,9 @@
   box-shadow: 0 0 8px #49dde1;
 }
 .voice-state-pill.listening .voice-state-dot { background: #4ce7df; box-shadow: 0 0 10px #4ce7df; }
-.voice-state-pill.thinking .voice-state-dot { background: #eaa247; box-shadow: 0 0 10px #eaa247; animation: pulse 1s infinite; }
+.voice-state-pill.thinking .voice-state-dot { background: var(--amber); box-shadow: 0 0 10px var(--amber); animation: pulse 1s infinite; }
 .voice-state-pill.speaking .voice-state-dot { background: #4ce7df; box-shadow: 0 0 10px #4ce7df; }
-.voice-state-pill.error .voice-state-dot { background: #eb6e69; box-shadow: 0 0 10px #eb6e69; }
+.voice-state-pill.error .voice-state-dot { background: var(--crimson); box-shadow: 0 0 10px var(--crimson); }
 .voice-state-pill.idle .voice-state-dot { background: #6e9da1; box-shadow: 0 0 8px #6e9da1; }
 
 .voice-state-sep {
@@ -76,9 +76,9 @@
   color: #53646a;
   border: 1px solid #1b2a2e;
 }
-.voice-mic-tag.requesting { color: #eaa247; border-color: #3a3a1a; background: #1a180c; }
+.voice-mic-tag.requesting { color: var(--amber); border-color: #3a3a1a; background: #1a180c; }
 .voice-mic-tag.active { color: #4ce7df; border-color: #2a6a6e; background: #0c2022; }
-.voice-mic-tag.error { color: #eb6e69; border-color: #5a2a2a; background: #1a0c0c; }
+.voice-mic-tag.error { color: var(--crimson); border-color: #5a2a2a; background: #1a0c0c; }
 .voice-mic-tag.idle { color: #6e9da1; border-color: #203235; }
 
 .voice-core-visual {
@@ -176,8 +176,8 @@
   align-items: center;
   gap: 6px;
   font: 8px 'DM Mono', monospace;
-  color: #e9954c;
-  background: rgba(233, 149, 76, .12);
+  color: var(--amber);
+  background: rgba(255, 176, 32, .12);
   border: 1px solid #3a2a1a;
   padding: 5px 8px;
   border-radius: 4px;
@@ -230,28 +230,28 @@
   transform: translateY(-1px);
 }
 .voice-button.voice-speaking {
-  border-color: #e9954c;
-  color: #e9954c;
+  border-color: var(--amber);
+  color: var(--amber);
 }
 .voice-button.voice-secondary {
   border-color: #2a3d40;
   color: #718e91;
 }
 .voice-button.voice-muted {
-  border-color: rgba(235, 110, 105, 0.4);
-  background: rgba(235, 110, 105, 0.08);
-  color: rgba(235, 110, 105, 0.7);
+  border-color: rgba(255, 82, 82, 0.4);
+  background: rgba(255, 82, 82, 0.08);
+  color: rgba(255, 82, 82, 0.7);
 }
 
 .voice-error-banner {
   display: flex;
   align-items: center;
   gap: 7px;
-  background: rgba(235, 110, 105, .12);
+  background: rgba(255, 82, 82, .12);
   border: 1px solid #5a2a2a;
   padding: 8px 10px;
   border-radius: 6px;
-  color: #eb6e69;
+  color: var(--crimson);
   font: 9px 'DM Mono', monospace;
   font-size: 10px;
 }
@@ -261,7 +261,7 @@
   margin-left: auto;
   background: transparent;
   border: 1px solid #5a2a2a;
-  color: #eb6e69;
+  color: var(--crimson);
   border-radius: 4px;
   padding: 4px 8px;
   font-size: 9px;
@@ -271,7 +271,7 @@
   font-family: 'DM Mono', monospace;
   transition: all .2s;
 }
-.voice-retry:hover { background: #1a0c0c; border-color: #eb6e69; }
+.voice-retry:hover { background: #1a0c0c; border-color: var(--crimson); }
 
 .voice-last-message {
   display: flex;

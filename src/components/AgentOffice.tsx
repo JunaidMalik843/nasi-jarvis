@@ -82,7 +82,7 @@ function computeLayout(list: Agent[], W: number, H: number): Layout {
       h: deskH,
       scale: s,
     }));
-    return { dept: g.dept, color: g.agents[0]?.color || '#2cb8d4', col, row, left, top, w: cellW, h: cellH, desks };
+    return { dept: g.dept, color: g.agents[0]?.color || '#00ebf0', col, row, left, top, w: cellW, h: cellH, desks };
   });
   return { cells, rows, cellW, cellH, scale: s };
 }
@@ -129,7 +129,7 @@ function drawFloorLayer(g: CanvasRenderingContext2D, W: number, H: number, cellW
   }
 
   // Fine tile grid — subtle, keeps the checkerboard legible.
-  g.strokeStyle = 'rgba(0, 240, 255, .038)';
+  g.strokeStyle = 'rgba(0, 235, 240, .038)';
   g.lineWidth = 0.5;
   for (let c = 0; c < Math.ceil(W / TILE); c++) {
     for (let r = 0; r < Math.ceil(H / TILE); r++) {
@@ -192,12 +192,12 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
     const px0 = left + 10 * s, py0 = top + 5 * s;
     ctx.fillStyle = '#0e141c';
     ctx.fillRect(px0, py0, pw, ph);
-    ctx.strokeStyle = 'rgba(0, 240, 255, .28)';
+    ctx.strokeStyle = 'rgba(0, 235, 240, .28)';
     ctx.lineWidth = 0.8;
     ctx.strokeRect(px0 + 0.5, py0 + 0.5, pw - 1, ph - 1);
     // Faint glowing text lines (slight per-screen flicker)
     const flick = 0.5 + 0.2 * Math.sin(t * 1.7 + kind * 1.3);
-    const colors = ['rgba(0,240,255,', 'rgba(0,232,138,', 'rgba(255,179,71,'];
+    const colors = ['rgba(0, 235, 240,', 'rgba(0,232,138,', 'rgba(255, 176, 32,'];
     for (let li = 0; li < 3; li++) {
       ctx.fillStyle = colors[(kind + li) % 3] + (0.22 * flick).toFixed(3) + ')';
       ctx.fillRect(px0 + 3 * s, py0 + (4 + li * 5) * s, (pw - 8 * s) * (li === 1 ? 0.62 : 0.85), 1.6 * s);
@@ -229,7 +229,7 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
       // Floor mat under the workstation — anchors the desk visually
       ctx.fillStyle = 'rgba(22, 29, 37, .32)';
       ctx.fillRect(d.cx - (d.w / 2 + 14 * ds), d.deskY + d.h + 1 * ds, d.w + 28 * ds, 9 * ds);
-      ctx.strokeStyle = 'rgba(0, 240, 255, .07)';
+      ctx.strokeStyle = 'rgba(0, 235, 240, .07)';
       ctx.lineWidth = 0.6;
       ctx.strokeRect(d.cx - (d.w / 2 + 14 * ds) + 0.5, d.deskY + d.h + 1.5 * ds, d.w + 28 * ds - 1, 8 * ds);
     }
@@ -247,10 +247,10 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(rgx, rgy, rgw, rgh, 5 * s); else ctx.rect(rgx, rgy, rgw, rgh);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(0, 240, 255, .12)';
+    ctx.strokeStyle = 'rgba(0, 235, 240, .12)';
     ctx.lineWidth = 0.8;
     ctx.stroke();
-    ctx.strokeStyle = 'rgba(0, 240, 255, .09)';
+    ctx.strokeStyle = 'rgba(0, 235, 240, .09)';
     ctx.strokeRect(rgx + 4 * s, rgy + 4 * s, rgw - 8 * s, rgh - 8 * s);
 
     // Sofa along the top of the rug
@@ -271,17 +271,17 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
     const tx = left + w * 0.5, ty = top + h * 0.6;
     ctx.fillStyle = '#26313d';
     ctx.beginPath(); ctx.ellipse(tx, ty, 15 * s, 6.5 * s, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = 'rgba(0, 240, 255, .18)'; ctx.lineWidth = 0.8; ctx.stroke();
+    ctx.strokeStyle = 'rgba(0, 235, 240, .18)'; ctx.lineWidth = 0.8; ctx.stroke();
     ctx.fillStyle = '#1a222c';
     ctx.fillRect(tx - 1.2 * s, ty + 4 * s, 2.4 * s, 8 * s);
     // Mugs on the table
-    ctx.fillStyle = `rgba(255, 179, 71, ${0.5 + 0.2 * bob})`;
+    ctx.fillStyle = `rgba(255, 176, 32, ${0.5 + 0.2 * bob})`;
     ctx.fillRect(tx - 6 * s, ty - 3 * s, 2.6 * s, 2.6 * s);
-    ctx.fillStyle = 'rgba(0, 240, 255, .55)';
+    ctx.fillStyle = 'rgba(0, 235, 240, .55)';
     ctx.fillRect(tx + 4 * s, ty - 2 * s, 2.6 * s, 2.6 * s);
 
     // Sign
-    ctx.fillStyle = 'rgba(255, 179, 71, .5)';
+    ctx.fillStyle = 'rgba(255, 176, 32, .5)';
     ctx.font = '7px monospace'; ctx.textAlign = 'left';
     ctx.fillText('\u25b8 BREAK AREA', left + 8, top + (seed % 2 === 0 ? 36 : 18));
   };
@@ -333,10 +333,10 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
     // this canvas's header, so no top band is wasted here.
     ctx.fillStyle = '#141a21';
     ctx.fillRect(0, 0, W, 3);
-    ctx.strokeStyle = 'rgba(0, 240, 255, .22)';
+    ctx.strokeStyle = 'rgba(0, 235, 240, .22)';
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(0, 3.5); ctx.lineTo(W, 3.5); ctx.stroke();
-    ctx.fillStyle = 'rgba(0, 240, 255, .26)';
+    ctx.fillStyle = 'rgba(0, 235, 240, .26)';
     ctx.font = '7px monospace';
     ctx.textAlign = 'right';
     ctx.fillText('AGENT OPERATIONS CENTER', W - 8, 11);
@@ -344,7 +344,7 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
     const drawSeg = (x1: number, y1: number, x2: number, y2: number) => {
       ctx.strokeStyle = '#161d25'; ctx.lineWidth = 4;
       ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-      ctx.strokeStyle = 'rgba(0, 240, 255, .16)'; ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(0, 235, 240, .16)'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
     };
     for (const cell of layout.cells) {
@@ -503,7 +503,7 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
         // Floor reflection — a faint mirrored glow beneath the desk, stronger
         // when the agent's monitor is active (the screen "lights" the floor).
         const refl = ctx.createLinearGradient(0, d.deskY + d.h + 9 * ds, 0, d.deskY + d.h + 9 * ds + 12 * ds);
-        refl.addColorStop(0, active ? 'rgba(0, 240, 255, .05)' : 'rgba(150, 190, 215, .022)');
+        refl.addColorStop(0, active ? 'rgba(0, 235, 240, .05)' : 'rgba(150, 190, 215, .022)');
         refl.addColorStop(1, 'transparent');
         ctx.fillStyle = refl;
         ctx.fillRect(d.cx - d.w / 2, d.deskY + d.h + 9 * ds, d.w, 12 * ds);
@@ -521,9 +521,9 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
         ctx.fillRect(mx, my, mW, mH);
         const scrX = mx + 2 * ds, scrY = my + 2 * ds, scrW = mW - 4 * ds, scrH = mH - 4 * ds;
         if (active) {
-          ctx.shadowColor = '#00e5ff';
+          ctx.shadowColor = '#00ebf0';
           ctx.shadowBlur = 12;
-          ctx.fillStyle = `rgba(0, 240, 255, ${0.62 + 0.38 * Math.abs(Math.sin(t * 3 + i))})`;
+          ctx.fillStyle = `rgba(0, 235, 240, ${0.62 + 0.38 * Math.abs(Math.sin(t * 3 + i))})`;
           ctx.fillRect(scrX, scrY, scrW, scrH);
           ctx.shadowBlur = 0;
           // Faint "code editor" UI: 4 rows of mono text blocks with an
@@ -562,7 +562,7 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
             ctx.fillRect(scrX + indent, scrY + 2.4 * ds + k * 2.8 * ds, lw, 1);
           }
         }
-        ctx.strokeStyle = active ? 'rgba(0, 240, 255, .55)' : 'rgba(130, 150, 170, .34)';
+        ctx.strokeStyle = active ? 'rgba(0, 235, 240, .55)' : 'rgba(130, 150, 170, .34)';
         ctx.lineWidth = 1;
         ctx.strokeRect(mx - 1, my - 1, mW + 2, mH + 2);
         // Stand
@@ -580,12 +580,12 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
         // ── Working indicators (active agents only) ──
         if (active) {
           const halo = 0.26 + 0.34 * Math.abs(Math.sin(t * 4 + i));
-          ctx.strokeStyle = `rgba(0, 240, 255, ${halo})`;
+          ctx.strokeStyle = `rgba(0, 235, 240, ${halo})`;
           ctx.lineWidth = 1;
           ctx.beginPath();
           ctx.ellipse(sx, bodyTop + torsoH * 0.5, torsoW * 0.85, torsoH * 0.72, 0, 0, Math.PI * 2);
           ctx.stroke();
-          ctx.fillStyle = 'rgba(0, 240, 255, .95)';
+          ctx.fillStyle = 'rgba(0, 235, 240, .95)';
           ctx.font = '7px monospace';
           ctx.textAlign = 'center';
           ctx.fillText('● ACTIVE', d.cx, d.deskY + d.h + 23);
@@ -630,7 +630,7 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
     // ══ Corner HUD readout ══
     ctx.font = '8px monospace';
     ctx.textAlign = 'left';
-    ctx.fillStyle = 'rgba(0, 240, 255, .35)';
+    ctx.fillStyle = 'rgba(0, 235, 240, .35)';
     ctx.fillText(`OFFICE FLOOR — ${list.length} DESKS · ${layout.cells.length} ZONES`, 8, H - 6);
     if (orch.phase !== 'idle') {
       const txt = orch.phase === 'delegating'
