@@ -297,8 +297,12 @@
   border-color: rgba(0, 240, 255, .55);
   box-shadow: 0 0 10px rgba(0, 240, 255, .3);
 }
-/* Pipeline label: bigger + breathing */
+/* Pipeline label: bigger + breathing.
+   Kept `position: absolute` (inherited from styles.css) and stretched across
+   the card so it reads as a proper full-width card header — out of flow, so
+   it can never push the nav column or overlap the trace run. */
 .nasi-core-card-label {
+  right: 14px;
   font-size: 8.5px; letter-spacing: .26em;
   color: rgba(0, 240, 255, .7);
   text-shadow: 0 0 10px rgba(0, 240, 255, .3);
@@ -493,8 +497,14 @@
 }
 
 /* ── 3 · UNIFIED SECTION HEADERS ── */
-/* Every card header: dot + tracked label + thin gradient divider. */
-.nasi-feed-header, .nasi-core-card-label, .nasi-agent-town-header,
+/* Every card header: dot + tracked label + thin gradient divider.
+   NOTE: .nasi-core-card-label is deliberately EXCLUDED from the
+   `position: relative` list below. It is an absolutely-positioned card
+   header (styles.css). Forcing it to `relative` puts it back into the core
+   card's flex row as an in-flow child, which pushes the nav column right
+   against the orb and collapses the routing traces' horizontal run to a few
+   pixels — the trace guard then rejects every line and the lines vanish. */
+.nasi-feed-header, .nasi-agent-town-header,
 .nasi-console-tabs, .nasi-voice-section-label {
   position: relative;
   align-items: center;
@@ -515,7 +525,7 @@
   pointer-events: none;
 }
 .nasi-feed-header::after { left: 0; }
-.nasi-core-card-label::after { left: 14px; right: 14px; }
+.nasi-core-card-label::after { left: 0; right: 0; }
 .nasi-agent-town-header::after { left: 12px; right: 12px; }
 .nasi-voice-section-label::after { left: 2px; right: 2px; }
 .nasi-console-tabs::after { content: none; }
@@ -557,4 +567,97 @@
   .nasi-voice-section, .nasi-agent-console-list, .nasi-notes-section {
     animation: none;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PREMIUM PASS 2 — crisper edges, real outer depth, deeper bloom
+   Loaded last, so these win on equal specificity.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Card edge is derived from the live accent, so it follows the theme
+     switcher AND reads as a crisp ~64% accent line instead of the old
+     barely-there 42% edge. */
+  --card-border: color-mix(in srgb, var(--cyan) 64%, transparent);
+  --cyan-blend: color-mix(in srgb, var(--cyan) 88%, #2fffd0 12%);
+  --glow-cyan-blend: color-mix(in srgb, var(--glow-cyan) 90%, rgba(47, 255, 208, .62) 10%);
+}
+
+/* ── Cards: crisp edge + REAL outer depth ──
+   Every one of these cards uses clip-path, which clips box-shadow — so each
+   outer shadow declared on them was invisible and the panels read flat. A
+   drop-shadow filter follows the clipped silhouette, so the two-layer depth
+   (tight dark contact shadow + soft accent bloom) finally renders outside
+   the card, which is what separates a flat panel from a raised one. */
+.nasi-left-panel, .nasi-console-panel, .nasi-agent-town {
+  border-color: var(--card-border);
+  filter:
+    drop-shadow(0 2px 5px rgba(0, 0, 0, .72))
+    drop-shadow(0 12px 26px rgba(0, 0, 0, .5))
+    drop-shadow(0 0 20px rgba(0, 245, 255, .18))
+    drop-shadow(0 0 58px rgba(0, 245, 255, .075));
+  box-shadow:
+    inset 0 1px 0 rgba(190, 245, 255, .1),
+    inset 0 0 30px rgba(0, 245, 255, .03);
+}
+.nasi-core-card {
+  border-color: var(--card-border);
+  filter:
+    drop-shadow(0 2px 5px rgba(0, 0, 0, .7))
+    drop-shadow(0 12px 26px rgba(0, 0, 0, .48))
+    drop-shadow(0 0 28px rgba(0, 245, 255, .13))
+    drop-shadow(0 0 76px rgba(0, 245, 255, .055));
+}
+
+/* ── Bloom +~45% on every active / highlighted element ── */
+.nasi-topbar-btn.active {
+  border-color: rgba(0, 245, 255, .52);
+  box-shadow: 0 0 28px rgba(0, 245, 255, .34), inset 0 0 18px rgba(0, 245, 255, .13);
+  text-shadow: 0 0 14px rgba(0, 245, 255, .85);
+}
+.nasi-icon-btn:hover {
+  border-color: rgba(0, 245, 255, .46);
+  box-shadow: 0 0 26px rgba(0, 245, 255, .34), inset 0 0 12px rgba(0, 245, 255, .1);
+}
+.nasi-routing-node.active {
+  box-shadow:
+    0 0 46px color-mix(in srgb, var(--node-color) 50%, transparent),
+    inset 0 0 28px color-mix(in srgb, var(--node-color) 22%, transparent);
+}
+.nasi-routing-node:hover {
+  box-shadow:
+    0 0 36px color-mix(in srgb, var(--node-color) 42%, transparent),
+    inset 0 0 20px color-mix(in srgb, var(--node-color) 16%, transparent);
+}
+.nasi-console-tab.active {
+  box-shadow: inset 0 -2px 14px rgba(0, 245, 255, .13), 0 0 22px rgba(0, 245, 255, .1);
+  text-shadow: 0 0 12px rgba(0, 245, 255, .78);
+}
+.nasi-console-tab.active::after {
+  box-shadow:
+    0 0 16px var(--glow-cyan-blend),
+    0 0 36px rgba(0, 245, 255, .62),
+    0 2px 22px rgba(0, 245, 255, .44);
+}
+.nasi-agent-tab.active {
+  border-color: rgba(0, 245, 255, .44);
+  box-shadow: 0 0 20px rgba(0, 245, 255, .2), inset 0 0 12px rgba(0, 245, 255, .08);
+  text-shadow: 0 0 11px rgba(0, 245, 255, .65);
+}
+.nasi-start-btn { border-color: rgba(0, 245, 255, .62); }
+.nasi-feed-status.online {
+  box-shadow: 0 0 16px rgba(0, 245, 175, .95), 0 0 34px rgba(0, 245, 175, .45);
+}
+.nasi-roster-pill.active {
+  box-shadow: 0 0 20px -1px var(--agent-color), 0 0 36px -8px var(--agent-color);
+}
+.nasi-roster-dot.active, .nasi-dept-pill-dot.active {
+  box-shadow: 0 0 12px rgba(0, 245, 175, .95), 0 0 28px rgba(0, 245, 175, .5);
+}
+.nasi-agent-town-dot.live {
+  box-shadow: 0 0 12px rgba(0, 245, 175, .95), 0 0 30px rgba(0, 245, 175, .52);
+}
+.nasi-core-card-dot { box-shadow: 0 0 10px var(--cyan), 0 0 22px color-mix(in srgb, var(--cyan) 60%, transparent); }
+.nasi-status-dot.online {
+  box-shadow: 0 0 12px rgba(0, 245, 175, .9), 0 0 26px rgba(0, 245, 175, .45);
 }

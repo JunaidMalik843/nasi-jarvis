@@ -26,6 +26,11 @@
   /* The delegation banner would crowd the header at this width. */
   .nasi-agent-town-delegate { display: none; }
 
+  /* The card header is absolutely positioned so it can never join the nav
+     row's flex flow; at this width the nav row starts too high and would run
+     into the label, so the card gets a matching top band instead. */
+  .nasi-core-card { padding-top: 30px; }
+
   /* Nav buttons become a wrapped row here and the traces are hidden, so the
      desktop orb-centring offset must not apply. The row must also be allowed
      to shrink/wrap inside the card instead of spilling past its edges. */
