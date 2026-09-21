@@ -22,7 +22,10 @@
 
 /* Travelling particles: slightly larger + brighter so the flow reads
    at a glance; a second, offset particle per line adds density. */
-.nasi-route-particle { r: 2.4; filter: drop-shadow(0 0 6px currentColor); }
+/* The particles ride the line via SVG animateMotion, so they move every frame.
+   A drop-shadow() there means a fresh blur raster per particle per frame; the
+   stroke halo below gives the same soft edge as a plain cheap paint. */
+.nasi-route-particle { r: 2.4; filter: none; stroke: currentColor; stroke-width: 3.6; stroke-opacity: .2; }
 .nasi-route-particle.dual { r: 1.6; opacity: .8; }
 
 /* ── Agent town: tighter vertical rhythm ──
@@ -545,10 +548,8 @@
    a tight dark + soft glow pair there too. */
 .nasi-core-card {
   filter:
-    drop-shadow(0 2px 5px rgba(0, 0, 0, .66))
-    drop-shadow(0 12px 26px rgba(0, 0, 0, .45))
-    drop-shadow(0 0 24px rgba(0, 240, 255, .08))
-    drop-shadow(0 0 60px rgba(0, 240, 255, .03));
+    drop-shadow(0 5px 20px rgba(0, 0, 0, .6))
+    drop-shadow(0 0 26px rgba(0, 240, 255, .14));
 }
 
 /* ── 6 · VIEW/TAB TRANSITIONS — 150-200ms fade+rise, never a snap ── */
@@ -591,11 +592,13 @@
    the card, which is what separates a flat panel from a raised one. */
 .nasi-left-panel, .nasi-console-panel, .nasi-agent-town {
   border-color: var(--card-border);
+  /* TWO filter passes, not four. Every one of these cards contains a canvas
+     that repaints continuously, so each extra drop-shadow() is another
+     whole-card blur rasterised on every frame. The dropped layers were
+     4–8% alpha — visually negligible, expensive per frame. */
   filter:
-    drop-shadow(0 2px 5px rgba(0, 0, 0, .72))
-    drop-shadow(0 12px 26px rgba(0, 0, 0, .5))
-    drop-shadow(0 0 20px rgba(0, 245, 255, .18))
-    drop-shadow(0 0 58px rgba(0, 245, 255, .075));
+    drop-shadow(0 5px 20px rgba(0, 0, 0, .62))
+    drop-shadow(0 0 26px rgba(0, 245, 255, .16));
   box-shadow:
     inset 0 1px 0 rgba(190, 245, 255, .1),
     inset 0 0 30px rgba(0, 245, 255, .03);
@@ -603,10 +606,8 @@
 .nasi-core-card {
   border-color: var(--card-border);
   filter:
-    drop-shadow(0 2px 5px rgba(0, 0, 0, .7))
-    drop-shadow(0 12px 26px rgba(0, 0, 0, .48))
-    drop-shadow(0 0 28px rgba(0, 245, 255, .13))
-    drop-shadow(0 0 76px rgba(0, 245, 255, .055));
+    drop-shadow(0 5px 20px rgba(0, 0, 0, .6))
+    drop-shadow(0 0 28px rgba(0, 245, 255, .15));
 }
 
 /* ── Bloom +~45% on every active / highlighted element ── */

@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { geoOrthographic, geoGraticule10, geoPath, geoInterpolate } from 'd3-geo';
 import { feature } from 'topojson-client';
 import topo from 'world-atlas/countries-110m.json';
+import { subscribe } from '../lib/animLoop';
 
 // Real continent outlines (110m Natural Earth via world-atlas) — gives the
 // radar a faint satellite texture instead of a bare wireframe sphere.
@@ -47,32 +48,36 @@ export default function WorldGlobe() {
   const zoomRef = useRef(1);
   const dragging = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
-  const animRef = useRef(0);
+  const sizeRef = useRef({ w: 0, h: 0 });
   const [zoomLevel, setZoomLevel] = useState(1);
 
-  const draw = useCallback(() => {
+  const draw = useCallback((dt = 1) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const rect = canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    const w = rect.width;
-    const h = rect.height;
-    if (w < 10 || h < 10) { animRef.current = requestAnimationFrame(draw); return; }
-    canvas.width = w * dpr;
-    canvas.height = h * dpr;
-    ctx.scale(dpr, dpr);
+    const { w, h } = sizeRef.current;
+    if (w < 10 || h < 10) return;
+    // Resize the backing store only when the box (or DPR) really changed.
+    // This used to run unconditionally every frame: assigning width/height
+    // reallocates the pixel buffer, clears it and drops the canvas state —
+    // pure per-frame waste on top of the per-frame layout read.
+    if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const cx = w / 2;
     const cy = h / 2;
     const zoom = zoomRef.current;
     const r = Math.min(cx, cy) * 0.78 * zoom;
 
-    // Slow auto-rotation
+    // Slow auto-rotation (dt keeps the speed identical at any frame budget)
     if (!dragging.current) {
-      rotRef.current[0] += 0.1;
+      rotRef.current[0] += 0.1 * dt;
     }
 
     const projection = geoOrthographic()
@@ -380,13 +385,27 @@ export default function WorldGlobe() {
     ctx.fillText(`${activeCount} ONLINE`, w - 10, 24);
 
     // (legacy straight scan line superseded by the conic sweep wedge above)
+  }, []);
 
-    animRef.current = requestAnimationFrame(draw);
+  // Size is measured once and then tracked with a ResizeObserver, instead of
+  // being read from the DOM (forcing layout) on every single frame.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const measure = () => {
+      sizeRef.current = { w: canvas.clientWidth, h: canvas.clientHeight };
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(canvas);
+    return () => ro.disconnect();
   }, []);
 
   useEffect(() => {
-    animRef.current = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(animRef.current);
+    // 20fps is plenty for a slow sweep, and it is driven by the shared loop
+    // (one rAF for the whole dashboard instead of one per canvas).
+    return subscribe(draw, { fps: 20, element: canvasRef.current });
   }, [draw]);
 
   // Mouse drag

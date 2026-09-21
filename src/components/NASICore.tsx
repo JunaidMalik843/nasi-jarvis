@@ -1,5 +1,6 @@
 import { useRef, useEffect } from 'react';
 import type { CoreState } from '../hooks/useVoice';
+import { subscribe } from '../lib/animLoop';
 
 // ============================================================
 // NASI CORE ORB — canvas particle sphere
@@ -12,7 +13,6 @@ type Particle = { x: number; y: number; z: number; vx: number; vy: number; vz: n
 
 export default function NASICore({ state }: { state: CoreState }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const animRef = useRef(0);
   const stateRef = useRef(state);
   stateRef.current = state;
   const particlesRef = useRef<Particle[]>([]);
@@ -65,16 +65,16 @@ export default function NASICore({ state }: { state: CoreState }) {
       }
     };
 
-    const animate = () => {
+    const animate = (dt: number) => {
       ctx.clearRect(0, 0, W, H);
-      timeRef.current += 0.016;
+      timeRef.current += 0.016 * dt;
       const t = timeRef.current;
       const st = stateRef.current;
       const sc = getStateColor();
       // STANDBY drift (~full revolution in 12s) — subtle but clearly alive.
       const speed = st === 'THINKING' ? 0.024 : st === 'LISTENING' ? 0.026 : st === 'SPEAKING' ? 0.02 : 0.0085;
-      rotY += speed;
-      if (st === 'THINKING') rotX += 0.004;
+      rotY += speed * dt;
+      if (st === 'THINKING') rotX += 0.004 * dt;
       if (st === 'LISTENING') rotX = 0.28 + Math.sin(t * 2.2) * 0.12;
       const cosY = Math.cos(rotY), sinY = Math.sin(rotY), cosX = Math.cos(rotX), sinX = Math.sin(rotX);
 
@@ -101,8 +101,8 @@ export default function NASICore({ state }: { state: CoreState }) {
       const projected = particlesRef.current.map(p => {
         let x = p.x * cosY - p.z * sinY, z = p.x * sinY + p.z * cosY, y = p.y * cosX - z * sinX;
         z = p.y * sinX + z * cosX;
-        p.x += p.vx * thinkBoost; p.y += p.vy * thinkBoost;
-        p.z += p.vz * thinkBoost;
+        p.x += p.vx * thinkBoost * dt; p.y += p.vy * thinkBoost * dt;
+        p.z += p.vz * thinkBoost * dt;
         const dist = Math.sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
         if (dist > R * 1.05) { p.vx *= -0.85; p.vy *= -0.85; p.vz *= -0.85; }
         return { sx: cx + x, sy: cy + y, z, size: p.size, hue: p.hue, brightness: p.brightness };
@@ -148,11 +148,15 @@ export default function NASICore({ state }: { state: CoreState }) {
       if (st === 'THINKING') { for (let a = 0; a < 3; a++) { const arcStart = t * 2 + a * (Math.PI * 2 / 3); const arcLen = 0.8 + Math.sin(t * 3 + a) * 0.3; ctx.strokeStyle = `rgba(34,150,190,${0.2 - a * 0.05})`; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(cx, cy, R * 0.75, arcStart, arcStart + arcLen); ctx.stroke(); } }
       if (st === 'SPEAKING') { const speakPulse = Math.sin(t * 8) * 0.5 + 0.5; ctx.strokeStyle = `rgba(46,188,122,${0.18 * speakPulse})`; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.arc(cx, cy, R * 0.55, 0, Math.PI * 2); ctx.stroke(); }
 
-      animRef.current = requestAnimationFrame(animate);
     };
-    animate();
-    return () => cancelAnimationFrame(animRef.current);
-  }, [state]);
+    // The orb is the focal element: keep a real frame budget while it is
+    // listening/thinking, ease off at idle where the drift is slow anyway.
+    // Reads live state through stateRef, so this effect never has to restart.
+    return subscribe(animate, {
+      fps: () => (stateRef.current === 'IDLE' ? 24 : 36),
+      element: canvas,
+    });
+  }, []);
 
   return <canvas ref={canvasRef} className="nasi-core-canvas" />;
 }
