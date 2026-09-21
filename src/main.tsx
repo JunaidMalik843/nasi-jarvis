@@ -104,14 +104,14 @@ const DEPT_SHORT: Record<string, string> = {
 };
 
 const AGENTS: Agent[] = [
-  { name: 'Manager', role: 'NASI Manager', color: '#2cb8d4', status: 'Idle', initials: 'NM', department: 'Core' },
-  { name: 'Research', role: 'Research Agent', color: '#2cb8d4', status: 'Idle', initials: 'RA', department: 'Research' },
-  { name: 'Browser', role: 'Web Agent', color: '#2ebc7a', status: 'Idle', initials: 'WA', department: 'Web' },
-  { name: 'Shopify', role: 'Shopify Agent', color: '#2ebc7a', status: 'Not Connected', initials: 'SA', department: 'Commerce' },
-  { name: 'Computer', role: 'Computer Agent', color: '#c88a38', status: 'Not Connected', initials: 'CA', department: 'Infrastructure' },
-  { name: 'Comm', role: 'Communication Agent', color: '#2cb8d4', status: 'Not Connected', initials: 'CO', department: 'Communication' },
-  { name: 'File', role: 'File Agent', color: '#c88a38', status: 'Idle', initials: 'FA', department: 'Infrastructure' },
-  { name: 'Security', role: 'Security Agent', color: '#c85548', status: 'Idle', initials: 'XA', department: 'Security' },
+  { name: 'Manager', role: 'NASI Manager', color: '#00ebf0', status: 'Idle', initials: 'NM', department: 'Core' },
+  { name: 'Research', role: 'Research Agent', color: '#00ebf0', status: 'Idle', initials: 'RA', department: 'Research' },
+  { name: 'Browser', role: 'Web Agent', color: '#00e88a', status: 'Idle', initials: 'WA', department: 'Web' },
+  { name: 'Shopify', role: 'Shopify Agent', color: '#00e88a', status: 'Not Connected', initials: 'SA', department: 'Commerce' },
+  { name: 'Computer', role: 'Computer Agent', color: '#ffb020', status: 'Not Connected', initials: 'CA', department: 'Infrastructure' },
+  { name: 'Comm', role: 'Communication Agent', color: '#00ebf0', status: 'Not Connected', initials: 'CO', department: 'Communication' },
+  { name: 'File', role: 'File Agent', color: '#ffb020', status: 'Idle', initials: 'FA', department: 'Infrastructure' },
+  { name: 'Security', role: 'Security Agent', color: '#ff5252', status: 'Idle', initials: 'XA', department: 'Security' },
 ];
 const PROVIDERS = [
   { id: 'gemini', name: 'Google Gemini', keyEnv: 'GEMINI_API_KEY' },
@@ -151,14 +151,14 @@ function SystemFeed({ connectionStatus, coreState, memories, orchestrationText }
   }, []);
 
   const events = useMemo(() => [
-    { time: 'NOW', text: `NASI Core: ${coreState}`, color: coreState === 'IDLE' ? '#1a5a3a' : '#2cb8d4' },
-    { time: 'SYS', text: `Backend: ${connectionStatus}`, color: connectionStatus === 'online' ? '#2ebc7a' : '#c85548' },
-    { time: 'MEM', text: `${vectorStats?.totalMemories ?? memories.length} memories (${vectorStats?.embeddingType || 'tfidf'})`, color: '#c88a38' },
+    { time: 'NOW', text: `NASI Core: ${coreState}`, color: coreState === 'IDLE' ? '#1a7a55' : '#00ebf0' },
+    { time: 'SYS', text: `Backend: ${connectionStatus}`, color: connectionStatus === 'online' ? '#00e88a' : '#ff5252' },
+    { time: 'MEM', text: `${vectorStats?.totalMemories ?? memories.length} memories (${vectorStats?.embeddingType || 'tfidf'})`, color: '#ffb020' },
     orchestrationText
-      ? { time: 'Agt', text: orchestrationText, color: '#2ebc7a' }
-      : { time: 'Agt', text: `${AGENTS.filter(a => a.status !== 'Not Connected').length} agents standing by`, color: '#2cb8d4' },
-    { time: 'NET', text: 'Voice pipeline: Browser STT + ElevenLabs TTS', color: '#5a7a8a' },
-    { time: 'SEC', text: 'Security monitoring active', color: '#c85548' },
+      ? { time: 'Agt', text: orchestrationText, color: '#00e88a' }
+      : { time: 'Agt', text: `${AGENTS.filter(a => a.status !== 'Not Connected').length} agents standing by`, color: '#00ebf0' },
+    { time: 'NET', text: 'Voice pipeline: Browser STT + ElevenLabs TTS', color: '#6d9296' },
+    { time: 'SEC', text: 'Security monitoring active', color: '#ff5252' },
   ], [connectionStatus, coreState, memories.length, vectorStats, orchestrationText]);
 
   return (
@@ -416,7 +416,7 @@ function LiveConsolePanel({
       </div>
 
       {/* Command input at bottom of console */}
-      <div style={{ padding: '8px 10px', borderTop: '1px solid rgba(44,184,212,.05)' }}>
+      <div style={{ padding: '8px 10px', borderTop: '1px solid rgba(0, 235, 240,.05)' }}>
         <div className="nasi-command-input" style={{ maxWidth: '100%' }}>
           <input className="nasi-input" value={command} onChange={e => setCommand(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && command.trim()) handleSend(command); }} placeholder="Talk to NASI..." />
@@ -489,7 +489,7 @@ function MemoryModal({ memories, deleteMemory, clearMemories, onClose }: {
                 <div className="nasi-memory-item-header">
                   <span className="nasi-memory-category">{m.category}</span>
                   <span className="nasi-memory-importance">★ {m.importance}</span>
-                  {m._score != null && <span style={{ fontSize: 9, color: '#00d9ff', opacity: 0.7 }}>({(m._score * 100).toFixed(0)}% match)</span>}
+                  {m._score != null && <span style={{ fontSize: 9, color: '#00ebf0', opacity: 0.7 }}>({(m._score * 100).toFixed(0)}% match)</span>}
                 </div>
                 <div className="nasi-memory-key">{m.key}</div>
                 <div className="nasi-memory-value">{m.value}</div>
@@ -535,15 +535,17 @@ useEffect(() => {
   const body = document.body;
   const apply = (t: NasiSettings['theme']) => {
     if (t === 'cyan') {
-      root.style.setProperty('--cyan', '#12ecff');
-      root.style.setProperty('--cyan-dim', '#108fb0');
-      root.style.setProperty('--emerald', '#0affa0');
-      root.style.setProperty('--amber', '#ffb61f');
-      root.style.setProperty('--crimson', '#ff5555');
-      root.style.setProperty('--line', 'rgba(0, 245, 255, .18)');
-      root.style.setProperty('--line-2', 'rgba(0, 245, 255, .34)');
-      root.style.setProperty('--line-3', 'rgba(0, 245, 255, .48)');
-      root.style.setProperty('--glow-cyan', 'rgba(0, 245, 255, .62)');
+      // Canonical palette — must match the :root defaults in styles.css, since
+      // these inline properties win over the stylesheet on load.
+      root.style.setProperty('--cyan', '#00ebf0');
+      root.style.setProperty('--cyan-dim', '#0fa8b0');
+      root.style.setProperty('--emerald', '#00e88a');
+      root.style.setProperty('--amber', '#ffb020');
+      root.style.setProperty('--crimson', '#ff5252');
+      root.style.setProperty('--line', 'rgba(0, 235, 240, .18)');
+      root.style.setProperty('--line-2', 'rgba(0, 235, 240, .34)');
+      root.style.setProperty('--line-3', 'rgba(0, 235, 240, .48)');
+      root.style.setProperty('--glow-cyan', 'rgba(0, 235, 240, .6)');
       body.style.background = '#000000';
     } else if (t === 'emerald') {
       root.style.setProperty('--cyan', '#00ff88');
@@ -570,7 +572,7 @@ useEffect(() => {
     }
   };
   apply(settings.theme);
-  return () => { root.style.setProperty('--cyan', '#12ecff'); root.style.setProperty('--line', 'rgba(0, 245, 255, .18)'); body.style.background = '#000000'; };
+  return () => { root.style.setProperty('--cyan', '#00ebf0'); root.style.setProperty('--line', 'rgba(0, 235, 240, .18)'); body.style.background = '#000000'; };
 }, [settings.theme]);
   const [settingsDraft, setSettingsDraft] = useState<NasiSettings>(settings);
   const [settingsSaved, setSettingsSaved] = useState(false);
@@ -598,9 +600,9 @@ useEffect(() => {
     const coreB = core.getBoundingClientRect();
     const nodeEls = nodes.querySelectorAll<HTMLElement>('.nasi-routing-node');
     const defs = [
-      { id: 'MEMORY', color: '#00d9ff' },
+      { id: 'MEMORY', color: '#00ebf0' },
       { id: 'SKILLS', color: '#00e88a' },
-      { id: 'SOUL', color: '#ffb347' },
+      { id: 'SOUL', color: '#ffb020' },
       { id: 'SETTING', color: '#8fa3b8' },
     ];
     const next: { id: string; color: string; d: string; tx: number; ty: number }[] = [];
@@ -1027,7 +1029,7 @@ useEffect(() => {
             <circle cx="16" cy="16" r="14" fill="none" stroke="#122838" strokeWidth="0.7" opacity="0.7" />
             <circle cx="16" cy="16" r="10" fill="none" stroke="#122838" strokeWidth="0.4" strokeDasharray="2 3" opacity="0.6" />
             <circle cx="16" cy="16" r="5" fill="#122838" opacity="0.4" />
-            <circle cx="16" cy="16" r="2" fill="#2cb8d4" />
+            <circle cx="16" cy="16" r="2" fill="#00ebf0" />
           </svg>
           <span className="nasi-brandname">NASI</span>
         </div>
@@ -1089,9 +1091,9 @@ useEffect(() => {
             {/* Routing nodes — left column, each line starts at its right edge */}
             <div className="nasi-routing-nodes" ref={nodesRef}>
               {[
-                { id: 'MEMORY', color: '#00d9ff', icon: <Database size={11} />, action: () => setShowMemory(true) },
+                { id: 'MEMORY', color: '#00ebf0', icon: <Database size={11} />, action: () => setShowMemory(true) },
                 { id: 'SKILLS', color: '#00e88a', icon: <Zap size={11} />, action: () => setShowChat(true) },
-                { id: 'SOUL', color: '#ffb347', icon: <BrainCircuit size={11} />, action: () => setShowSettings(true) },
+                { id: 'SOUL', color: '#ffb020', icon: <BrainCircuit size={11} />, action: () => setShowSettings(true) },
                 { id: 'SETTING', color: '#8fa3b8', icon: <Settings2 size={11} />, action: () => setShowSettings(true) },
               ].map((n, i) => (
                 <button key={n.id} data-node-id={n.id}
@@ -1254,7 +1256,7 @@ useEffect(() => {
               <div className="nasi-settings-field">
                 <label className="nasi-settings-field-label">ACCENT COLOR</label>
                 <div className="nasi-settings-row-group">
-                  <button className="nasi-theme-chip" onClick={() => setSettingsDraft(s => ({ ...s, theme: 'cyan' }))} style={{ borderColor: 'rgba(0,240,255,.6)', boxShadow: '0 0 10px rgba(0,240,255,.25)' }}><span style={{ background: 'var(--cyan)', width: 14, height: 14, borderRadius: '50%', display: 'inline-block', marginRight: 6, boxShadow: '0 0 8px var(--cyan)' }} />CYAN</button>
+                  <button className="nasi-theme-chip" onClick={() => setSettingsDraft(s => ({ ...s, theme: 'cyan' }))} style={{ borderColor: 'rgba(0, 235, 240,.6)', boxShadow: '0 0 10px rgba(0, 235, 240,.25)' }}><span style={{ background: 'var(--cyan)', width: 14, height: 14, borderRadius: '50%', display: 'inline-block', marginRight: 6, boxShadow: '0 0 8px var(--cyan)' }} />CYAN</button>
                   <button className="nasi-theme-chip" onClick={() => setSettingsDraft(s => ({ ...s, theme: 'emerald' }))} style={{ borderColor: 'rgba(0,255,136,.6)', boxShadow: '0 0 10px rgba(0,255,136,.25)' }}><span style={{ background: 'var(--emerald)', width: 14, height: 14, borderRadius: '50%', display: 'inline-block', marginRight: 6, boxShadow: '0 0 8px var(--emerald)' }} />EMERALD</button>
                   <button className="nasi-theme-chip" onClick={() => setSettingsDraft(s => ({ ...s, theme: 'crimson' }))} style={{ borderColor: 'rgba(255,102,68,.6)', boxShadow: '0 0 10px rgba(255,102,68,.25)' }}><span style={{ background: 'var(--crimson)', width: 14, height: 14, borderRadius: '50%', display: 'inline-block', marginRight: 6, boxShadow: '0 0 8px var(--crimson)' }} />CRIMSON</button>
                 </div>
@@ -1323,7 +1325,7 @@ useEffect(() => {
               </div>
             </div>
             <div className="nasi-agent-connection-status">
-              <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: selectedAgent.status === 'Active' ? '#2ebc7a' : selectedAgent.status === 'Idle' ? '#1a5a3a' : '#c85548', boxShadow: '0 0 6px currentColor' }} />
+              <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: selectedAgent.status === 'Active' ? '#00e88a' : selectedAgent.status === 'Idle' ? '#1a7a55' : '#ff5252', boxShadow: '0 0 6px currentColor' }} />
               <span>{selectedAgent.status === 'Idle' ? 'Standing by' : selectedAgent.status === 'Active' ? 'Active' : 'Not connected'}</span>
             </div>
             <button className="nasi-modal-btn" onClick={() => setSelectedAgent(null)}>CLOSE</button>
