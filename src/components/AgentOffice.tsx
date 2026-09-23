@@ -42,6 +42,226 @@ const BASE = { deskW: 66, deskH: 18, spriteW: 16, torsoH: 20, headR: 5.5 };
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
+// ─────────────────────────────────────────────────────────────
+// Pixel-art agent sprites
+// Each body part is painted on a tiny offscreen canvas at 1 sprite
+// pixel = 1 canvas pixel (3-tone shading: highlight / base / shadow,
+// light coming from the monitor side), then wrapped in an automatic
+// 1px tinted silhouette outline. Parts are blitted whole-pixel-aligned
+// with smoothing off, so every edge snaps to the grid — no arcs, no
+// anti-aliasing, no vector-looking blur. Layers stay separate (head /
+// torso / sleeve / hand) so the existing head-turn, typing-hand and
+// stretch animations keep working in whole-pixel steps.
+// ─────────────────────────────────────────────────────────────
+const SP = { torsoW: 16, torsoH: 20, armW: 5, sleeveH: 8, handH: 4, headW: 12, headH: 12 };
+
+/** Skin triples: [highlight, base, shadow] — four tones so the floor isn't uniform. */
+const SKIN = [
+  ['#f2d3ab', '#d6ab7d', '#9d7350'],
+  ['#cf9466', '#a76c44', '#7a4b2e'],
+  ['#8f5f41', '#6f4630', '#4e3020'],
+  ['#f7e0c6', '#e2c09a', '#b28f6a'],
+];
+/** Hair triples: [highlight, base, shadow] — paired with the style variants below. */
+const HAIR = [
+  ['#3c4468', '#242a44', '#14172a'],
+  ['#7a5636', '#4e3320', '#2d1d12'],
+  ['#262b36', '#171a22', '#0c0e14'],
+  ['#9a8258', '#6a583c', '#3e3324'],
+];
+
+function rgb2hex(r: number, g: number, b: number): string {
+  return '#' + [r, g, b].map(v => clamp(Math.round(v), 0, 255).toString(16).padStart(2, '0')).join('');
+}
+
+/** Mix two #rrggbb colors — m is the weight of color b. */
+function mix(a: string, b: string, m: number): string {
+  const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+  return rgb2hex(
+    ((pa >> 16) & 255) + (((pb >> 16) & 255) - ((pa >> 16) & 255)) * m,
+    ((pa >> 8) & 255) + (((pb >> 8) & 255) - ((pa >> 8) & 255)) * m,
+    (pa & 255) + ((pb & 255) - (pa & 255)) * m,
+  );
+}
+
+/** Paint a part at native resolution, then wrap its silhouette in a 1px tinted outline. */
+function buildPart(w: number, h: number, ink: string, paint: (g: CanvasRenderingContext2D) => void): HTMLCanvasElement {
+  const tmp = document.createElement('canvas');
+  tmp.width = w; tmp.height = h;
+  const g = tmp.getContext('2d')!;
+  paint(g);
+
+  const out = document.createElement('canvas');
+  out.width = w + 2; out.height = h + 2; // +1px outline padding per side
+  const og = out.getContext('2d')!;
+  // Dilate the silhouette into the padding ring…
+  const px = g.getImageData(0, 0, w, h).data;
+  og.fillStyle = ink;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (px[(y * w + x) * 4 + 3] === 0) continue;
+      // +1 because the art is laid down at (1,1) — ring must hug THAT,
+      // otherwise the outline drifts a pixel up-left (missing right/bottom edge).
+      const ox = x + 1, oy = y + 1;
+      og.fillRect(ox, oy, 1, 1);
+      og.fillRect(ox - 1, oy, 1, 1); og.fillRect(ox + 1, oy, 1, 1);
+      og.fillRect(ox, oy - 1, 1, 1); og.fillRect(ox, oy + 1, 1, 1);
+      og.fillRect(ox - 1, oy - 1, 1, 1); og.fillRect(ox + 1, oy - 1, 1, 1);
+      og.fillRect(ox - 1, oy + 1, 1, 1); og.fillRect(ox + 1, oy + 1, 1, 1);
+    }
+  }
+  // …then lay the art back on top so only the outer edge shows.
+  og.drawImage(tmp, 1, 1);
+  return out;
+}
+
+/** Torso: shoulder slope, 3-tone shirt, V collar, button placket, pocket seam, belt. */
+function paintTorso(g: CanvasRenderingContext2D, color: string) {
+  const w = SP.torsoW, h = SP.torsoH;
+  const hi = mix(color, '#ffffff', 0.30);
+  const lo = mix(color, '#000000', 0.34);
+  const deep = mix(color, '#000000', 0.55);
+  for (let y = 0; y < h; y++) {
+    let x0 = 0, x1 = w;
+    if (y === 0) { x0 = 5; x1 = 11; }
+    else if (y === 1) { x0 = 3; x1 = 13; }
+    else if (y === 2) { x0 = 1; x1 = 15; }
+    for (let x = x0; x < x1; x++) {
+      let c = x < 5 ? lo : x < 11 ? color : hi;
+      if (y >= 13) c = x < 5 ? mix(deep, '#000000', 0.25) : x < 11 ? deep : mix(deep, hi, 0.30);
+      if (y >= 18) c = y === 18 ? '#161b24' : '#0d1017'; // belt line
+      g.fillStyle = c;
+      g.fillRect(x, y, 1, 1);
+    }
+  }
+  // Shirt folds & seams: V collar, button placket, chest-pocket line.
+  const fold = mix(color, '#000000', 0.44);
+  g.fillStyle = fold;
+  [[6, 2], [9, 2], [7, 3], [8, 3]].forEach(([x, y]) => g.fillRect(x, y, 1, 1));
+  for (let y = 4; y < 13; y++) g.fillRect(7, y, 1, 1);
+  g.fillRect(11, 10, 3, 1); g.fillRect(11, 11, 1, 1);
+  g.fillStyle = hi;
+  g.fillRect(11, 9, 3, 1);
+}
+
+/** Upper arm: sleeve with shoulder cap, 3-tone fold shading and a darker cuff. */
+function paintSleeve(g: CanvasRenderingContext2D, color: string) {
+  const w = SP.armW, h = SP.sleeveH;
+  const hi = mix(color, '#ffffff', 0.30);
+  const lo = mix(color, '#000000', 0.34);
+  const cuff = mix(color, '#000000', 0.52);
+  for (let y = 0; y < h; y++) {
+    const x0 = y === 0 ? 1 : 0;
+    for (let x = x0; x < w; x++) {
+      let c = x < 2 ? lo : x < 4 ? color : hi;
+      // Cuff sits on the row ABOVE the hand's outline seam so it stays visible.
+      if (y === h - 2) c = cuff;
+      g.fillStyle = c;
+      g.fillRect(x, y, 1, 1);
+    }
+  }
+}
+
+/** Hand: skin tones with a shadow row where it meets the desk. */
+function paintHand(g: CanvasRenderingContext2D, skin: string[]) {
+  const [hi, base, lo] = skin;
+  for (let y = 0; y < SP.handH; y++) {
+    for (let x = 0; x < SP.armW; x++) {
+      let c = x < 2 ? lo : x < 4 ? base : hi;
+      if (y === SP.handH - 1) c = lo; // desk shadow
+      g.fillStyle = c;
+      g.fillRect(x, y, 1, 1);
+    }
+  }
+}
+
+/**
+ * Head: round skull mask, 3-tone skin (rim light on the monitor side), one of
+ * four hair silhouettes (short / bob / spiky / tied-bun) with highlight streak,
+ * brow + 2px eye gazing right, 1px nose bump past the skull edge, mouth line.
+ */
+function paintHead(g: CanvasRenderingContext2D, variant: number, skin: string[], hair: string[]) {
+  const cx = 5, cy = 6, r = 5.5;
+  const inside = (x: number, y: number) => {
+    const dx = x - cx, dy = y - cy;
+    return dx * dx + dy * dy <= r * r;
+  };
+  const [skinHi, skinBase, skinLo] = skin;
+
+  // Face mass — 3 tones: rim light front-right, cast shadow under the hair, chin shade.
+  for (let y = 0; y < SP.headH; y++) {
+    for (let x = 0; x < SP.headW; x++) {
+      if (!inside(x, y)) continue;
+      let c = skinBase;
+      if (x >= 9) c = skinHi;
+      else if (y >= 10 || x <= 2) c = skinLo;
+      g.fillStyle = c;
+      g.fillRect(x, y, 1, 1);
+    }
+  }
+
+  // Hair silhouette per style.
+  const isHair = (x: number, y: number): boolean => {
+    if (!inside(x, y)) return false;
+    if (variant === 2) {
+      // Spiky: shorter cap + jagged fringe.
+      if (y <= 2) return true;
+      if (y === 3 && x <= 7 && x % 2 === 1) return true;
+    } else if (y <= 3) return true;
+    if (x <= 1) return y <= (variant === 1 ? 9 : 6); // back of head; bob is longer
+    if (variant === 1 && x === 2 && y <= 7) return true; // bob volume
+    return false;
+  };
+  const [hairHi, hairBase, hairLo] = hair;
+  for (let y = 0; y < SP.headH; y++) {
+    for (let x = 0; x < SP.headW; x++) {
+      if (!isHair(x, y)) continue;
+      let c = hairBase;
+      if (y <= 1 && x >= 3) c = hairHi;   // top streak (ceiling light)
+      else if (y === 3 || x <= 1) c = hairLo; // underside / back shadow
+      g.fillStyle = c;
+      g.fillRect(x, y, 1, 1);
+    }
+  }
+  // Tied-bun variant: extra hair blob outside the skull silhouette.
+  if (variant === 3) {
+    g.fillStyle = hairBase; g.fillRect(0, 2, 1, 1); g.fillRect(1, 1, 1, 1);
+    g.fillStyle = hairHi;   g.fillRect(1, 2, 1, 1);
+  }
+
+  // Brow + eye (white then pupil, gaze toward the monitor on the right).
+  g.fillStyle = hairLo;  g.fillRect(7, 5, 2, 1);
+  g.fillStyle = '#f4f7fa'; g.fillRect(7, 6, 1, 1);
+  g.fillStyle = '#10141b'; g.fillRect(8, 6, 1, 1);
+  // Nose bump past the skull edge + mouth line.
+  g.fillStyle = skinHi; g.fillRect(11, 6, 1, 1);
+  g.fillStyle = skinLo; g.fillRect(8, 9, 2, 1);
+}
+
+/** Per-piece cache — sprites are static art, rebuilt only on first use. */
+const spriteCache = new Map<string, HTMLCanvasElement>();
+function cachePart(key: string, make: () => HTMLCanvasElement): HTMLCanvasElement {
+  let c = spriteCache.get(key);
+  if (!c) { c = make(); spriteCache.set(key, c); }
+  return c;
+}
+
+function getAgentSprite(agentIdx: number, color: string) {
+  const skinIdx = agentIdx % SKIN.length;
+  const hairIdx = (agentIdx * 3 + 1) % HAIR.length;
+  const variant = agentIdx % 4;
+  const skin = SKIN[skinIdx];
+  const hair = HAIR[hairIdx];
+  const clothInk = mix(color, '#000000', 0.72);
+  const skinInk = mix(skin[1], '#000000', 0.66);
+  return {
+    torso: cachePart(`t|${color}`, () => buildPart(SP.torsoW, SP.torsoH, clothInk, g => paintTorso(g, color))),
+    sleeve: cachePart(`s|${color}`, () => buildPart(SP.armW, SP.sleeveH, clothInk, g => paintSleeve(g, color))),
+    hand: cachePart(`hd|${skinIdx}`, () => buildPart(SP.armW, SP.handH, skinInk, g => paintHand(g, skin))),
+    head: cachePart(`h|${variant}|${skinIdx}|${hairIdx}`, () => buildPart(SP.headW, SP.headH, skinInk, g => paintHead(g, variant, skin, hair))),
+  };
+}
+
 function computeLayout(list: Agent[], W: number, H: number): Layout {
   // Group agents by department in fixed zone order (Infrastructure holds 2 agents
   // → rendered as one merged zone spanning two cells, no wall between them).
@@ -425,7 +645,6 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
         const sx = d.cx + leanX;
         const torsoW = BASE.spriteW * ds;
         const torsoH = BASE.torsoH * ds;
-        const headR = BASE.headR * ds;
 
         // Chair back (behind the body)
         ctx.fillStyle = '#1b2231';
@@ -443,54 +662,32 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
         ctx.fillStyle = '#141a22';
         ctx.fillRect(sx - 2 * ds, chY + chH, 4 * ds, 6 * ds);
 
-        // Body — visible outfit: shirt block over darker trousers/lower
-        ctx.fillStyle = d.agent.color;
-        ctx.fillRect(sx - torsoW / 2, bodyTop, torsoW, torsoH);
-        // Shoulders (slightly lighter top band)
-        ctx.fillStyle = 'rgba(255,255,255,.13)';
-        ctx.fillRect(sx - torsoW / 2, bodyTop, torsoW, 4 * ds);
-        // Collar notch
-        ctx.fillStyle = 'rgba(0,0,0,.35)';
-        ctx.beginPath();
-        ctx.moveTo(sx - 3 * ds, bodyTop);
-        ctx.lineTo(sx + 3 * ds, bodyTop);
-        ctx.lineTo(sx, bodyTop + 4.5 * ds);
-        ctx.closePath(); ctx.fill();
-        // Shirt shading + belt line
-        ctx.fillStyle = 'rgba(0,0,0,.28)';
-        ctx.fillRect(sx - torsoW / 2, bodyTop + torsoH * 0.66, torsoW, torsoH * 0.34);
-        ctx.fillStyle = 'rgba(0,0,0,.45)';
-        ctx.fillRect(sx - torsoW / 2, bodyTop + torsoH - 2.5 * ds, torsoW, 2.5 * ds);
-
-        // Arms reaching toward the desk (stretch raises them)
-        const armW = 5 * ds, armH = 12 * ds;
-        const armLift = stretch * 9 * ds;
-        ctx.fillStyle = d.agent.color;
-        ctx.fillRect(sx - torsoW / 2 - armW + 1 * ds, bodyTop + 4 * ds - armLift, armW, armH);
-        ctx.fillRect(sx + torsoW / 2 - 1 * ds, bodyTop + 4 * ds - armLift, armW, armH);
-        // Hands (skin) — breathe/type
-        ctx.fillStyle = '#c9a882';
-        ctx.fillRect(sx - torsoW / 2 - armW + 1 * ds, bodyTop + 4 * ds + armH - 4 * ds + typingY - armLift, armW, 4 * ds);
-        ctx.fillRect(sx + torsoW / 2 - 1 * ds, bodyTop + 4 * ds + armH - 4 * ds - typingY - armLift, armW, 4 * ds);
-
-        // Head (turns during the head-turn micro-action)
-        const hx = sx + headTurn, hy = bodyTop - headR - 2 * ds;
-        ctx.fillStyle = '#c9a882';
-        ctx.beginPath(); ctx.arc(hx, hy, headR, 0, Math.PI * 2); ctx.fill();
-        // Hair
-        ctx.fillStyle = '#1c1f33';
-        ctx.beginPath(); ctx.arc(hx, hy - headR * 0.28, headR, Math.PI * 1.06, Math.PI * 2.02); ctx.fill();
-        // Facing indicator — nose wedge + eye pointing at the monitor (+x)
-        ctx.fillStyle = '#d8b58d';
-        ctx.beginPath();
-        ctx.moveTo(hx + headR * 0.72, hy + headR * 0.02);
-        ctx.lineTo(hx + headR * 1.22, hy + headR * 0.22);
-        ctx.lineTo(hx + headR * 0.72, hy + headR * 0.42);
-        ctx.closePath(); ctx.fill();
-        ctx.fillStyle = '#fff';
-        ctx.beginPath(); ctx.arc(hx + headR * 0.42, hy - headR * 0.10, headR * 0.24, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#12161c';
-        ctx.beginPath(); ctx.arc(hx + headR * 0.52, hy - headR * 0.10, headR * 0.12, 0, Math.PI * 2); ctx.fill();
+        // ── Pixel-art agent sprite ── cached, auto-outlined layers blitted at
+        // integer positions with smoothing off. All motion (bob, lean, head
+        // turn, typing hands, stretch) is quantised to whole pixels so edges
+        // stay crisp instead of smearing across sub-pixel boundaries.
+        const sprite = getAgentSprite(i, d.agent.color);
+        const blit = (img: HTMLCanvasElement, x: number, y: number) => {
+          ctx.drawImage(img, Math.round(x) - 1, Math.round(y) - 1); // −1: outline padding
+        };
+        const bodyTopI = Math.round(bodyTop);
+        const sxI = Math.round(sx);
+        const armLiftQ = Math.round(stretch * 9 * ds);
+        const armTop = Math.round(bodyTop + 4) - armLiftQ;
+        const typeL = Math.round(typingY);
+        const typeR = Math.round(-typingY);
+        const torsoL = sxI - SP.torsoW / 2;
+        const sleeveL = torsoL - SP.armW + 1;
+        const sleeveR = torsoL + SP.torsoW - 1;
+        ctx.imageSmoothingEnabled = false;
+        blit(sprite.torso, torsoL, bodyTopI);
+        blit(sprite.sleeve, sleeveL, armTop);
+        blit(sprite.sleeve, sleeveR, armTop);
+        blit(sprite.hand, sleeveL, armTop + SP.sleeveH + typeL);
+        blit(sprite.hand, sleeveR, armTop + SP.sleeveH + typeR);
+        // Head rides the same body transform; shifts in whole pixels on head-turn.
+        blit(sprite.head, sxI + Math.round(headTurn) - 5, bodyTopI - 10);
+        ctx.imageSmoothingEnabled = true;
 
         // Desk — wood top + front face for depth (drawn after sprite → seated look)
         ctx.fillStyle = '#4a3524';
