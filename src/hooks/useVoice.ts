@@ -60,13 +60,26 @@ export function useVoice(config: VoiceConfig = {}) {
   const ttsStartRef = useRef(0);
 
   const log = useCallback((msg: string, detailed = false) => {
-    const entry = `[${new Date().toLocaleTimeString()}] ${msg}`;
     if (detailed) {
       console.log(`[NASI VOICE DEBUG] ${msg}`);
     } else {
       console.log(`[NASI VOICE] ${msg}`);
     }
-    setVoiceLog(prev => [...prev.slice(-20), entry]);
+    setVoiceLog(prev => {
+      const next = [...prev];
+      const last = next.length ? next[next.length - 1] : null;
+      // Consecutive-duplicate collapse: the same message logged again
+      // immediately bumps a (×N) counter on the existing row instead of
+      // appending an identical line (voice-load events used to spam this).
+      const parsed = last?.match(/^\[([^\]]+)\] ([\s\S]*?)(?: \(×(\d+)\))?$/);
+      if (parsed && parsed[2] === msg) {
+        const count = (parseInt(parsed[3] || '1', 10) || 1) + 1;
+        next[next.length - 1] = `[${parsed[1]}] ${msg} (×${count})`;
+        return next.slice(-20);
+      }
+      next.push(`[${new Date().toLocaleTimeString()}] ${msg}`);
+      return next.slice(-20);
+    });
   }, []);
 
   // Debug helper: log ElevenLabs key status (non-empty shows key is configured)
@@ -83,7 +96,19 @@ export function useVoice(config: VoiceConfig = {}) {
     onStateChange?.(state);
   }, [onStateChange]);
 
-  // Load voices on mount
+  // Latest hints without re-running the voice-load effect on every identity
+  // change of the array — the caller rebuilds `ttsLocaleHints` inside a memo,
+  // and the old `[ttsLocaleHints, log]` deps re-fired the whole load (and its
+  // two log lines) every time that fresh array appeared.
+  const hintsRef = useRef(ttsLocaleHints);
+  hintsRef.current = ttsLocaleHints;
+  /** Signature of the last announced voice state — identical states stay silent. */
+  const voicesKeyRef = useRef<string | null>(null);
+
+  // Load voices on mount. Chrome re-fires `voiceschanged` several times while
+  // the list populates and StrictMode re-runs effects in dev; the signature
+  // guard announces each DISTINCT voice state exactly once instead of logging
+  // "N voices loaded" + "Best voice = …" on every re-fire.
   useEffect(() => {
     if (!window.speechSynthesis) {
       log('TTS: speechSynthesis not available');
@@ -91,19 +116,24 @@ export function useVoice(config: VoiceConfig = {}) {
     }
     const loadVoices = () => {
       const voices = window.speechSynthesis!.getVoices();
-      log(`TTS: ${voices.length} voices loaded`);
-      if (voices.length > 0) {
-        setVoicesLoaded(true);
-        const selected = pickVoice(voices, ttsLocaleHints);
-        log(`TTS: Best voice = ${selected?.name || 'default'} (${selected?.lang || 'unknown'})`);
+      if (voices.length === 0) {
+        log('TTS: 0 voices loaded');
+        return;
       }
+      setVoicesLoaded(true);
+      const selected = pickVoice(voices, hintsRef.current);
+      const key = `${voices.length}|${selected?.name ?? ''}|${selected?.lang ?? ''}`;
+      if (voicesKeyRef.current === key) return; // already announced this state
+      voicesKeyRef.current = key;
+      log(`TTS: ${voices.length} voices loaded`);
+      log(`TTS: Best voice = ${selected?.name || 'default'} (${selected?.lang || 'unknown'})`);
     };
     loadVoices();
     window.speechSynthesis.onvoiceschanged = loadVoices;
     return () => {
       if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = null;
     };
-  }, [ttsLocaleHints, log]);
+  }, [log]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -374,6 +404,9 @@ export function useVoice(config: VoiceConfig = {}) {
 
     recognition.onstart = () => {
       log('STT: Browser recognition started — speak now');
+      // A fresh session means the previous transient failure recovered —
+      // clear the red error banner so it can't sit stale in the voice log.
+      setErrorMessage('');
       sttStartRef.current = performance.now();
       setCoreState('LISTENING');
       setMicStatus('active');
@@ -406,9 +439,12 @@ export function useVoice(config: VoiceConfig = {}) {
       const error = event.error as string;
       log(`STT: Browser recognition error '${error}' — message: ${event.message || 'N/A'}, isRestarting: ${!!recognitionRef.current}`, true);
       if (error === 'aborted') {
+        // Benign: start() raced an active session. Log-only — this branch used
+        // to fall through to the generic error path below, which painted a red
+        // duplicate of this very line in the voice console and pushed the hook
+        // into the ERROR state for a non-error condition.
         log('STT: Recognition was aborted — this can happen if start() was called while another recognition was active', true);
-      }
-      if (error === 'no-speech') {
+      } else if (error === 'no-speech') {
         log('STT: No speech — restarting in 400ms for LIVE mode');
         isProcessingRef.current = false;
         setCoreState('IDLE');
@@ -436,6 +472,12 @@ export function useVoice(config: VoiceConfig = {}) {
         setErrorMessage('Microphone access denied. Allow mic in browser settings.');
         setCoreState('ERROR');
         setMicStatus('error');
+        recognitionRef.current = null;
+      } else if (error === 'network' || error === 'audio-capture' || error === 'timeout') {
+        // Transient browser hiccups: log them but don't escalate to the
+        // sticky red ERROR banner — the session recovers on its own (LIVE
+        // mode auto-restarts it as soon as state returns to IDLE).
+        log(`STT: Transient '${error}' — not treated as a fatal error`);
         recognitionRef.current = null;
       } else {
         log(`STT: Browser recognition error '${error}' — message: ${event.message || ''}`);
