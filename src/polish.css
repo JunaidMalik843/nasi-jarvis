@@ -613,12 +613,12 @@
 /* ── Bloom +~45% on every active / highlighted element ── */
 .nasi-topbar-btn.active {
   border-color: rgba(0, 235, 240, .52);
-  box-shadow: 0 0 28px rgba(0, 235, 240, .34), inset 0 0 18px rgba(0, 235, 240, .13);
+  box-shadow: 0 0 6px var(--glow-core), 0 0 28px rgba(0, 235, 240, .34), inset 0 0 18px rgba(0, 235, 240, .13);
   text-shadow: 0 0 14px rgba(0, 235, 240, .85);
 }
 .nasi-icon-btn:hover {
   border-color: rgba(0, 235, 240, .46);
-  box-shadow: 0 0 26px rgba(0, 235, 240, .34), inset 0 0 12px rgba(0, 235, 240, .1);
+  box-shadow: 0 0 6px var(--glow-core), 0 0 26px rgba(0, 235, 240, .34), inset 0 0 12px rgba(0, 235, 240, .1);
 }
 .nasi-routing-node.active {
   box-shadow:
@@ -631,7 +631,7 @@
     inset 0 0 20px color-mix(in srgb, var(--node-color) 16%, transparent);
 }
 .nasi-console-tab.active {
-  box-shadow: inset 0 -2px 14px rgba(0, 235, 240, .13), 0 0 22px rgba(0, 235, 240, .1);
+  box-shadow: 0 0 5px var(--glow-core), inset 0 -2px 14px rgba(0, 235, 240, .13), 0 0 22px rgba(0, 235, 240, .1);
   text-shadow: 0 0 12px rgba(0, 235, 240, .78);
 }
 .nasi-console-tab.active::after {
@@ -642,7 +642,7 @@
 }
 .nasi-agent-tab.active {
   border-color: rgba(0, 235, 240, .44);
-  box-shadow: 0 0 20px rgba(0, 235, 240, .2), inset 0 0 12px rgba(0, 235, 240, .08);
+  box-shadow: 0 0 5px var(--glow-core), 0 0 20px rgba(0, 235, 240, .2), inset 0 0 12px rgba(0, 235, 240, .08);
   text-shadow: 0 0 11px rgba(0, 235, 240, .65);
 }
 .nasi-start-btn { border-color: rgba(0, 235, 240, .95); }
@@ -684,7 +684,8 @@
 .nasi-sidebar-title, .nasi-settings-label, .nasi-chat-msg-name,
 .nasi-state-label, .nasi-brandname, .nasi-agent-tab,
 .nasi-dept-pill-name, .nasi-roster-pill-name, .nasi-start-btn,
-.nasi-core-state, .nasi-feed-event-time {
+.nasi-core-state, .nasi-feed-event-time,
+.nasi-console-tab, .nasi-topbar-btn {
   font-weight: 700;
 }
 .nasi-console-line, .nasi-console-text, .nasi-feed-event-text,
@@ -695,3 +696,23 @@
 .nasi-console-text, .nasi-feed-event-text {
   letter-spacing: .015em;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   WARM CHARCOAL-TEAL SURFACES — remainder of the #0a1214 family pass
+
+   Restates the remaining surface colours with the warm teal hue family
+   (blue channel ≈ green channel, never blue-dominant) so settings chips,
+   inputs, toggles, capability panes, the sidebar and the agent console
+   match the cards above instead of the old cool blue-grey. Loaded last,
+   equal specificity → these win.
+   ═══════════════════════════════════════════════════════════════ */
+.nasi-settings-chip { background: rgba(5, 9, 12, .75); }
+.nasi-settings-input { background: rgba(5, 9, 12, .85); }
+.nasi-settings-provider-fields { border-left: 1px solid rgba(0, 235, 240, .45); }
+.nasi-toggle { background: rgba(5, 9, 12, .85); }
+.nasi-agent-capabilities { background: rgba(5, 9, 12, .6); }
+.nasi-agent-connection-status { background: rgba(5, 9, 12, .6); }
+.nasi-sidebar { background: rgba(4, 7, 9, .98); }
+.nasi-agent-console-item { background: rgba(6, 11, 12, .55); }
+.nasi-agent-console-item:hover { background: rgba(6, 11, 12, .9); }
+.nasi-notes-input { background: rgba(5, 9, 12, .7); }

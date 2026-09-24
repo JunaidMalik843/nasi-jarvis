@@ -21,23 +21,23 @@ interface Marker {
 }
 
 const MARKERS: Marker[] = [
-  { name: 'NYC', lon: -74, lat: 40.7, color: '#00ff88', status: 'active', label: 'OPERATIONAL' },
-  { name: 'London', lon: 0, lat: 51.5, color: '#00ff88', status: 'active', label: 'OPERATIONAL' },
-  { name: 'Tokyo', lon: 139.7, lat: 35.7, color: '#00ff88', status: 'active', label: 'OPERATIONAL' },
-  { name: 'Mumbai', lon: 72.9, lat: 19.1, color: '#00ff88', status: 'active', label: 'STANDBY' },
-  { name: 'Sydney', lon: 151.2, lat: -33.9, color: '#00ff88', status: 'active', label: 'STANDBY' },
-  { name: 'Dubai', lon: 55.3, lat: 25.2, color: '#ffaa00', status: 'warning', label: 'ELEVATED' },
-  { name: 'São Paulo', lon: -46.6, lat: -23.5, color: '#00ff88', status: 'active', label: 'OPERATIONAL' },
-  { name: 'Singapore', lon: 103.8, lat: 1.35, color: '#00ff88', status: 'active', label: 'OPERATIONAL' },
-  { name: 'Seoul', lon: 127, lat: 37.5, color: '#ff4444', status: 'critical', label: 'ALERT' },
-  { name: 'Moscow', lon: 37.6, lat: 55.7, color: '#ffaa00', status: 'warning', label: 'MONITORING' },
+  { name: 'NYC', lon: -74, lat: 40.7, color: '#00e88a', status: 'active', label: 'OPERATIONAL' },
+  { name: 'London', lon: 0, lat: 51.5, color: '#00e88a', status: 'active', label: 'OPERATIONAL' },
+  { name: 'Tokyo', lon: 139.7, lat: 35.7, color: '#00e88a', status: 'active', label: 'OPERATIONAL' },
+  { name: 'Mumbai', lon: 72.9, lat: 19.1, color: '#00e88a', status: 'active', label: 'STANDBY' },
+  { name: 'Sydney', lon: 151.2, lat: -33.9, color: '#00e88a', status: 'active', label: 'STANDBY' },
+  { name: 'Dubai', lon: 55.3, lat: 25.2, color: '#ffb020', status: 'warning', label: 'ELEVATED' },
+  { name: 'São Paulo', lon: -46.6, lat: -23.5, color: '#00e88a', status: 'active', label: 'OPERATIONAL' },
+  { name: 'Singapore', lon: 103.8, lat: 1.35, color: '#00e88a', status: 'active', label: 'OPERATIONAL' },
+  { name: 'Seoul', lon: 127, lat: 37.5, color: '#ff5252', status: 'critical', label: 'ALERT' },
+  { name: 'Moscow', lon: 37.6, lat: 55.7, color: '#ffb020', status: 'warning', label: 'MONITORING' },
 ];
 
 // Heat zones — regions with activity overlays
 const HEAT_ZONES: { lon: number; lat: number; radius: number; color: string; intensity: number }[] = [
-  { lon: 55, lat: 25, radius: 18, color: '#ffaa00', intensity: 0.12 },  // Middle East
-  { lon: 37, lat: 55, radius: 14, color: '#ffaa00', intensity: 0.08 },  // Russia
-  { lon: 127, lat: 37, radius: 10, color: '#ff4444', intensity: 0.15 }, // Korean peninsula
+  { lon: 55, lat: 25, radius: 18, color: '#ffb020', intensity: 0.12 },  // Middle East
+  { lon: 37, lat: 55, radius: 14, color: '#ffb020', intensity: 0.08 },  // Russia
+  { lon: 127, lat: 37, radius: 10, color: '#ff5252', intensity: 0.15 }, // Korean peninsula
   { lon: -100, lat: 35, radius: 20, color: '#00ebf0', intensity: 0.05 }, // US
   { lon: 10, lat: 50, radius: 16, color: '#00ebf0', intensity: 0.06 },  // Europe
 ];
@@ -92,9 +92,9 @@ export default function WorldGlobe() {
 
     // ── Background: dark satellite texture ──
     const bgGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w, h) * 0.7);
-    bgGrad.addColorStop(0, '#08141c');
-    bgGrad.addColorStop(0.5, '#040c13');
-    bgGrad.addColorStop(1, '#010204');
+    bgGrad.addColorStop(0, '#071419');
+    bgGrad.addColorStop(0.5, '#040e12');
+    bgGrad.addColorStop(1, '#010405');
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, w, h);
 

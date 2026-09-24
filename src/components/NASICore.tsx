@@ -134,7 +134,7 @@ export default function NASICore({ state }: { state: CoreState }) {
 
       // Center point
       const centerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 8 * pulse);
-      centerGrad.addColorStop(0, `rgba(${Math.min(255, sc.r + 80)},${Math.min(255, sc.g + 60)},${Math.min(255, sc.b + 40)},${0.9 * sc.intensity})`);
+      centerGrad.addColorStop(0, `rgba(${Math.min(255, sc.r + 160)},${Math.min(255, sc.g + 60)},${Math.min(255, sc.b + 40)},${0.9 * sc.intensity})`);
       centerGrad.addColorStop(1, 'transparent');
       ctx.fillStyle = centerGrad; ctx.beginPath(); ctx.arc(cx, cy, 8 * pulse, 0, Math.PI * 2); ctx.fill();
 
