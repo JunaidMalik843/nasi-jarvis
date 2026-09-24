@@ -44,9 +44,9 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  background: rgba(40, 180, 200, .1);
+  background: rgba(0, 235, 240, .1);
   border: 1px solid #2a6a70;
-  color: #52dadd;
+  color: var(--cyan);
   padding: 4px 8px;
   border-radius: 4px;
   font: 7px 'DM Mono', monospace;
@@ -82,7 +82,7 @@
 
 .conversation-search-input:focus {
   border-color: #2a6a70;
-  box-shadow: 0 0 0 2px rgba(40, 180, 200, .1);
+  box-shadow: 0 0 0 2px rgba(0, 235, 240, .1);
 }
 
 .conversation-list {
@@ -213,9 +213,9 @@
   transform: translateY(-50%);
   width: 3px;
   height: 40%;
-  background: #3ad5e3;
+  background: var(--cyan);
   border-radius: 2px;
-  box-shadow: 0 0 10px rgba(58, 213, 227, .5);
+  box-shadow: 0 0 10px rgba(0, 235, 240, .5);
 }
 
 .conversation-empty {
@@ -234,9 +234,9 @@
 }
 
 .conversation-empty-btn {
-  background: rgba(40, 180, 200, .1);
+  background: rgba(0, 235, 240, .1);
   border: 1px solid #2a6a70;
-  color: #52dadd;
+  color: var(--cyan);
   padding: 4px 10px;
   border-radius: 4px;
   font: 7px 'DM Mono', monospace;
@@ -257,7 +257,7 @@
 .loading-dot {
   width: 4px;
   height: 4px;
-  background: #3ad5e3;
+  background: var(--cyan);
   border-radius: 50%;
   animation: pulse 1.2s infinite;
 }
@@ -294,7 +294,7 @@
 
 .memory-count {
   background: #15232a;
-  color: #45df9b;
+  color: var(--emerald);
   font-size: 7px;
   padding: 2px 5px;
   border-radius: 3px;
@@ -353,7 +353,7 @@
 
 .memory-search-input:focus {
   border-color: #2a6a70;
-  box-shadow: 0 0 0 2px rgba(40, 180, 200, .1);
+  box-shadow: 0 0 0 2px rgba(0, 235, 240, .1);
 }
 
 .memory-notice {
@@ -372,7 +372,7 @@
 
 .memory-notice svg {
   flex-shrink: 0;
-  color: #3ad5e3;
+  color: var(--cyan);
   margin-top: 2px;
 }
 
@@ -389,7 +389,7 @@
 
 .memory-empty svg {
   opacity: .4;
-  color: #3ad5e3;
+  color: var(--cyan);
 }
 
 .memory-empty-hint {
@@ -444,7 +444,7 @@
 }
 
 .memory-category-icon.preference {
-  color: #52dadd;
+  color: var(--cyan);
 }
 
 .memory-category-icon.task {
@@ -452,11 +452,11 @@
 }
 
 .memory-category-icon.project {
-  color: #45df9b;
+  color: var(--emerald);
 }
 
 .memory-category-icon.fact {
-  color: #42dbe0;
+  color: var(--cyan);
 }
 
 .memory-category-icon.info {
@@ -554,9 +554,9 @@
 }
 
 .importance-badge.medium {
-  color: #d0c06a;
+  color: var(--amber);
   border-color: #3a3a1a;
-  background: rgba(208, 192, 106, .1);
+  background: rgba(255, 176, 32, .1);
 }
 
 .importance-badge.low {
@@ -614,7 +614,7 @@
   display: flex;
   align-items: center;
   gap: 3px;
-  color: #3ad5e3;
+  color: var(--cyan);
   margin-left: auto;
 }
 
