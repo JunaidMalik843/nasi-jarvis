@@ -708,6 +708,7 @@
    ═══════════════════════════════════════════════════════════════ */
 .nasi-settings-chip { background: rgba(5, 9, 12, .75); }
 .nasi-settings-input { background: rgba(5, 9, 12, .85); }
+.nasi-settings-select { background-color: rgba(5, 9, 12, .85); }
 .nasi-settings-provider-fields { border-left: 1px solid rgba(0, 235, 240, .45); }
 .nasi-toggle { background: rgba(5, 9, 12, .85); }
 .nasi-agent-capabilities { background: rgba(5, 9, 12, .6); }
@@ -716,3 +717,122 @@
 .nasi-agent-console-item { background: rgba(6, 11, 12, .55); }
 .nasi-agent-console-item:hover { background: rgba(6, 11, 12, .9); }
 .nasi-notes-input { background: rgba(5, 9, 12, .7); }
+
+/* ═══════════════════════════════════════════════════════════════
+   PREMIUM STONIC ATMOSPHERE — luminous surfaces, moving HUD edges
+   Loaded last so these intentional emphasis rules win over the base skin.
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  --cyan: #00f2f4;
+  --cyan-dim: #12bcc2;
+  --emerald: #00f095;
+  --amber: #ffbd32;
+  --crimson: #ff5e62;
+}
+
+/* Full-viewport particle field: deliberately behind the dashboard grid, not
+   limited to the orb, with a slow parallax drift for depth without distraction. */
+.nasi-app { isolation: isolate; }
+.nasi-app::before {
+  background-image:
+    radial-gradient(circle at 14% 24%, rgba(0, 242, 244, .72) 0 2.4px, transparent 3.8px),
+    radial-gradient(circle at 78% 18%, rgba(0, 240, 149, .58) 0 2.2px, transparent 3.6px),
+    radial-gradient(circle at 63% 74%, rgba(0, 242, 244, .48) 0 2px, transparent 3.4px),
+    radial-gradient(circle at 31% 82%, rgba(255, 189, 50, .46) 0 2.1px, transparent 3.5px),
+    radial-gradient(circle at 48% 42%, rgba(213, 255, 255, .38) 0 1.5px, transparent 2.8px),
+    repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0, 242, 244, .012) 3px, rgba(0, 242, 244, .012) 4px);
+  background-size: 360px 280px, 460px 370px, 560px 450px, 640px 520px, 520px 410px, auto;
+  animation: nasi-ambient-drift 22s linear infinite;
+  opacity: 1;
+}
+.nasi-app::after {
+  background:
+    radial-gradient(circle at 84% 30%, rgba(0, 242, 244, .28) 0 2px, transparent 3.2px),
+    radial-gradient(circle at 18% 68%, rgba(0, 240, 149, .24) 0 1.8px, transparent 3px),
+    radial-gradient(circle at 90% 76%, rgba(255, 189, 50, .2) 0 1.6px, transparent 2.8px),
+    radial-gradient(ellipse 70% 55% at 50% 40%, rgba(0, 242, 244, .018), transparent 55%),
+    radial-gradient(ellipse 130% 100% at 50% 48%, transparent 42%, rgba(0, 0, 0, .9) 100%);
+  background-size: 280px 230px, 390px 320px, 520px 410px, auto, auto;
+  animation: nasi-ambient-drift-reverse 28s linear infinite;
+}
+@keyframes nasi-ambient-drift {
+  0% { background-position: 0 0, 38px 22px, 0 0, 20px 0, 0 0; }
+  50% { background-position: 34px 18px, 0 42px, 38px -20px, 0 28px, 0 0; }
+  100% { background-position: 68px 36px, -42px 64px, 76px -40px, -28px 56px, 0 0; }
+}
+@keyframes nasi-ambient-drift-reverse {
+  0% { background-position: 0 0, 0 0, 0 0, 0 0; }
+  50% { background-position: -24px 18px, 30px -14px, 0 0, 0 0; }
+  100% { background-position: -48px 36px, 60px -28px, 0 0, 0 0; }
+}
+
+/* A brighter, wider light source for the canvas orb without changing its
+   particle geometry or state colors. */
+.nasi-core-canvas {
+  filter:
+    drop-shadow(0 0 18px rgba(213, 255, 255, .42))
+    drop-shadow(0 0 72px rgba(0, 242, 244, .42))
+    drop-shadow(0 0 190px rgba(0, 242, 244, .22));
+}
+
+/* Premium edge shimmer. The mask keeps the highlight on the border itself,
+   so it never washes over card content. */
+.nasi-core-card, .nasi-agent-town { isolation: isolate; }
+.nasi-core-card::before, .nasi-agent-town::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  padding: 2px;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 18%, rgba(0, 242, 244, .16) 34%, rgba(235, 255, 255, 1) 50%, rgba(0, 240, 149, .2) 66%, transparent 82%);
+  background-size: 300% 100%;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: nasi-border-shimmer 4.5s ease-in-out infinite;
+}
+.nasi-agent-town::before { animation-delay: -2.25s; opacity: 1; }
+@keyframes nasi-border-shimmer {
+  0%, 100% { background-position: 180% 0; opacity: .38; }
+  50% { background-position: -80% 0; opacity: 1; }
+}
+
+/* START is a real power control: increase its halo by ~35% and preserve the
+   hot-core/cool-edge separation already used across the HUD. */
+.nasi-start-btn {
+  box-shadow:
+    0 0 14px var(--glow-core),
+    0 0 78px rgba(0, 242, 244, .52),
+    0 0 190px rgba(0, 242, 244, .26),
+    inset 0 0 34px rgba(0, 242, 244, .18);
+}
+@keyframes start-idle-pulse {
+  0%, 100% {
+    box-shadow: 0 0 14px var(--glow-core), 0 0 78px rgba(0, 242, 244, .52), 0 0 190px rgba(0, 242, 244, .26), inset 0 0 34px rgba(0, 242, 244, .18);
+    border-color: rgba(0, 242, 244, .82);
+  }
+  50% {
+    box-shadow: 0 0 20px var(--glow-core), 0 0 112px rgba(0, 242, 244, .78), 0 0 250px rgba(0, 242, 244, .36), inset 0 0 48px rgba(0, 242, 244, .28);
+    border-color: rgba(0, 242, 244, 1);
+  }
+}
+.nasi-start-btn:hover {
+  box-shadow: 0 0 112px rgba(0, 242, 244, .78), 0 0 250px rgba(0, 242, 244, .36), inset 0 0 48px rgba(0, 242, 244, .28);
+}
+
+/* Active indicators now read as light sources, not colored pixels. */
+.nasi-status-dot.online, .nasi-feed-status.online, .nasi-roster-dot.active,
+.nasi-dept-pill-dot.active, .nasi-agent-town-dot.live, .nasi-core-card-dot {
+  filter: drop-shadow(0 0 4px var(--glow-core));
+  box-shadow: 0 0 5px var(--glow-core), 0 0 16px currentColor, 0 0 36px currentColor;
+}
+.nasi-status-dot.online, .nasi-feed-status.online { color: var(--emerald); }
+.nasi-roster-dot.active, .nasi-dept-pill-dot.active, .nasi-agent-town-dot.live { color: var(--emerald); }
+
+@media (prefers-reduced-motion: reduce) {
+  .nasi-app::before, .nasi-app::after,
+  .nasi-core-card::before, .nasi-agent-town::before,
+  .nasi-start-btn { animation: none; }
+}
