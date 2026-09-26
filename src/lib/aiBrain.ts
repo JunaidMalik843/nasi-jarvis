@@ -2,7 +2,7 @@ import { buildOptimizedContext } from './contextCompressor';
 import { idbUpdateUserPattern, type UserBehaviorPattern } from './indexedDb';
 import type { ConversationMessage, Memory } from './storage';
 
-export type AIProvider = 'gemini' | 'openai' | 'claude' | 'grok';
+export type AIProvider = 'gemini';
 
 export interface BrainGenerateOptions {
   prompt: string;
@@ -14,12 +14,6 @@ export interface BrainGenerateOptions {
   activeProvider?: string;
   geminiApiKey?: string;
   geminiModel?: string;
-  openaiApiKey?: string;
-  openaiModel?: string;
-  claudeApiKey?: string;
-  claudeModel?: string;
-  grokApiKey?: string;
-  grokModel?: string;
   onChunk?: (text: string) => void;
   onSentence?: (sentence: string) => void;
   routedAgent?: string;
@@ -46,19 +40,19 @@ function getAutonomousResponse(prompt: string, agent?: string, pattern?: UserBeh
     return `${agentPrefix}All neural sub-systems operational. Quantum bridge nominal, SAT-LINK locked, vector memory synchronized at 60fps. Ready for command directives.`;
   }
   if (p.includes('who are you') || p.includes('what are you') || p.includes('identity')) {
-    return `${agentPrefix}I am NASI — your personal tactical AI operating core. I orchestrate autonomous multi-agent workflows, long-term semantic memory, and cyber command interfaces.`;
+    return `${agentPrefix}I am NASI — your personal tactical AI operating core powered exclusively by Google Gemini. I orchestrate autonomous multi-agent workflows, long-term semantic memory, and cyber command interfaces.`;
   }
   if (p.includes('remember') || p.includes('memory')) {
-    return `${agentPrefix}Directive indexed in local neural memory bank. Semantic embedding recorded and cached.`;
+    return `${agentPrefix}Directive indexed in local neural memory bank. Semantic embedding recorded in IndexedDB.`;
   }
   if (p.includes('weather') || p.includes('satellite') || p.includes('radar')) {
     return `${agentPrefix}Telemetry uplink active across 10 global stations. Global weather anomalies minimal. Regional monitoring online.`;
   }
   if (p.includes('help') || p.includes('capabilities') || p.includes('commands')) {
-    return `${agentPrefix}NASI Capabilities:\n1. Multi-Agent Delegation (Manager, Research, Web, Security, Infrastructure)\n2. Semantic Vector Memory & Local IndexedDB\n3. Real-time SAT-LINK Wireframe Radar\n4. Ultra-low latency voice pipeline (Browser STT + ElevenLabs TTS)`;
+    return `${agentPrefix}NASI Capabilities:\n1. Google Gemini Native Core (Flash & Pro)\n2. Multi-Agent Delegation (Manager, Research, Web, Security, Infrastructure)\n3. Semantic Vector Memory & Local IndexedDB\n4. Real-time SAT-LINK Wireframe Radar\n5. Low-latency voice pipeline (Browser STT + ElevenLabs TTS)`;
   }
   if (pattern?.preferredLanguage === 'ur' || /\b(kaise|kya|bhai|theek)\b/i.test(p)) {
-    return `${agentPrefix}Main NASI hoon, aap ka personal AI assistant. Tamam systems online hain aur main aap ki madad ke liye tayar hoon.`;
+    return `${agentPrefix}Main NASI hoon, aap ka personal AI assistant. Tamam systems online hain aur Google Gemini AI aap ki خدمت ke liye tayar hai.`;
   }
 
   return `${agentPrefix}Directive received and processed: "${prompt.slice(0, 60)}${prompt.length > 60 ? '…' : ''}". System standing by for execution.`;
@@ -66,7 +60,7 @@ function getAutonomousResponse(prompt: string, agent?: string, pattern?: UserBeh
 
 /**
  * Unified Brain Orchestrator
- * Seamlessly manages multi-provider fallbacks, context windows, pattern tracking, and non-blocking streaming.
+ * Seamlessly manages Google Gemini models, context windows, pattern tracking, and non-blocking streaming.
  */
 export class AIBrain {
   private static instance: AIBrain | null = null;
@@ -79,7 +73,7 @@ export class AIBrain {
   }
 
   /**
-   * Execute intelligent query generation with automatic multi-provider fallback hierarchy
+   * Execute intelligent query generation using Google Gemini API
    */
   public async generate(options: BrainGenerateOptions): Promise<BrainGenerateResult> {
     const {
@@ -89,15 +83,8 @@ export class AIBrain {
       memories = [],
       systemInstruction = '',
       temperature = 0.7,
-      activeProvider = 'gemini',
       geminiApiKey = '',
-      geminiModel = 'gemini-3.8-flash',
-      openaiApiKey = '',
-      openaiModel = 'gpt-4o-mini',
-      claudeApiKey = '',
-      claudeModel = 'claude-3-haiku-20240307',
-      grokApiKey = '',
-      grokModel = 'grok-2-1212',
+      geminiModel = 'gemini-2.5-flash',
       routedAgent,
     } = options;
 
@@ -115,74 +102,41 @@ export class AIBrain {
       agent: routedAgent,
     }).catch(() => {});
 
-    // Determine candidate provider chain
-    const candidateChain: { provider: AIProvider; model: string; key: string }[] = [];
+    try {
+      const res = await fetch('/api/brain/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt,
+          contextPrompt,
+          systemInstruction,
+          temperature,
+          provider: 'gemini',
+          model: geminiModel || 'gemini-2.5-flash',
+          apiKey: geminiApiKey,
+          conversationId,
+          routedAgent,
+        }),
+      });
 
-    // First: the user-selected active provider
-    if (activeProvider === 'openai' && openaiApiKey) {
-      candidateChain.push({ provider: 'openai', model: openaiModel, key: openaiApiKey });
-    } else if (activeProvider === 'claude' && claudeApiKey) {
-      candidateChain.push({ provider: 'claude', model: claudeModel, key: claudeApiKey });
-    } else if (activeProvider === 'grok' && grokApiKey) {
-      candidateChain.push({ provider: 'grok', model: grokModel, key: grokApiKey });
-    }
-
-    // Always include Gemini in chain
-    candidateChain.push({
-      provider: 'gemini',
-      model: geminiModel || 'gemini-3.8-flash',
-      key: geminiApiKey,
-    });
-
-    // Fallbacks if not already first
-    if (openaiApiKey && activeProvider !== 'openai') {
-      candidateChain.push({ provider: 'openai', model: openaiModel, key: openaiApiKey });
-    }
-    if (claudeApiKey && activeProvider !== 'claude') {
-      candidateChain.push({ provider: 'claude', model: claudeModel, key: claudeApiKey });
-    }
-    if (grokApiKey && activeProvider !== 'grok') {
-      candidateChain.push({ provider: 'grok', model: grokModel, key: grokApiKey });
-    }
-
-    // Try each provider in chain
-    for (const candidate of candidateChain) {
-      try {
-        const res = await fetch('/api/brain/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt,
-            contextPrompt,
-            systemInstruction,
-            temperature,
-            provider: candidate.provider,
-            model: candidate.model,
-            apiKey: candidate.key,
-            conversationId,
-            routedAgent,
-          }),
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          if (data.text) {
-            return {
-              text: data.text,
-              provider: data.provider || candidate.provider,
-              model: data.model || candidate.model,
-              status: data.status === 'autonomous_fallback' ? 'fallback' : 'success',
-              timings: data.timings,
-              userPattern,
-            };
-          }
+      if (res.ok) {
+        const data = await res.json();
+        if (data.text) {
+          return {
+            text: data.text,
+            provider: data.provider || 'gemini',
+            model: data.model || geminiModel,
+            status: data.status === 'autonomous_fallback' ? 'fallback' : 'success',
+            timings: data.timings,
+            userPattern,
+          };
         }
-      } catch (err) {
-        console.warn(`[AIBrain] Provider ${candidate.provider} attempt failed:`, err);
       }
+    } catch (err) {
+      console.warn('[AIBrain] Generation attempt failed, falling back to autonomous core:', err);
     }
 
-    // Final safety net: Autonomous tactical response
+    // Safety net: Autonomous tactical response
     return {
       text: getAutonomousResponse(prompt, routedAgent, userPattern),
       provider: 'autonomous-core',
@@ -204,15 +158,8 @@ export class AIBrain {
       memories = [],
       systemInstruction = '',
       temperature = 0.7,
-      activeProvider = 'gemini',
       geminiApiKey = '',
-      geminiModel = 'gemini-3.8-flash',
-      openaiApiKey = '',
-      openaiModel = 'gpt-4o-mini',
-      claudeApiKey = '',
-      claudeModel = 'claude-3-haiku-20240307',
-      grokApiKey = '',
-      grokModel = 'grok-2-1212',
+      geminiModel = 'gemini-2.5-flash',
       onChunk,
       onSentence,
       routedAgent,
@@ -240,23 +187,9 @@ export class AIBrain {
           contextPrompt,
           systemInstruction,
           temperature,
-          provider: activeProvider,
-          model:
-            activeProvider === 'openai'
-              ? openaiModel
-              : activeProvider === 'claude'
-                ? claudeModel
-                : activeProvider === 'grok'
-                  ? grokModel
-                  : geminiModel,
-          apiKey:
-            activeProvider === 'openai'
-              ? openaiApiKey
-              : activeProvider === 'claude'
-                ? claudeApiKey
-                : activeProvider === 'grok'
-                  ? grokApiKey
-                  : geminiApiKey,
+          provider: 'gemini',
+          model: geminiModel || 'gemini-2.5-flash',
+          apiKey: geminiApiKey,
           conversationId,
           routedAgent,
         }),
@@ -268,85 +201,63 @@ export class AIBrain {
         let sseBuf = '';
         let sentenceBuf = '';
         let fullText = '';
-        let resultProvider = activeProvider;
-        let resultModel = geminiModel;
-        let timings: Record<string, number> | undefined;
 
-        const emitSentence = () => {
-          const match = sentenceBuf.match(/[\s\S]*?[.!?۔؟]+(?:\s+|$)/);
-          if (match) {
-            const sentence = match[0].trim();
-            sentenceBuf = sentenceBuf.slice(match[0].length);
-            if (sentence && onSentence) {
-              onSentence(sentence);
-            }
-          }
-        };
-
-        const processEvent = (raw: string) => {
-          let eventType = 'chunk';
-          let dataStr = '';
-          for (const line of raw.split('\n')) {
-            if (line.startsWith('event: ')) eventType = line.slice(7).trim();
-            else if (line.startsWith('data: ')) dataStr += line.slice(6);
-          }
-          if (!dataStr) return;
-          try {
-            const payload = JSON.parse(dataStr);
-            if (eventType === 'chunk' && payload.text) {
-              fullText += payload.text;
-              sentenceBuf += payload.text;
-              if (onChunk) onChunk(payload.text);
-              emitSentence();
-            } else if (eventType === 'done') {
-              resultProvider = payload.provider || resultProvider;
-              resultModel = payload.model || resultModel;
-              timings = payload.timings;
-            }
-          } catch {
-            // pass
-          }
-        };
-
-        // eslint-disable-next-line no-constant-condition
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
+
           sseBuf += decoder.decode(value, { stream: true });
-          let idx: number;
-          while ((idx = sseBuf.indexOf('\n\n')) >= 0) {
-            const rawEvent = sseBuf.slice(0, idx);
-            sseBuf = sseBuf.slice(idx + 2);
-            if (rawEvent.trim()) processEvent(rawEvent);
+          const lines = sseBuf.split('\n');
+          sseBuf = lines.pop() || '';
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.startsWith('data:')) {
+              try {
+                const payload = JSON.parse(trimmed.slice(5).trim());
+                if (payload.text) {
+                  fullText += payload.text;
+                  sentenceBuf += payload.text;
+                  onChunk?.(payload.text);
+
+                  // Extract complete sentences for early TTS dispatch
+                  const sentenceMatch = sentenceBuf.match(/^(.*?[\.\?\!\n]+)([\s\S]*)$/);
+                  if (sentenceMatch) {
+                    const completeSentence = sentenceMatch[1].trim();
+                    sentenceBuf = sentenceMatch[2];
+                    if (completeSentence) {
+                      onSentence?.(completeSentence);
+                    }
+                  }
+                }
+              } catch {
+                // Ignore parse errors on SSE data
+              }
+            }
           }
         }
 
-        if (sseBuf.trim()) processEvent(sseBuf);
-        // Flush remaining sentence fragment
-        if (sentenceBuf.trim() && onSentence) {
-          onSentence(sentenceBuf.trim());
+        // Flush remaining buffer
+        if (sentenceBuf.trim()) {
+          onSentence?.(sentenceBuf.trim());
         }
 
         if (fullText.trim()) {
           return {
-            text: fullText,
-            provider: resultProvider,
-            model: resultModel,
+            text: fullText.trim(),
+            provider: 'gemini',
+            model: geminiModel,
             status: 'success',
-            timings,
             userPattern,
           };
         }
       }
     } catch (err) {
-      console.warn('[AIBrain] Stream error, falling back to non-streaming:', err);
+      console.warn('[AIBrain] Stream failed, using non-streaming fallback:', err);
     }
 
     // Fallback to non-streaming generate
-    const fallbackRes = await this.generate(options);
-    if (onChunk) onChunk(fallbackRes.text);
-    if (onSentence) onSentence(fallbackRes.text);
-    return fallbackRes;
+    return this.generate(options);
   }
 }
 

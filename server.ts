@@ -931,8 +931,8 @@ async function startServer() {
   });
 
   // ============================================================================
-  // UNIFIED AI BRAIN ORCHESTRATION APIs (Multi-Provider Fallback Hierarchy)
-  // Gemini -> OpenAI -> Claude -> Grok -> Autonomous Tactical Engine
+  // UNIFIED AI BRAIN ORCHESTRATION APIs (Google Gemini Native + Autonomous Core)
+  // Exclusively uses Google Gemini API with built-in key
   // ============================================================================
 
   app.post('/api/brain/generate', async (req, res) => {
@@ -941,7 +941,6 @@ async function startServer() {
       contextPrompt,
       systemInstruction,
       temperature = 0.7,
-      provider = 'gemini',
       model,
       apiKey: clientApiKey,
       conversationId,
@@ -953,117 +952,9 @@ async function startServer() {
     );
     const combinedContent = contextPrompt ? `${contextPrompt}\n\nUser: ${prompt}` : prompt;
 
-    // 1. Try OpenAI if requested
-    const openAiKey = clientApiKey || process.env.OPENAI_API_KEY;
-    if (provider === 'openai' && openAiKey) {
-      try {
-        const oRes = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${openAiKey}`,
-          },
-          body: JSON.stringify({
-            model: model || 'gpt-4o-mini',
-            messages: [
-              { role: 'system', content: fullSystem },
-              { role: 'user', content: combinedContent },
-            ],
-            temperature,
-          }),
-        });
-        if (oRes.ok) {
-          const oData: any = await oRes.json();
-          const reply = oData.choices?.[0]?.message?.content;
-          if (reply) {
-            return res.json({
-              text: reply,
-              provider: 'openai',
-              model: model || 'gpt-4o-mini',
-              status: 'success',
-            });
-          }
-        }
-      } catch (err: any) {
-        console.warn('[Brain] OpenAI error, falling back:', err?.message);
-      }
-    }
-
-    // 2. Try Claude if requested
-    const claudeKey = clientApiKey || process.env.CLAUDE_API_KEY;
-    if (provider === 'claude' && claudeKey) {
-      try {
-        const cRes = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': claudeKey,
-            'anthropic-version': '2023-06-01',
-          },
-          body: JSON.stringify({
-            model: model || 'claude-3-haiku-20240307',
-            max_tokens: 1024,
-            system: fullSystem,
-            messages: [{ role: 'user', content: combinedContent }],
-            temperature,
-          }),
-        });
-        if (cRes.ok) {
-          const cData: any = await cRes.json();
-          const reply = cData.content?.[0]?.text;
-          if (reply) {
-            return res.json({
-              text: reply,
-              provider: 'claude',
-              model: model || 'claude-3-haiku-20240307',
-              status: 'success',
-            });
-          }
-        }
-      } catch (err: any) {
-        console.warn('[Brain] Claude error, falling back:', err?.message);
-      }
-    }
-
-    // 3. Try Grok (xAI) if requested
-    const grokKey = clientApiKey || process.env.GROK_API_KEY;
-    if (provider === 'grok' && grokKey) {
-      try {
-        const gRes = await fetch('https://api.x.ai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${grokKey}`,
-          },
-          body: JSON.stringify({
-            model: model || 'grok-2-1212',
-            messages: [
-              { role: 'system', content: fullSystem },
-              { role: 'user', content: combinedContent },
-            ],
-            temperature,
-          }),
-        });
-        if (gRes.ok) {
-          const gData: any = await gRes.json();
-          const reply = gData.choices?.[0]?.message?.content;
-          if (reply) {
-            return res.json({
-              text: reply,
-              provider: 'grok',
-              model: model || 'grok-2-1212',
-              status: 'success',
-            });
-          }
-        }
-      } catch (err: any) {
-        console.warn('[Brain] Grok error, falling back:', err?.message);
-      }
-    }
-
-    // 4. Primary/Fallback: Gemini
+    // Primary: Google Gemini using built-in GEMINI_API_KEY
     let ai = getAI();
-    if (!ai && clientApiKey && provider === 'gemini') {
+    if (!ai && clientApiKey) {
       try {
         ai = new GoogleGenAI({
           apiKey: clientApiKey.trim(),
@@ -1075,7 +966,7 @@ async function startServer() {
     }
 
     if (ai) {
-      const candidateModels = [model || 'gemini-3.8-flash', 'gemini-flash-latest'];
+      const candidateModels = [model || 'gemini-2.5-flash', 'gemini-3.8-flash', 'gemini-flash-latest'];
       for (const candidate of candidateModels) {
         try {
           const response = await ai.models.generateContent({
@@ -1100,7 +991,7 @@ async function startServer() {
       }
     }
 
-    // 5. Ultimate Autonomous Fallback
+    // Ultimate Autonomous Fallback
     return res.json({
       text: getTacticalResponse(prompt),
       provider: 'autonomous-core',

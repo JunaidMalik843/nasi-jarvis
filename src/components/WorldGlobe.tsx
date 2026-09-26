@@ -4,10 +4,10 @@ import { feature } from 'topojson-client';
 import topo from 'world-atlas/countries-110m.json';
 import { subscribe } from '../lib/animLoop';
 
-// Wireframe coastlines (110m Natural Earth via world-atlas)
+// Wireframe coastlines (110m Natural Earth via world-atlas land mesh)
 const LAND: GeoJSON.FeatureCollection = feature(
   topo as unknown as Parameters<typeof feature>[0],
-  (topo as unknown as { objects: { countries: never } }).objects.countries,
+  (topo as unknown as { objects: { land: never } }).objects.land,
 ) as unknown as GeoJSON.FeatureCollection;
 
 interface Marker {
