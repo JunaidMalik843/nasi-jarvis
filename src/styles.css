@@ -561,6 +561,13 @@ input { border: 0; background: none; outline: none; }
 .nasi-console-badge.error { background: rgba(34, 34, 68, .07); color: var(--crimson); border: 1px solid rgba(34, 34, 68, .14); }
 .nasi-console-badge.voice { background: rgba(0, 240, 255, .05); color: var(--cyan); border: 1px solid rgba(0, 240, 255, .1); }
 .nasi-console-badge.system { background: rgba(143, 163, 184, .08); color: var(--steel); border: 1px solid rgba(143, 163, 184, .12); }
+/* Stonic Terminal colored log badges: MON (cyan), SYS (emerald), MEM (blue), AGT (purple), NET (white), SEC (crimson) */
+.nasi-console-badge.mon { background: rgba(0, 240, 255, .12); color: #00f0ff; border: 1px solid rgba(0, 240, 255, .3); box-shadow: 0 0 8px rgba(0, 240, 255, .25); text-shadow: 0 0 6px rgba(0, 240, 255, .4); }
+.nasi-console-badge.sys { background: rgba(0, 255, 136, .12); color: #00ff88; border: 1px solid rgba(0, 255, 136, .3); box-shadow: 0 0 8px rgba(0, 255, 136, .25); text-shadow: 0 0 6px rgba(0, 255, 136, .4); }
+.nasi-console-badge.mem { background: rgba(77, 159, 255, .12); color: #4d9fff; border: 1px solid rgba(77, 159, 255, .3); box-shadow: 0 0 8px rgba(77, 159, 255, .25); text-shadow: 0 0 6px rgba(77, 159, 255, .4); }
+.nasi-console-badge.agt { background: rgba(178, 107, 255, .12); color: #b26bff; border: 1px solid rgba(178, 107, 255, .3); box-shadow: 0 0 8px rgba(178, 107, 255, .25); text-shadow: 0 0 6px rgba(178, 107, 255, .4); }
+.nasi-console-badge.net { background: rgba(224, 230, 237, .12); color: #ffffff; border: 1px solid rgba(224, 230, 237, .3); box-shadow: 0 0 8px rgba(224, 230, 237, .25); text-shadow: 0 0 6px rgba(224, 230, 237, .4); }
+.nasi-console-badge.sec { background: rgba(255, 34, 68, .12); color: #ff2244; border: 1px solid rgba(255, 34, 68, .3); box-shadow: 0 0 8px rgba(255, 34, 68, .25); text-shadow: 0 0 6px rgba(255, 34, 68, .4); }
 .nasi-console-text { color: var(--text-2); word-break: break-word; }
 .nasi-console-text.dim { color: var(--text-4); }
 

@@ -513,7 +513,7 @@ function drawFloorLayer(g: CanvasRenderingContext2D, W: number, H: number, layou
   }
 }
 
-export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }: AgentOfficeProps) {
+function AgentOfficeComponent({ agents, onSelectAgent, focusAgent = null }: AgentOfficeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const timeRef = useRef(0);
@@ -1340,7 +1340,7 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
     ctx.font = '8px monospace';
     ctx.textAlign = 'left';
     ctx.fillStyle = 'rgba(0, 240, 255, .35)';
-    ctx.fillText(`OFFICE FLOOR — ${layout.cells.length} ROOMS · ${list.length} DESKS · CORRIDOR + SPUR`, 8, H - 6);
+    ctx.fillText(`OFFICE FLOOR — ${list.length} DESKS · ${layout.cells.length} ZONES`, 8, H - 6);
     if (orch.phase !== 'idle') {
       const txt = orch.phase === 'delegating'
         ? `MANAGER DELEGATING → ${(orch.route?.agent ?? '').toUpperCase()}`
@@ -1420,3 +1420,6 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
     </div>
   );
 }
+
+const AgentOffice = React.memo(AgentOfficeComponent);
+export default AgentOffice;

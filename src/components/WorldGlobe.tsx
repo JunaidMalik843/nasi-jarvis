@@ -1,12 +1,10 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
-import { geoOrthographic, geoGraticule, geoGraticule10, geoPath, geoInterpolate } from 'd3-geo';
+import { geoOrthographic, geoGraticule, geoGraticule10, geoPath } from 'd3-geo';
 import { feature } from 'topojson-client';
 import topo from 'world-atlas/countries-110m.json';
 import { subscribe } from '../lib/animLoop';
 
-// Real continent outlines (110m Natural Earth via world-atlas) — drawn as
-// wireframe coastlines, so the sphere reads as a cyan vector globe rather
-// than a filled satellite/heatmap texture.
+// Wireframe coastlines (110m Natural Earth via world-atlas)
 const LAND: GeoJSON.FeatureCollection = feature(
   topo as unknown as Parameters<typeof feature>[0],
   (topo as unknown as { objects: { countries: never } }).objects.countries,
@@ -31,68 +29,62 @@ const MARKERS: Marker[] = [
   { name: 'São Paulo', lon: -46.6, lat: -23.5, color: '#00ff88', status: 'active', label: 'OPERATIONAL' },
   { name: 'Singapore', lon: 103.8, lat: 1.35, color: '#00ff88', status: 'active', label: 'OPERATIONAL' },
   { name: 'Seoul', lon: 127, lat: 37.5, color: '#ff2244', status: 'critical', label: 'ALERT' },
-  { name: 'Moscow', lon: 37.6, lat: 55.7, color: '#ff8c00', status: 'warning', label: 'MONITORING' },
+  { name: 'Frankfurt', lon: 8.68, lat: 50.11, color: '#00ff88', status: 'active', label: 'OPERATIONAL' },
 ];
 
-// Heat zones — soft radial activity overlays over the satellite base. The
-// reference is a dark map with glowing hot regions, not a bare wireframe, so
-// these are drawn under the arcs rather than replaced by them.
-const HEAT_ZONES: { lon: number; lat: number; radius: number; color: string; intensity: number }[] = [
-  { lon: 55, lat: 25, radius: 22, color: '#ff8c00', intensity: 0.14 },  // Middle East
-  { lon: 37, lat: 55, radius: 17, color: '#ff8c00', intensity: 0.09 },  // Russia
-  { lon: 127, lat: 37, radius: 12, color: '#ff2244', intensity: 0.18 }, // Korean peninsula
-  { lon: -100, lat: 35, radius: 24, color: '#00f0ff', intensity: 0.05 }, // US
-  { lon: 10, lat: 50, radius: 19, color: '#00f0ff', intensity: 0.06 },  // Europe
-];
-
-// Connection arcs — the glowing links between nodes that make this a network
-// view rather than a plain globe. Referenced by marker name.
 const CONNECTIONS: [string, string][] = [
   ['London', 'NYC'],
   ['London', 'Dubai'],
+  ['London', 'Frankfurt'],
   ['NYC', 'São Paulo'],
   ['Dubai', 'Singapore'],
   ['Singapore', 'Tokyo'],
   ['Singapore', 'Sydney'],
-  ['Dubai', 'Moscow'],
+  ['Tokyo', 'Seoul'],
+  ['Frankfurt', 'Mumbai'],
 ];
 
-export default function WorldGlobe() {
+function WorldGlobeComponent() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const rotRef = useRef([-30, 10, 0]);
+  const rotRef = useRef<[number, number, number]>([-30, 10, 0]);
   const zoomRef = useRef(1);
   const dragging = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
   const sizeRef = useRef({ w: 0, h: 0 });
-  const [zoomLevel, setZoomLevel] = useState(1);
+  const [, setZoomLevel] = useState(1);
+
+  // Cached graticule geometries to avoid re-generating objects per frame
+  const graticule10 = useRef(geoGraticule10()).current;
+  const graticuleStep = useRef(geoGraticule().step([15, 15])()).current;
+  const markersMap = useRef(new Map(MARKERS.map((m) => [m.name, m]))).current;
 
   const draw = useCallback((dt = 1) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { alpha: true });
     if (!ctx) return;
 
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const { w, h } = sizeRef.current;
     if (w < 10 || h < 10) return;
-    // Resize the backing store only when the box (or DPR) really changed.
-    // This used to run unconditionally every frame: assigning width/height
-    // reallocates the pixel buffer, clears it and drops the canvas state —
-    // pure per-frame waste on top of the per-frame layout read.
-    if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
-      canvas.width = Math.round(w * dpr);
-      canvas.height = Math.round(h * dpr);
+
+    // Resize backing store only if changed
+    const targetW = Math.round(w * dpr);
+    const targetH = Math.round(h * dpr);
+    if (canvas.width !== targetW || canvas.height !== targetH) {
+      canvas.width = targetW;
+      canvas.height = targetH;
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const cx = w / 2;
     const cy = h / 2;
     const zoom = zoomRef.current;
-    const r = Math.min(cx, cy) * 0.78 * zoom;
+    const r = Math.min(cx, cy) * 0.76 * zoom;
 
-    // Slow auto-rotation (dt keeps the speed identical at any frame budget)
+    // Auto-rotation when not dragging
     if (!dragging.current) {
-      rotRef.current[0] += 0.1 * dt;
+      rotRef.current[0] += 0.12 * dt;
     }
 
     const projection = geoOrthographic()
@@ -105,16 +97,16 @@ export default function WorldGlobe() {
 
     ctx.clearRect(0, 0, w, h);
 
-    // ── Background: dark satellite texture ──
+    // ── STONIC CYBER BACKGROUND: Transparent deep slate with scanlines ──
     const bgGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w, h) * 0.7);
-    bgGrad.addColorStop(0, '#071419');
-    bgGrad.addColorStop(0.5, '#040e12');
-    bgGrad.addColorStop(1, '#010405');
+    bgGrad.addColorStop(0, 'rgba(10, 14, 23, 0.95)');
+    bgGrad.addColorStop(0.7, 'rgba(10, 14, 23, 0.88)');
+    bgGrad.addColorStop(1, 'rgba(13, 17, 23, 0.98)');
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, w, h);
 
-    // Scanline texture
-    ctx.strokeStyle = 'rgba(0, 240, 255,0.015)';
+    // Subtle HUD scanlines
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.02)';
     ctx.lineWidth = 0.5;
     for (let y = 0; y < h; y += 4) {
       ctx.beginPath();
@@ -123,214 +115,124 @@ export default function WorldGlobe() {
       ctx.stroke();
     }
 
-    // ── Atmosphere glow + depth vignette ──
-    // Two stacked radial falloffs read as a lit atmosphere bleeding into a dark
-    // surround, so the sphere has visible volume instead of flat line-art.
-    const atmoGrad = ctx.createRadialGradient(cx, cy, r * 0.78, cx, cy, r * 1.55);
-    atmoGrad.addColorStop(0, 'rgba(0, 240, 255, 0.30)');
-    atmoGrad.addColorStop(0.28, 'rgba(0, 240, 255, 0.13)');
-    atmoGrad.addColorStop(0.62, 'rgba(0, 240, 255, 0.045)');
+    // ── Atmosphere Glow ──
+    const atmoGrad = ctx.createRadialGradient(cx, cy, r * 0.85, cx, cy, r * 1.35);
+    atmoGrad.addColorStop(0, 'rgba(0, 240, 255, 0.18)');
+    atmoGrad.addColorStop(0.4, 'rgba(0, 240, 255, 0.06)');
     atmoGrad.addColorStop(1, 'transparent');
     ctx.fillStyle = atmoGrad;
     ctx.beginPath();
-    ctx.arc(cx, cy, r * 1.55, 0, Math.PI * 2);
+    ctx.arc(cx, cy, r * 1.35, 0, Math.PI * 2);
     ctx.fill();
 
-    // ── Globe body ──
-    const bodyGrad = ctx.createRadialGradient(cx - r * 0.2, cy - r * 0.2, 0, cx, cy, r);
-    bodyGrad.addColorStop(0, 'rgba(12,30,42,0.95)');
-    bodyGrad.addColorStop(0.6, 'rgba(6,16,24,0.98)');
-    bodyGrad.addColorStop(1, 'rgba(3,8,14,1)');
-    ctx.fillStyle = bodyGrad;
+    // ── Globe Sphere Disk Base ──
+    ctx.fillStyle = 'rgba(10, 16, 26, 0.85)';
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.fill();
 
-    // Limb darkening — the sphere's limb falls off to black, which is what
-    // actually sells the 3D volume (a flat disc keeps reading as a wireframe).
-    const limb = ctx.createRadialGradient(cx, cy, r * 0.52, cx, cy, r);
-    limb.addColorStop(0, 'rgba(0, 0, 0, 0)');
-    limb.addColorStop(0.72, 'rgba(0, 0, 0, 0.28)');
-    limb.addColorStop(1, 'rgba(0, 0, 0, 0.78)');
-    ctx.fillStyle = limb;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Globe border — bright ring with its own bloom
-    ctx.save();
-    ctx.shadowColor = 'rgba(0, 240, 255, 0.7)';
-    ctx.shadowBlur = 10;
-    ctx.strokeStyle = 'rgba(120, 245, 255, 0.5)';
-    ctx.lineWidth = 1.4;
+    // Outer Edge Ring (Cyan Glow)
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.35)';
+    ctx.lineWidth = 1.2;
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.stroke();
-    ctx.restore();
 
-    // Secondary ring
-    ctx.strokeStyle = 'rgba(0, 240, 255,0.08)';
-    ctx.lineWidth = 0.5;
+    // Secondary dashed instrument ring
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.12)';
+    ctx.lineWidth = 0.6;
     ctx.setLineDash([3, 5]);
     ctx.beginPath();
     ctx.arc(cx, cy, r + 4, 0, Math.PI * 2);
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // ── Graticule (lat/lon grid) ──
-    // Two densities: 10° for structure, 30° for the vector-globe read.
-    ctx.strokeStyle = 'rgba(0, 240, 255, 0.16)';
+    // ── Dense Graticule (Lat/Lon Wireframe Grid) ──
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.12)';
     ctx.lineWidth = 0.4;
     ctx.beginPath();
-    path.context(ctx)(geoGraticule10());
-    ctx.stroke();
-    ctx.strokeStyle = 'rgba(0, 240, 255, 0.07)';
-    ctx.lineWidth = 0.3;
-    ctx.beginPath();
-    path.context(ctx)(geoGraticule().step([30, 30])());
+    path.context(ctx)(graticule10);
     ctx.stroke();
 
-    // ── Continent landmass (satellite base) ──
-    // A dark lit-teal fill with a glowing coast. The reference is a dark
-    // satellite-style map, so the land keeps its mass; the heat zones below
-    // supply the colour rather than the land itself.
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.06)';
+    ctx.lineWidth = 0.3;
+    ctx.beginPath();
+    path.context(ctx)(graticuleStep);
+    ctx.stroke();
+
+    // ── Wireframe Coastlines (Stroke-only with 3.5% cyan wash) ──
     ctx.save();
     ctx.beginPath();
     path.context(ctx)(LAND);
-    ctx.fillStyle = 'rgba(30, 78, 92, 0.9)';
-    ctx.shadowColor = 'rgba(0, 240, 255, 0.35)';
-    ctx.shadowBlur = 9;
+
+    // EXACT SPEC: 3.5% cyan wash fill
+    ctx.fillStyle = 'rgba(0, 240, 255, 0.035)';
     ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.strokeStyle = 'rgba(140, 250, 255, 0.5)';
-    ctx.lineWidth = 0.55;
+
+    // Stroke-only coastline wireframe with subtle glow
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.55)';
+    ctx.lineWidth = 0.85;
+    ctx.shadowColor = 'rgba(0, 240, 255, 0.4)';
+    ctx.shadowBlur = 4;
     ctx.stroke();
     ctx.restore();
 
-    // ── Heat zones ──
-    // Soft radial glows that pulse gently, sitting on the landmass and under
-    // the connection arcs.
-    const t = Date.now() / 1000;
-    HEAT_ZONES.forEach(zone => {
-      const projected = projection([zone.lon, zone.lat]);
-      if (!projected) return;
-      const [px, py] = projected;
-      const dx = px - cx;
-      const dy = py - cy;
-      if (dx * dx + dy * dy > r * r) return;
-
-      const pulse = 1 + Math.sin(t * 1.5 + zone.lon * 0.05) * 0.15;
-      const zoneR = zone.radius * zoom * pulse;
-      const grad = ctx.createRadialGradient(px, py, 0, px, py, zoneR);
-      const [cr, cg, cb] = hexToRgb(zone.color);
-      grad.addColorStop(0, `rgba(${cr},${cg},${cb},${zone.intensity * 1.5})`);
-      grad.addColorStop(0.45, `rgba(${cr},${cg},${cb},${zone.intensity * 0.75})`);
-      grad.addColorStop(0.75, `rgba(${cr},${cg},${cb},${zone.intensity * 0.22})`);
-      grad.addColorStop(1, 'transparent');
-      ctx.save();
-      ctx.shadowColor = `rgba(${cr},${cg},${cb},0.55)`;
-      ctx.shadowBlur = 12;
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.arc(px, py, zoneR, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    });
-
-    // ── Connection arcs (over the heat map) ──
-    // Sampled along the great-circle-ish path between two nodes; the arc is
-    // lifted toward the limb so it reads as a link over the sphere.
-    const byName = new Map(MARKERS.map(m => [m.name, m]));
+    // ── Flowing Connection Arcs between Global Nodes ──
+    const now = performance.now() / 1000;
     ctx.save();
-    ctx.lineWidth = 1;
-    CONNECTIONS.forEach(([from, to], i) => {
-      const a = byName.get(from), b = byName.get(to);
-      if (!a || !b) return;
-      const pa = projection([a.lon, a.lat]);
-      const pb = projection([b.lon, b.lat]);
-      if (!pa || !pb) return;
-      const mx = (pa[0] + pb[0]) / 2, my = (pa[1] + pb[1]) / 2;
-      // Lift the control point away from the globe centre for a domed arc.
-      const dx = mx - cx, dy = my - cy;
-      const len = Math.hypot(dx, dy) || 1;
-      const lift = Math.min(r * 0.28, len * 0.35);
-      const qx = mx + (dx / len) * lift, qy = my + (dy / len) * lift;
+    CONNECTIONS.forEach(([fromName, toName], i) => {
+      const from = markersMap.get(fromName);
+      const to = markersMap.get(toName);
+      if (!from || !to) return;
 
-      // Animated dash offset makes traffic read as flowing along the link.
-      const flow = (t * 14 + i * 9) % 26;
-      ctx.setLineDash([6, 20]);
-      ctx.lineDashOffset = -flow;
-      ctx.shadowColor = 'rgba(0, 240, 255, 0.5)';
-      ctx.shadowBlur = 4;
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.45)';
+      const p1 = projection([from.lon, from.lat]);
+      const p2 = projection([to.lon, to.lat]);
+      if (!p1 || !p2) return;
+
+      const mx = (p1[0] + p2[0]) / 2;
+      const my = (p1[1] + p2[1]) / 2;
+      const dx = mx - cx;
+      const dy = my - cy;
+      const len = Math.hypot(dx, dy) || 1;
+      const lift = Math.min(r * 0.32, len * 0.38);
+      const qx = mx + (dx / len) * lift;
+      const qy = my + (dy / len) * lift;
+
+      // Base arc link
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.16)';
+      ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(pa[0], pa[1]);
-      ctx.quadraticCurveTo(qx, qy, pb[0], pb[1]);
+      ctx.moveTo(p1[0], p1[1]);
+      ctx.quadraticCurveTo(qx, qy, p2[0], p2[1]);
+      ctx.stroke();
+
+      // Flowing energy dash
+      const flowOffset = (now * 24 + i * 14) % 36;
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.85)';
+      ctx.lineWidth = 1.6;
+      ctx.setLineDash([4, 14]);
+      ctx.lineDashOffset = -flowOffset;
+      ctx.beginPath();
+      ctx.moveTo(p1[0], p1[1]);
+      ctx.quadraticCurveTo(qx, qy, p2[0], p2[1]);
       ctx.stroke();
       ctx.setLineDash([]);
+
+      // Flowing particle dot along the quadratic curve
+      const tProgress = ((now * 0.45 + i * 0.15) % 1);
+      const px = (1 - tProgress) * (1 - tProgress) * p1[0] + 2 * (1 - tProgress) * tProgress * qx + tProgress * tProgress * p2[0];
+      const py = (1 - tProgress) * (1 - tProgress) * p1[1] + 2 * (1 - tProgress) * tProgress * qy + tProgress * tProgress * p2[1];
+
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = '#00f0ff';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(px, py, 1.8, 0, Math.PI * 2);
+      ctx.fill();
     });
     ctx.restore();
 
-    // ── Markers ──
-    // Radar sweep geometry (shared with marker highlighting below):
-    // one thin bright leading edge + a fading trailing wedge, ~24s per revolution.
-    const sweepAngle = (t * 0.26) % (Math.PI * 2);
-    const sweepTrailing = Math.PI * 0.62; // ~112° fade behind the leading edge
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(cx, cy, r * 0.995, 0, Math.PI * 2);
-    ctx.clip();
-    const swGrad = ctx.createConicGradient(sweepAngle - sweepTrailing, cx, cy);
-    swGrad.addColorStop(0, 'rgba(0, 240, 255, 0)');
-    swGrad.addColorStop(sweepTrailing / (Math.PI * 2), 'rgba(0, 240, 255, 0.035)');
-    swGrad.addColorStop(sweepTrailing / (Math.PI * 2) + 0.002, 'rgba(0, 240, 255, 0)');
-    swGrad.addColorStop(1, 'rgba(0, 240, 255, 0)');
-    ctx.fillStyle = swGrad;
-    ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
-    // Leading edge line
-    ctx.strokeStyle = 'rgba(140, 245, 255, 0.4)';
-    ctx.lineWidth = 1.1;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(cx + Math.cos(sweepAngle) * r * 0.99, cy + Math.sin(sweepAngle) * r * 0.99);
-    ctx.stroke();
-    ctx.restore();
-
-    // Soft outer glow ring around the whole radar face
-    ctx.save();
-    ctx.shadowColor = 'rgba(0, 240, 255, 0.85)';
-    ctx.shadowBlur = 26;
-    ctx.strokeStyle = 'rgba(130, 248, 255, 0.6)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r + 3, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
-
-    // Instrument frame: a dashed range ring plus a HUD tick bezel, so the face
-    // reads as a mounted satellite sensor rather than a drawn circle.
-    ctx.save();
-    ctx.strokeStyle = 'rgba(0, 240, 255, 0.22)';
-    ctx.lineWidth = 0.7;
-    ctx.setLineDash([2, 4]);
-    ctx.beginPath();
-    ctx.arc(cx, cy, r + 10, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    for (let i = 0; i < 60; i++) {
-      const ang = (i / 60) * Math.PI * 2;
-      const major = i % 5 === 0;
-      const inner = r + 14;
-      const outer = r + (major ? 26 : 20);
-      ctx.strokeStyle = major ? 'rgba(0, 240, 255, 0.42)' : 'rgba(0, 240, 255, 0.22)';
-      ctx.lineWidth = major ? 1.1 : 0.7;
-      ctx.beginPath();
-      ctx.moveTo(cx + Math.cos(ang) * inner, cy + Math.sin(ang) * inner);
-      ctx.lineTo(cx + Math.cos(ang) * outer, cy + Math.sin(ang) * outer);
-      ctx.stroke();
-    }
-    ctx.restore();
-
+    // ── Station Markers & Radar Pings ──
     MARKERS.forEach((m, idx) => {
       const projected = projection([m.lon, m.lat]);
       if (!projected) return;
@@ -340,115 +242,79 @@ export default function WorldGlobe() {
       if (dx * dx + dy * dy > r * r) return;
 
       const [mr, mg, mb] = hexToRgb(m.color);
-      const pulseR = m.status === 'critical' ? 5.4 + Math.sin(t * 5 + idx) * 1.6 :
-                     m.status === 'warning' ? 4.6 + Math.sin(t * 3 + idx) * 1.2 : 4.1;
+      const pulseR = m.status === 'critical' ? 4.8 + Math.sin(now * 5 + idx) * 1.2 : 3.8;
 
-      // Radar "ping" — expanding, fading ripple every ~2.3s per marker
-      // (staggered by index so the map never ripples in unison).
-      const pingPeriod = 46;
-      const pingPhase = ((t * 20 + idx * 2.9) % pingPeriod) / pingPeriod; // 0..1
-      const pingR = pulseR + 3 + pingPhase * 24;
-      const pingA = (1 - pingPhase) * 0.72;
+      // Expanding radar ripple ping
+      const pingPeriod = 2.4;
+      const pingPhase = ((now + idx * 0.4) % pingPeriod) / pingPeriod;
+      const pingR = pulseR + pingPhase * 20;
+      const pingA = (1 - pingPhase) * 0.65;
+
       ctx.strokeStyle = `rgba(${mr},${mg},${mb},${pingA})`;
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 1.2;
       ctx.beginPath();
       ctx.arc(px, py, pingR, 0, Math.PI * 2);
       ctx.stroke();
 
-      // Sweep highlight: markers recently swept by the beam light up briefly
-      let a = sweepAngle - Math.atan2(py - cy, px - cx);
-      while (a < 0) a += Math.PI * 2;
-      while (a >= Math.PI * 2) a -= Math.PI * 2;
-      const swept = a < sweepTrailing;
-      const sweepBoost = swept ? 0.28 * (1 - a / sweepTrailing) : 0;
-
-      // Glow aura (brightens as the sweep passes)
-      const auraGrad = ctx.createRadialGradient(px, py, 0, px, py, pulseR * 4.4);
-      auraGrad.addColorStop(0, `rgba(${mr},${mg},${mb},${0.4 + sweepBoost})`);
-      auraGrad.addColorStop(0.42, `rgba(${mr},${mg},${mb},${0.13 + sweepBoost * 0.45})`);
-      auraGrad.addColorStop(1, 'transparent');
-      ctx.fillStyle = auraGrad;
+      // Node glow
+      const aura = ctx.createRadialGradient(px, py, 0, px, py, pulseR * 3.5);
+      aura.addColorStop(0, `rgba(${mr},${mg},${mb},0.4)`);
+      aura.addColorStop(1, 'transparent');
+      ctx.fillStyle = aura;
       ctx.beginPath();
-      ctx.arc(px, py, pulseR * 4.4, 0, Math.PI * 2);
+      ctx.arc(px, py, pulseR * 3.5, 0, Math.PI * 2);
       ctx.fill();
 
-      // Core dot — with its own bloom so it is a clear focal point
+      // Core dot
       ctx.save();
-      ctx.shadowColor = `rgba(${mr},${mg},${mb},0.95)`;
-      ctx.shadowBlur = 14;
       ctx.fillStyle = m.color;
+      ctx.shadowColor = m.color;
+      ctx.shadowBlur = 8;
       ctx.beginPath();
       ctx.arc(px, py, pulseR, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
 
-      // Inner bright core
-      ctx.fillStyle = `rgba(255,255,255,0.88)`;
+      // Hot center
+      ctx.fillStyle = '#ffffff';
       ctx.beginPath();
       ctx.arc(px, py, pulseR * 0.4, 0, Math.PI * 2);
       ctx.fill();
 
-      // Label (dim until swept, then pops)
-      ctx.fillStyle = `rgba(${mr},${mg},${mb},${Math.min(1, 0.82 + sweepBoost * 1.5)})`;
-      ctx.font = `bold 7.5px "JetBrains Mono", monospace`;
+      // Station label
+      ctx.fillStyle = 'rgba(224, 230, 237, 0.85)';
+      ctx.font = 'bold 7px "JetBrains Mono", monospace';
       ctx.textAlign = 'center';
-      ctx.fillText(m.name, px, py - pulseR - 6);
+      ctx.fillText(m.name, px, py - pulseR - 5);
 
-      // Status sub-label
-      ctx.fillStyle = `rgba(${mr},${mg},${mb},0.58)`;
-      ctx.font = `5.5px "JetBrains Mono", monospace`;
+      ctx.fillStyle = `rgba(${mr},${mg},${mb},0.75)`;
+      ctx.font = '5.5px "JetBrains Mono", monospace';
       ctx.fillText(m.label, px, py - pulseR - 0);
     });
 
-    // ── Inner highlight ──
-    const hlGrad = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.3, 0, cx, cy, r);
-    hlGrad.addColorStop(0, 'rgba(0, 240, 255,0.06)');
-    hlGrad.addColorStop(0.5, 'transparent');
-    hlGrad.addColorStop(1, 'transparent');
-    ctx.fillStyle = hlGrad;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.fill();
-
-    // ── Specular reflection ──
-    const specGrad = ctx.createRadialGradient(cx - r * 0.25, cy - r * 0.3, 0, cx - r * 0.25, cy - r * 0.3, r * 0.5);
-    specGrad.addColorStop(0, 'rgba(255,255,255,0.04)');
-    specGrad.addColorStop(1, 'transparent');
-    ctx.fillStyle = specGrad;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.fill();
-
-    // ── HUD corner brackets ──
-    ctx.strokeStyle = 'rgba(0, 240, 255,0.2)';
+    // ── HUD Corner Brackets & Readouts ──
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.25)';
     ctx.lineWidth = 1;
     const bSize = 8;
-    // Top-left
+    // Corners
     ctx.beginPath(); ctx.moveTo(6, 6 + bSize); ctx.lineTo(6, 6); ctx.lineTo(6 + bSize, 6); ctx.stroke();
-    // Top-right
     ctx.beginPath(); ctx.moveTo(w - 6 - bSize, 6); ctx.lineTo(w - 6, 6); ctx.lineTo(w - 6, 6 + bSize); ctx.stroke();
-    // Bottom-left
     ctx.beginPath(); ctx.moveTo(6, h - 6 - bSize); ctx.lineTo(6, h - 6); ctx.lineTo(6 + bSize, h - 6); ctx.stroke();
-    // Bottom-right
-    ctx.beginPath(); ctx.moveTo(w - 6 - bSize, h - 6); ctx.lineTo(w - 6, h - 6); ctx.lineTo(w - 6, h - 6 - bSize); ctx.stroke();    // ── HUD labels ──
-    ctx.fillStyle = 'rgba(0, 240, 255,0.35)';
-    ctx.font = '6px "JetBrains Mono", monospace';
+    ctx.beginPath(); ctx.moveTo(w - 6 - bSize, h - 6); ctx.lineTo(w - 6, h - 6); ctx.lineTo(w - 6, h - 6 - bSize); ctx.stroke();
+
+    // Labels
+    ctx.fillStyle = 'rgba(0, 240, 255, 0.45)';
+    ctx.font = '7px "JetBrains Mono", monospace';
     ctx.textAlign = 'left';
-    ctx.fillText('SAT-LINK RADAR', 10, 16);
-    ctx.fillStyle = 'rgba(0, 240, 255,0.2)';
-    ctx.font = '5px "JetBrains Mono", monospace';
-    ctx.fillText(`ZOOM ${(zoom * 100).toFixed(0)}%`, 10, 24);
+    ctx.fillText('SAT-LINK RADAR · WIREFRAME', 10, 16);
+    ctx.fillStyle = 'rgba(0, 240, 255, 0.3)';
+    ctx.font = '6px "JetBrains Mono", monospace';
+    ctx.fillText(`ZOOM ${(zoom * 100).toFixed(0)}% · 10 NODES`, 10, 25);
     ctx.textAlign = 'right';
-    ctx.fillStyle = 'rgba(0, 240, 255,0.25)';
-    ctx.fillText(`${MARKERS.length} STATIONS`, w - 10, 16);
-    const activeCount = MARKERS.filter(m => m.status === 'active').length;
-    ctx.fillText(`${activeCount} ONLINE`, w - 10, 24);
+    ctx.fillText(`${MARKERS.filter((m) => m.status === 'active').length} ONLINE`, w - 10, 16);
+  }, [graticule10, graticuleStep, markersMap]);
 
-    // (legacy straight scan line superseded by the conic sweep wedge above)
-  }, []);
-
-  // Size is measured once and then tracked with a ResizeObserver, instead of
-  // being read from the DOM (forcing layout) on every single frame.
+  // Size observer
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -462,13 +328,12 @@ export default function WorldGlobe() {
     return () => ro.disconnect();
   }, []);
 
+  // Shared 60fps animation subscription with offscreen pausing
   useEffect(() => {
-    // 20fps is plenty for a slow sweep, and it is driven by the shared loop
-    // (one rAF for the whole dashboard instead of one per canvas).
-    return subscribe(draw, { fps: 20, element: canvasRef.current });
+    return subscribe(draw, { fps: 60, element: canvasRef.current });
   }, [draw]);
 
-  // Mouse drag
+  // Pointer drag interaction
   const onMouseDown = (e: React.MouseEvent) => {
     dragging.current = true;
     lastMouse.current = { x: e.clientX, y: e.clientY };
@@ -481,9 +346,10 @@ export default function WorldGlobe() {
     rotRef.current[1] = Math.max(-90, Math.min(90, rotRef.current[1] - dy * 0.3));
     lastMouse.current = { x: e.clientX, y: e.clientY };
   };
-  const onMouseUp = () => { dragging.current = false; };
+  const onMouseUp = () => {
+    dragging.current = false;
+  };
 
-  // Touch support
   const onTouchStart = (e: React.TouchEvent) => {
     dragging.current = true;
     lastMouse.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -496,9 +362,10 @@ export default function WorldGlobe() {
     rotRef.current[1] = Math.max(-90, Math.min(90, rotRef.current[1] - dy * 0.3));
     lastMouse.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
   };
-  const onTouchEnd = () => { dragging.current = false; };
+  const onTouchEnd = () => {
+    dragging.current = false;
+  };
 
-  // Zoom controls
   const handleZoom = (delta: number) => {
     zoomRef.current = Math.max(0.5, Math.min(2.5, zoomRef.current + delta));
     setZoomLevel(zoomRef.current);
@@ -517,34 +384,68 @@ export default function WorldGlobe() {
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       />
-      {/* Zoom controls */}
-      <div style={{
-        position: 'absolute', bottom: 8, right: 8, display: 'flex', flexDirection: 'column', gap: 2, zIndex: 5,
-      }}>
-        <button onClick={() => handleZoom(0.2)} style={{
-          width: 22, height: 22, borderRadius: 3,
-          background: 'linear-gradient(180deg, rgba(30,44,54,.95), rgba(9,16,22,.95))',
-          border: '1px solid rgba(0, 240, 255,0.22)', color: 'rgba(140,240,255,0.85)',
-          fontFamily: 'var(--mono)', fontSize: 11, cursor: 'pointer', display: 'grid', placeItems: 'center',
-          boxShadow: '0 1px 4px rgba(0,0,0,.55), inset 0 1px 0 rgba(180,240,255,.14), 0 0 10px rgba(0, 240, 255,.05)',
-          textShadow: '0 0 6px rgba(0, 240, 255,.5)',
-        }} title="Zoom in">+</button>
-        <button onClick={() => handleZoom(-0.2)} style={{
-          width: 22, height: 22, borderRadius: 3,
-          background: 'linear-gradient(180deg, rgba(30,44,54,.95), rgba(9,16,22,.95))',
-          border: '1px solid rgba(0, 240, 255,0.22)', color: 'rgba(140,240,255,0.85)',
-          fontFamily: 'var(--mono)', fontSize: 11, cursor: 'pointer', display: 'grid', placeItems: 'center',
-          boxShadow: '0 1px 4px rgba(0,0,0,.55), inset 0 1px 0 rgba(180,240,255,.14), 0 0 10px rgba(0, 240, 255,.05)',
-          textShadow: '0 0 6px rgba(0, 240, 255,.5)',
-        }} title="Zoom out">−</button>
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 8,
+          right: 8,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          zIndex: 5,
+        }}
+      >
+        <button
+          onClick={() => handleZoom(0.2)}
+          style={{
+            width: 22,
+            height: 22,
+            borderRadius: 2,
+            background: 'rgba(10, 14, 23, 0.9)',
+            border: '1px solid rgba(0, 240, 255, 0.25)',
+            color: '#00f0ff',
+            fontFamily: 'var(--mono)',
+            fontSize: 11,
+            cursor: 'pointer',
+            display: 'grid',
+            placeItems: 'center',
+            boxShadow: '0 0 10px rgba(0, 240, 255, 0.1)',
+          }}
+          title="Zoom in"
+        >
+          +
+        </button>
+        <button
+          onClick={() => handleZoom(-0.2)}
+          style={{
+            width: 22,
+            height: 22,
+            borderRadius: 2,
+            background: 'rgba(10, 14, 23, 0.9)',
+            border: '1px solid rgba(0, 240, 255, 0.25)',
+            color: '#00f0ff',
+            fontFamily: 'var(--mono)',
+            fontSize: 11,
+            cursor: 'pointer',
+            display: 'grid',
+            placeItems: 'center',
+            boxShadow: '0 0 10px rgba(0, 240, 255, 0.1)',
+          }}
+          title="Zoom out"
+        >
+          −
+        </button>
       </div>
     </div>
   );
 }
 
 function hexToRgb(hex: string): [number, number, number] {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
+  const r = parseInt(hex.slice(1, 3), 16) || 0;
+  const g = parseInt(hex.slice(3, 5), 16) || 0;
+  const b = parseInt(hex.slice(5, 7), 16) || 0;
   return [r, g, b];
 }
+
+const WorldGlobe = React.memo(WorldGlobeComponent);
+export default WorldGlobe;

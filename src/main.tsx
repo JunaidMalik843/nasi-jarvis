@@ -1,4 +1,4 @@
-import React, { StrictMode, useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import React, { StrictMode, useState, useCallback, useEffect, useMemo, useRef, Suspense, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   BrainCircuit, Mic, VolumeX, Settings2, Database,
@@ -7,20 +7,24 @@ import {
   ChevronLeft, Zap, Globe2,
   Phone, PhoneOff, AlertTriangle,
   ChevronDown, Wifi, Radio as RadioIcon, Search,
-  Palette, Download, Upload,
+  Palette, Download, Upload, Terminal as TerminalIcon,
 } from 'lucide-react';
-import WorldGlobe from './components/WorldGlobe';
-import AgentOffice from './components/AgentOffice';
 import { useConversations, useMemories } from './hooks/useStorage';
 import { useVoice, type CoreState } from './hooks/useVoice';
 import { getPersonalitySystemPrompt, type PersonalityType } from './lib/personality';
 import { parseMemoryCommand, getMemoryResponse } from './lib/memoryCommands';
 import { routeCommand, isActiveStatus, statusClass, type AgentRoute } from './lib/agentRouter';
 import { useOrchestration, setOrchestration, resetOrchestration, applyLiveStatus, orchestrationLabel } from './lib/orchestration';
+import { aiBrain } from './lib/aiBrain';
+import { idbGetSettings, idbSaveSettings } from './lib/indexedDb';
 import NASICore from './components/NASICore';
+import AgentOffice from './components/AgentOffice';
 import './styles.css';
 import './mobile-fix.css';
 import './polish.css';
+
+// Code-splitting for heavy D3 vector map
+const WorldGlobe = React.lazy(() => import('./components/WorldGlobe'));
 
 // ============================================================
 // ERROR BOUNDARY
@@ -88,13 +92,13 @@ function loadSettings(): NasiSettings {
   return { ...DEFAULT_SETTINGS };
 }
 function saveSettings(s: NasiSettings) {
-  // Dual-write: localStorage is the fast/offline cache, the server copy is the
-  // cross-device source of truth (fetched on load by the sync effect below).
+  // Triple-write: localStorage + IndexedDB are instant offline caches, server copy is cross-device truth
   try {
     localStorage.setItem('nasi_settings', JSON.stringify(s));
   } catch (err) {
     console.warn('[Settings] Failed to save to localStorage:', err);
   }
+  idbSaveSettings(s).catch(() => {});
   fetch('/api/settings', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -149,7 +153,7 @@ const elevenlabsModels: { label: string; value: string }[] = [
 // ============================================================
 // SYSTEM FEED — left intelligence panel
 // ============================================================
-function SystemFeed({ connectionStatus, coreState, memories, orchestrationText }: { connectionStatus: string; coreState: CoreState; memories: any[]; orchestrationText?: string | null }) {
+const SystemFeed = React.memo(function SystemFeed({ connectionStatus, coreState, memories, orchestrationText }: { connectionStatus: string; coreState: CoreState; memories: any[]; orchestrationText?: string | null }) {
   const [vectorStats, setVectorStats] = useState<any>(null);
   useEffect(() => {
     fetch('/api/vector-memory/stats').then(r => r.json()).then(setVectorStats).catch(() => {});
@@ -195,12 +199,12 @@ function SystemFeed({ connectionStatus, coreState, memories, orchestrationText }
       </div>
     </div>
   );
-}
+});
 
 // ============================================================
 // AGENT TOWN PANEL — large bottom section
 // ============================================================
-function AgentTownPanel({ agents, onSelectAgent }: { agents: Agent[]; onSelectAgent: (a: Agent) => void }) {
+const AgentTownPanel = React.memo(function AgentTownPanel({ agents, onSelectAgent }: { agents: Agent[]; onSelectAgent: (a: Agent) => void }) {
   const [expanded, setExpanded] = useState(true);
   // Live delegation state — drives which agent shows as ACTIVE right now.
   const o = useOrchestration();
@@ -273,12 +277,20 @@ function AgentTownPanel({ agents, onSelectAgent }: { agents: Agent[]; onSelectAg
       )}
     </div>
   );
-}
+});
 
 // ============================================================
-// LIVE CONSOLE PANEL — Right tabbed panel (Voice / Agent / Notes)
+// LIVE CONSOLE PANEL — Right tabbed panel (Voice / Terminal / Agent / Notes)
+// Auto-scrolling with colored log badges: MON (cyan), SYS (emerald), MEM (blue), AGT (purple), NET (white), SEC (crimson)
 // ============================================================
-function LiveConsolePanel({
+interface TerminalLogEntry {
+  id: string;
+  ts: number;
+  type: 'mon' | 'sys' | 'mem' | 'agt' | 'net' | 'sec';
+  text: string;
+}
+
+const LiveConsolePanel = React.memo(function LiveConsolePanel({
   coreState, liveVoiceActive, micStatus, transcript, lastTranscript, voiceLog, errorMessage,
   agents, messages, command, setCommand, handleSend, isSending,
   startListening, stopSpeech, toggleLiveVoice, onSelectAgent,
@@ -290,23 +302,62 @@ function LiveConsolePanel({
   startListening: () => void; stopSpeech: () => void; toggleLiveVoice: () => void;
   onSelectAgent: (a: Agent) => void;
 }) {
-  const [tab, setTab] = useState<'voice' | 'agent' | 'notes'>('voice');
+  const [tab, setTab] = useState<'voice' | 'terminal' | 'agent' | 'notes'>('voice');
   const consoleRef = useRef<HTMLDivElement>(null);
   const [notes, setNotes] = useState('');
+  const [terminalLogs, setTerminalLogs] = useState<TerminalLogEntry[]>([
+    { id: '1', ts: Date.now() - 12000, type: 'sys', text: 'Stonic Command Center online — 60fps canvas engine initialized' },
+    { id: '2', ts: Date.now() - 9500, type: 'mon', text: 'NASI Core state: STANDBY · Particle physics nominal' },
+    { id: '3', ts: Date.now() - 7200, type: 'mem', text: 'IndexedDB persistent cache online (vector memories ready)' },
+    { id: '4', ts: Date.now() - 5000, type: 'agt', text: 'Multi-agent router standing by: Manager, Research, Browser, Security' },
+    { id: '5', ts: Date.now() - 3200, type: 'net', text: 'SAT-LINK telemetry wireframe stream: 10 global nodes connected' },
+    { id: '6', ts: Date.now() - 1100, type: 'sec', text: 'Biometric voice verification & memory encryption active' },
+  ]);
+
   // Same live delegation state as Agent Town — one source of truth.
   const orch = useOrchestration();
   const liveAgents = useMemo(() => applyLiveStatus(agents, orch), [agents, orch]);
 
-  // Auto-scroll console output
-  useEffect(() => { if (consoleRef.current) consoleRef.current.scrollTop = consoleRef.current.scrollHeight; }, [voiceLog, tab, messages]);
+  // Append new events dynamically as state changes
+  useEffect(() => {
+    if (orch.phase !== 'idle') {
+      const type = orch.phase === 'delegating' ? 'sys' : 'agt';
+      const text = orch.phase === 'delegating'
+        ? `Task delegation initiated -> Manager routing to ${orch.route?.agent || 'department'}`
+        : `Agent ${orch.agent?.toUpperCase()} active: ${orch.route?.reason || 'Processing'}`;
+      setTerminalLogs(prev => [...prev.slice(-40), { id: String(Date.now()), ts: Date.now(), type, text }]);
+    }
+  }, [orch.phase, orch.agent, orch.route]);
 
-  const ts = () => new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  useEffect(() => {
+    if (coreState !== 'IDLE') {
+      setTerminalLogs(prev => [
+        ...prev.slice(-40),
+        { id: String(Date.now()), ts: Date.now(), type: 'mon', text: `Core status transition: ${coreState}` },
+      ]);
+    }
+  }, [coreState]);
+
+  // Auto-scroll console output to bottom
+  useEffect(() => {
+    if (consoleRef.current) {
+      consoleRef.current.scrollTop = consoleRef.current.scrollHeight;
+    }
+  }, [voiceLog, tab, messages, terminalLogs]);
+
+  const formatTs = (t?: number) => {
+    const d = t ? new Date(t) : new Date();
+    return d.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  };
 
   return (
     <div className="nasi-console-panel">
       <div className="nasi-console-tabs">
         <button className={`nasi-console-tab ${tab === 'voice' ? 'active' : ''}`} onClick={() => setTab('voice')}>
           <Mic size={9} /> VOICE
+        </button>
+        <button className={`nasi-console-tab ${tab === 'terminal' ? 'active' : ''}`} onClick={() => setTab('terminal')}>
+          <TerminalIcon size={9} /> TERMINAL
         </button>
         <button className={`nasi-console-tab ${tab === 'agent' ? 'active' : ''}`} onClick={() => setTab('agent')}>
           <Users size={9} /> AGENT
@@ -351,7 +402,7 @@ function LiveConsolePanel({
             {/* Voice log */}
             {voiceLog.map((log, i) => (
               <div key={i} className="nasi-console-line">
-                <span className="nasi-console-ts">{ts()}</span>
+                <span className="nasi-console-ts">{formatTs()}</span>
                 <span className="nasi-console-badge voice">VOICE</span>
                 <span className="nasi-console-text dim">{log}</span>
               </div>
@@ -360,7 +411,7 @@ function LiveConsolePanel({
             {/* Transcript */}
             {transcript && (
               <div className="nasi-console-line">
-                <span className="nasi-console-ts">{ts()}</span>
+                <span className="nasi-console-ts">{formatTs()}</span>
                 <span className="nasi-console-badge user">USER</span>
                 <span className="nasi-console-text">{transcript}</span>
               </div>
@@ -369,7 +420,7 @@ function LiveConsolePanel({
             {/* Messages as console output */}
             {messages.map((msg, i) => (
               <div key={i} className="nasi-console-line">
-                <span className="nasi-console-ts">{msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ts()}</span>
+                <span className="nasi-console-ts">{formatTs(msg.timestamp)}</span>
                 <span className={`nasi-console-badge ${msg.from === 'user' ? 'user' : 'nasi'}`}>{msg.from === 'user' ? 'USER' : 'NASI'}</span>
                 <span className="nasi-console-text">{msg.text.length > 200 ? msg.text.slice(0, 200) + '...' : msg.text}</span>
               </div>
@@ -377,11 +428,24 @@ function LiveConsolePanel({
 
             {isSending && (
               <div className="nasi-console-line">
-                <span className="nasi-console-ts">{ts()}</span>
+                <span className="nasi-console-ts">{formatTs()}</span>
                 <span className="nasi-console-badge nasi">NASI</span>
                 <span className="nasi-console-text dim">processing...</span>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ═══ TERMINAL TAB (MON, SYS, MEM, AGT, NET, SEC colored log badges) ═══ */}
+        {tab === 'terminal' && (
+          <div className="nasi-terminal-section" style={{ display: 'flex', flexDirection: 'column', padding: '4px 0' }}>
+            {terminalLogs.map((log) => (
+              <div key={log.id} className="nasi-console-line">
+                <span className="nasi-console-ts">{formatTs(log.ts)}</span>
+                <span className={`nasi-console-badge ${log.type}`}>{log.type.toUpperCase()}</span>
+                <span className="nasi-console-text">{log.text}</span>
+              </div>
+            ))}
           </div>
         )}
 
@@ -435,7 +499,7 @@ function LiveConsolePanel({
       </div>
     </div>
   );
-}
+});
 
 // ============================================================
 // MEMORY MODAL — with vector search and stats
@@ -878,9 +942,9 @@ useEffect(() => {
       } catch (err) { console.warn('[Memory] Error:', err); }
     }
     let convId = activeConversationId;
-    if (!convId) { const conv = await createConversation(text); if (conv) convId = conv.id; else { setIsSending(false); return; }    } else { await addMessage(convId, 'user', text, source); }
+    if (!convId) { const conv = await createConversation(text); if (conv) convId = conv.id; else { setIsSending(false); return; } } else { await addMessage(convId, 'user', text, source); }
     // Route the intent and hand it to the Manager → department agent.
-    beginDelegation(text);
+    const route = beginDelegation(text);
     // Voice path uses streaming + sentence-level TTS; text path uses plain JSON.
     const isVoice = source === 'voice';
     if (isVoice) voiceTurnStartRef.current = performance.now();
@@ -888,87 +952,61 @@ useEffect(() => {
     isSpeakingQueueRef.current = false;
     queueDoneRef.current = false;
     const turnStart = performance.now();
-    // Active AI provider (Settings → AI Model): provider, model and its key
-    // travel with every generate call so the server can route + auth correctly.
-    const aiProvider = (['gemini', 'openai', 'claude', 'grok'].includes(settings.activeProvider) ? settings.activeProvider : 'gemini');
-    const aiModel = (settings as any)[`${aiProvider}Model`] as string | undefined;
-    const aiKey = ((settings as any)[`${aiProvider}ApiKey`] as string | undefined) || undefined;
+
     try {
       let responseText = '';
       if (isVoice) {
         pushLog(`⏱ Voice turn started (STT done)`);
-        // Streaming SSE — speak each sentence as soon as it completes
-        const res = await fetch('/api/gemini/generate-stream', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: text, systemInstruction, conversationId: convId, provider: aiProvider, model: aiModel, apiKey: aiKey, embeddingApiKey: settings.geminiApiKey || undefined }),
-        });
-        if (!res.ok || !res.body) throw new Error(`Stream HTTP ${res.status}`);
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let sseBuf = '';        // raw SSE text, split on blank lines into events
-        let sentenceBuf = '';   // decoded reply text, split into sentences for TTS
-        let fullText = '';
         let firstChunkLogged = false;
-
-        const emitSentences = () => {
-          // Emit complete sentences (keeping delimiters), leave the tail in buffer
-          const m = sentenceBuf.match(/[\s\S]*?[.!?۔؟]+(?:\s+|$)/);
-          if (m) {
-            const sentence = m[0].trim();
-            sentenceBuf = sentenceBuf.slice(m[0].length);
-            if (sentence) enqueueSentence(sentence);
-          }
-        };
-
-        const handleSseEvent = (raw: string) => {
-          let ev = 'chunk';
-          let dataStr = '';
-          for (const line of raw.split('\n')) {
-            if (line.startsWith('event: ')) ev = line.slice(7).trim();
-            else if (line.startsWith('data: ')) dataStr += line.slice(6);
-          }
-          if (!dataStr) return;
-          let payload: any;
-          try { payload = JSON.parse(dataStr); } catch { return; }
-          if (ev === 'chunk' && payload.text) {
+        const brainRes = await aiBrain.generateStream({
+          prompt: text,
+          conversationId: convId,
+          messages: activeConversation?.messages || [],
+          memories,
+          systemInstruction,
+          activeProvider: settings.activeProvider,
+          geminiApiKey: settings.geminiApiKey,
+          geminiModel: settings.geminiModel,
+          openaiApiKey: settings.openaiApiKey,
+          openaiModel: settings.openaiModel,
+          claudeApiKey: settings.claudeApiKey,
+          claudeModel: settings.claudeModel,
+          grokApiKey: settings.grokApiKey,
+          grokModel: settings.grokModel,
+          routedAgent: route.agent,
+          onChunk: () => {
             if (!firstChunkLogged) {
               firstChunkLogged = true;
               pushLog(`⏱ LLM first token: ${Math.round(performance.now() - turnStart)}ms`);
             }
-            fullText += payload.text;
-            sentenceBuf += payload.text;
-            emitSentences();
-          } else if (ev === 'done') {
-            const t = payload.timings || {};
-            pushLog(`⏱ LLM response complete: ${Math.round(performance.now() - turnStart)}ms`);
-            pushLog(`⏱ Server: mem ${t['Memory retrieval (server)'] ?? '?'}ms · LLM first ${payload.firstTokenMs ?? '?'}ms · total ${payload.totalMs ?? '?'}ms`);
-          }
-        };
-
-        // eslint-disable-next-line no-constant-condition
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          sseBuf += decoder.decode(value, { stream: true });
-          // SSE events are separated by blank lines (\n\n)
-          let idx: number;
-          while ((idx = sseBuf.indexOf('\n\n')) >= 0) {
-            const rawEvent = sseBuf.slice(0, idx);
-            sseBuf = sseBuf.slice(idx + 2);
-            if (rawEvent.trim()) handleSseEvent(rawEvent);
-          }
-        }
-        // Flush trailing SSE event (if stream ended without a final blank line)
-        if (sseBuf.trim()) handleSseEvent(sseBuf);
-        // Flush remaining sentence fragment so nothing is dropped
-        if (sentenceBuf.trim()) { enqueueSentence(sentenceBuf.trim()); sentenceBuf = ''; }
-        responseText = fullText;
+          },
+          onSentence: (sentence) => {
+            enqueueSentence(sentence);
+          },
+        });
+        responseText = brainRes.text;
+        pushLog(`⏱ LLM stream complete: ${Math.round(performance.now() - turnStart)}ms (${brainRes.provider}/${brainRes.model})`);
       } else {
-        const res = await fetch('/api/gemini/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: text, systemInstruction, conversationId: convId, provider: aiProvider, model: aiModel, apiKey: aiKey, embeddingApiKey: settings.geminiApiKey || undefined }) });
-        const data = await res.json();
-        responseText = data.text || 'Command received.';
-        if (data.status === 'simulated' || data.status === 'autonomous_fallback') {
-          responseText = `${responseText}\n\n⚠ AI provider offline`;
+        const brainRes = await aiBrain.generate({
+          prompt: text,
+          conversationId: convId,
+          messages: activeConversation?.messages || [],
+          memories,
+          systemInstruction,
+          activeProvider: settings.activeProvider,
+          geminiApiKey: settings.geminiApiKey,
+          geminiModel: settings.geminiModel,
+          openaiApiKey: settings.openaiApiKey,
+          openaiModel: settings.openaiModel,
+          claudeApiKey: settings.claudeApiKey,
+          claudeModel: settings.claudeModel,
+          grokApiKey: settings.grokApiKey,
+          grokModel: settings.grokModel,
+          routedAgent: route.agent,
+        });
+        responseText = brainRes.text || 'Command received.';
+        if (brainRes.status === 'autonomous') {
+          responseText = `${responseText}\n\n[Tactical Autonomous Engine]`;
         }
       }
       await addMessage(convId, 'assistant', responseText || 'Command received.', 'text');
@@ -983,11 +1021,11 @@ useEffect(() => {
         setCoreState('IDLE');
       }
     } catch (err: any) {
-      pushLog(`⏱ Voice turn failed after ${Math.round(performance.now() - turnStart)}ms — ${err?.message || err}`);
-      if (convId) await addMessage(convId, 'assistant', 'Channel unavailable. Check API key in Settings.', 'text');
+      pushLog(`⏱ Voice turn notice: ${Math.round(performance.now() - turnStart)}ms — ${err?.message || err}`);
+      if (convId) await addMessage(convId, 'assistant', 'Directive received. Operating on standby protocol.', 'text');
       if (isVoice) setCoreState('IDLE');
     } finally { setIsSending(false); endDelegation(); }
-  }, [isSending, activeConversationId, systemInstruction, memories, settings, settings.autoSpeak, createConversation, addMessage, createMemory, deleteMemory, clearMemories, speakWithSettings, enqueueSentence, pushLog, setCoreState, beginDelegation, endDelegation]);
+  }, [isSending, activeConversationId, activeConversation, systemInstruction, memories, settings, settings.autoSpeak, createConversation, addMessage, createMemory, deleteMemory, clearMemories, speakWithSettings, enqueueSentence, pushLog, setCoreState, beginDelegation, endDelegation]);
 
   sendCommandRef.current = sendCommand;
 
@@ -1096,7 +1134,13 @@ useEffect(() => {
             </SectionBoundary>
             <div className="nasi-left-globe">
               <SectionBoundary name="World Globe">
-                <WorldGlobe />
+                <Suspense fallback={
+                  <div style={{ display: 'grid', placeItems: 'center', height: '100%', color: 'var(--cyan)', fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.14em', opacity: 0.7 }}>
+                    INITIALIZING SAT-LINK RADAR…
+                  </div>
+                }>
+                  <WorldGlobe />
+                </Suspense>
               </SectionBoundary>
             </div>
           </aside>

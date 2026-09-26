@@ -545,6 +545,34 @@ async function startServer() {
   });
 
   // ============================================================================
+  // SETTINGS APIs
+  // ============================================================================
+  const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
+
+  app.get('/api/settings', async (req, res) => {
+    try {
+      const raw = await fs.readFile(SETTINGS_FILE, 'utf-8');
+      res.json({ settings: JSON.parse(raw) });
+    } catch {
+      res.json({ settings: null });
+    }
+  });
+
+  app.put('/api/settings', async (req, res) => {
+    try {
+      const { settings } = req.body || {};
+      if (settings && typeof settings === 'object') {
+        await fs.writeFile(SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf-8');
+        return res.json({ success: true, settings });
+      }
+      res.status(400).json({ error: 'Settings object required' });
+    } catch (err: any) {
+      console.warn('[Settings] Save error:', err?.message);
+      res.status(500).json({ error: 'Failed to save settings' });
+    }
+  });
+
+  // ============================================================================
   // ELEVENLABS PROXY — Server-side TTS to protect API key
   // ============================================================================
 
@@ -899,6 +927,263 @@ async function startServer() {
     // Autonomous tactical fallback when the stream fails entirely
     sendEvent('chunk', { text: getTacticalResponse(prompt) });
     sendEvent('done', { status: 'autonomous_fallback', model: modelName, timings: { ...pipelineTimings } });
+    res.end();
+  });
+
+  // ============================================================================
+  // UNIFIED AI BRAIN ORCHESTRATION APIs (Multi-Provider Fallback Hierarchy)
+  // Gemini -> OpenAI -> Claude -> Grok -> Autonomous Tactical Engine
+  // ============================================================================
+
+  app.post('/api/brain/generate', async (req, res) => {
+    const {
+      prompt,
+      contextPrompt,
+      systemInstruction,
+      temperature = 0.7,
+      provider = 'gemini',
+      model,
+      apiKey: clientApiKey,
+      conversationId,
+      routedAgent,
+    } = req.body || {};
+
+    const fullSystem = withBrevity(
+      systemInstruction || (await getActiveSystemPrompt()) + (routedAgent ? `\nOperating as: ${routedAgent} Agent.` : ''),
+    );
+    const combinedContent = contextPrompt ? `${contextPrompt}\n\nUser: ${prompt}` : prompt;
+
+    // 1. Try OpenAI if requested
+    const openAiKey = clientApiKey || process.env.OPENAI_API_KEY;
+    if (provider === 'openai' && openAiKey) {
+      try {
+        const oRes = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${openAiKey}`,
+          },
+          body: JSON.stringify({
+            model: model || 'gpt-4o-mini',
+            messages: [
+              { role: 'system', content: fullSystem },
+              { role: 'user', content: combinedContent },
+            ],
+            temperature,
+          }),
+        });
+        if (oRes.ok) {
+          const oData: any = await oRes.json();
+          const reply = oData.choices?.[0]?.message?.content;
+          if (reply) {
+            return res.json({
+              text: reply,
+              provider: 'openai',
+              model: model || 'gpt-4o-mini',
+              status: 'success',
+            });
+          }
+        }
+      } catch (err: any) {
+        console.warn('[Brain] OpenAI error, falling back:', err?.message);
+      }
+    }
+
+    // 2. Try Claude if requested
+    const claudeKey = clientApiKey || process.env.CLAUDE_API_KEY;
+    if (provider === 'claude' && claudeKey) {
+      try {
+        const cRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': claudeKey,
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify({
+            model: model || 'claude-3-haiku-20240307',
+            max_tokens: 1024,
+            system: fullSystem,
+            messages: [{ role: 'user', content: combinedContent }],
+            temperature,
+          }),
+        });
+        if (cRes.ok) {
+          const cData: any = await cRes.json();
+          const reply = cData.content?.[0]?.text;
+          if (reply) {
+            return res.json({
+              text: reply,
+              provider: 'claude',
+              model: model || 'claude-3-haiku-20240307',
+              status: 'success',
+            });
+          }
+        }
+      } catch (err: any) {
+        console.warn('[Brain] Claude error, falling back:', err?.message);
+      }
+    }
+
+    // 3. Try Grok (xAI) if requested
+    const grokKey = clientApiKey || process.env.GROK_API_KEY;
+    if (provider === 'grok' && grokKey) {
+      try {
+        const gRes = await fetch('https://api.x.ai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${grokKey}`,
+          },
+          body: JSON.stringify({
+            model: model || 'grok-2-1212',
+            messages: [
+              { role: 'system', content: fullSystem },
+              { role: 'user', content: combinedContent },
+            ],
+            temperature,
+          }),
+        });
+        if (gRes.ok) {
+          const gData: any = await gRes.json();
+          const reply = gData.choices?.[0]?.message?.content;
+          if (reply) {
+            return res.json({
+              text: reply,
+              provider: 'grok',
+              model: model || 'grok-2-1212',
+              status: 'success',
+            });
+          }
+        }
+      } catch (err: any) {
+        console.warn('[Brain] Grok error, falling back:', err?.message);
+      }
+    }
+
+    // 4. Primary/Fallback: Gemini
+    let ai = getAI();
+    if (!ai && clientApiKey && provider === 'gemini') {
+      try {
+        ai = new GoogleGenAI({
+          apiKey: clientApiKey.trim(),
+          httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
+        });
+      } catch (err: any) {
+        console.warn('[Brain] Gemini client init error:', err?.message);
+      }
+    }
+
+    if (ai) {
+      const candidateModels = [model || 'gemini-3.8-flash', 'gemini-flash-latest'];
+      for (const candidate of candidateModels) {
+        try {
+          const response = await ai.models.generateContent({
+            model: candidate,
+            contents: combinedContent,
+            config: {
+              systemInstruction: fullSystem,
+              temperature,
+            },
+          });
+          if (response.text) {
+            return res.json({
+              text: response.text,
+              provider: 'gemini',
+              model: candidate,
+              status: 'success',
+            });
+          }
+        } catch (err: any) {
+          console.warn(`[Brain] Gemini candidate ${candidate} failed:`, err?.message);
+        }
+      }
+    }
+
+    // 5. Ultimate Autonomous Fallback
+    return res.json({
+      text: getTacticalResponse(prompt),
+      provider: 'autonomous-core',
+      model: 'tactical-v1',
+      status: 'autonomous_fallback',
+    });
+  });
+
+  app.post('/api/brain/generate-stream', async (req, res) => {
+    const {
+      prompt,
+      contextPrompt,
+      systemInstruction,
+      temperature = 0.7,
+      provider = 'gemini',
+      model,
+      apiKey: clientApiKey,
+      routedAgent,
+    } = req.body || {};
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+
+    const sendEvent = (event: string, data: any) => {
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    };
+
+    const fullSystem = withBrevity(
+      systemInstruction || (await getActiveSystemPrompt()) + (routedAgent ? `\nOperating as: ${routedAgent} Agent.` : ''),
+    );
+    const combinedContent = contextPrompt ? `${contextPrompt}\n\nUser: ${prompt}` : prompt;
+
+    // Use Gemini stream as primary/standard streaming engine
+    let ai = getAI();
+    if (!ai && clientApiKey && provider === 'gemini') {
+      try {
+        ai = new GoogleGenAI({
+          apiKey: clientApiKey.trim(),
+          httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
+        });
+      } catch {
+        // pass
+      }
+    }
+
+    if (ai) {
+      const candidateModels = [model || 'gemini-3.8-flash', 'gemini-flash-latest'];
+      for (const candidate of candidateModels) {
+        try {
+          const stream = await ai.models.generateContentStream({
+            model: candidate,
+            contents: combinedContent,
+            config: {
+              systemInstruction: fullSystem,
+              temperature,
+            },
+          });
+
+          let anyChunk = false;
+          for await (const chunk of stream) {
+            const t = chunk.text;
+            if (t) {
+              anyChunk = true;
+              sendEvent('chunk', { text: t });
+            }
+          }
+
+          if (anyChunk) {
+            sendEvent('done', { status: 'success', provider: 'gemini', model: candidate });
+            res.end();
+            return;
+          }
+        } catch (err: any) {
+          console.warn(`[Brain Stream] Candidate ${candidate} failed:`, err?.message);
+        }
+      }
+    }
+
+    // Fallback: non-streaming chunk delivery
+    sendEvent('chunk', { text: getTacticalResponse(prompt) });
+    sendEvent('done', { status: 'autonomous_fallback', provider: 'autonomous-core', model: 'tactical-v1' });
     res.end();
   });
 

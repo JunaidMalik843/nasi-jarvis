@@ -186,7 +186,7 @@ export function useVoice(config: VoiceConfig = {}) {
   }, [setCoreState]);
 
   // Speak text — ElevenLabs stream + browser fallback
-  const speak = useCallback((text: string, speed?: number, pitch?: number, volume?: number): Promise<void> => {
+  const speak = useCallback((text: string, speed?: number, pitch?: number, volume?: number, onTtsLatency?: (ttsMs: number) => void): Promise<void> => {
     return new Promise((resolve) => {
       if (!text.trim()) { resolve(); return; }
 
@@ -293,7 +293,9 @@ export function useVoice(config: VoiceConfig = {}) {
                 if (!playedAny) {
                   playedAny = true;
                   if (ttsStartRef.current) {
-                    log(`⏱ TTS first audio: ${Math.round(performance.now() - ttsStartRef.current)}ms`);
+                    const elapsed = Math.round(performance.now() - ttsStartRef.current);
+                    log(`⏱ TTS first audio: ${elapsed}ms`);
+                    onTtsLatency?.(elapsed);
                     ttsStartRef.current = 0;
                   }
                   log(`TTS: PROVIDER = ElevenLabs ✓ — voice ${elevenlabsVoiceId}, playing`);
