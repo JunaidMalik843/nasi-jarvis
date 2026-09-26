@@ -23,16 +23,13 @@ export default function NASICore({ state }: { state: CoreState }) {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    // v3: +15% (240→276) so the orb fills more of its card, with a denser,
-    // wider particle cloud to match the reference's full-bodied sphere.
-    const W = 276, H = 276, dpr = Math.min(window.devicePixelRatio || 1, 2);
-    // Absolute pixel offsets scale with the orb so the rings/waves keep their
-    // proportions after the 20% size reduction.
+    // Exact Stonic reference: a 160×160 orb rendered inside its 200×200 wrapper.
+    const W = 160, H = 160, dpr = Math.min(window.devicePixelRatio || 1, 2);
     const K = W / 300;
     canvas.width = W * dpr; canvas.height = H * dpr;
     canvas.style.width = W + 'px'; canvas.style.height = H + 'px'; canvas.style.borderRadius = '50%';
     ctx.scale(dpr, dpr);
-    const cx = W / 2, cy = H / 2, R = 107;
+    const cx = W / 2, cy = H / 2, R = 67;
 
     if (particlesRef.current.length === 0) {
       const shells = [
@@ -57,14 +54,12 @@ export default function NASICore({ state }: { state: CoreState }) {
     let rotY = Math.random() * Math.PI * 2, rotX = 0.28;
     const getStateColor = () => {
       switch (stateRef.current) {
-        // Colour values mirror the canonical CSS palette (#00ebf0 cyan,
-        // #ffb020 amber, #00e88a emerald, #ff5252 crimson) so the orb edge
-        // matches the rest of the interface instead of drifting blue.
-        case 'LISTENING': return { r: 0, g: 228, b: 240, intensity: 1.0, glow: 0.7 };
-        case 'THINKING': return { r: 255, g: 176, b: 32, intensity: 0.9, glow: 0.55 };
-        case 'SPEAKING': return { r: 0, g: 232, b: 138, intensity: 1.0, glow: 0.7 };
+        // Exact Stonic instrument palette.
+        case 'LISTENING': return { r: 0, g: 212, b: 255, intensity: 1.0, glow: 0.7 };
+        case 'THINKING': return { r: 255, g: 140, b: 0, intensity: 0.9, glow: 0.55 };
+        case 'SPEAKING': return { r: 0, g: 230, b: 118, intensity: 1.0, glow: 0.7 };
         case 'ERROR': return { r: 255, g: 82, b: 82, intensity: 0.95, glow: 0.6 };
-        default: return { r: 0, g: 216, b: 232, intensity: 0.5, glow: 0.26 };
+        default: return { r: 0, g: 212, b: 255, intensity: 0.5, glow: 0.26 };
       }
     };
 
@@ -147,9 +142,9 @@ export default function NASICore({ state }: { state: CoreState }) {
       ctx.beginPath(); ctx.arc(cx, cy, R + 8 * K, 0, Math.PI * 2); ctx.stroke();
 
       // State effects
-      if (st === 'LISTENING') { for (let w = 0; w < 3; w++) { const waveR = R + (30 + w * 15) * K + Math.sin(t * 4 - w * 0.8) * 8 * K; ctx.strokeStyle = `rgba(0, 235, 240,${0.12 - w * 0.03})`; ctx.lineWidth = 0.7; ctx.beginPath(); ctx.arc(cx, cy, waveR, 0, Math.PI * 2); ctx.stroke(); } }
-      if (st === 'THINKING') { for (let a = 0; a < 3; a++) { const arcStart = t * 2 + a * (Math.PI * 2 / 3); const arcLen = 0.8 + Math.sin(t * 3 + a) * 0.3; ctx.strokeStyle = `rgba(0, 235, 240,${0.2 - a * 0.05})`; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(cx, cy, R * 0.75, arcStart, arcStart + arcLen); ctx.stroke(); } }
-      if (st === 'SPEAKING') { const speakPulse = Math.sin(t * 8) * 0.5 + 0.5; ctx.strokeStyle = `rgba(0, 232, 138,${0.18 * speakPulse})`; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.arc(cx, cy, R * 0.55, 0, Math.PI * 2); ctx.stroke(); }
+      if (st === 'LISTENING') { for (let w = 0; w < 3; w++) { const waveR = R + (30 + w * 15) * K + Math.sin(t * 4 - w * 0.8) * 8 * K; ctx.strokeStyle = `rgba(0, 240, 255,${0.12 - w * 0.03})`; ctx.lineWidth = 0.7; ctx.beginPath(); ctx.arc(cx, cy, waveR, 0, Math.PI * 2); ctx.stroke(); } }
+      if (st === 'THINKING') { for (let a = 0; a < 3; a++) { const arcStart = t * 2 + a * (Math.PI * 2 / 3); const arcLen = 0.8 + Math.sin(t * 3 + a) * 0.3; ctx.strokeStyle = `rgba(0, 240, 255,${0.2 - a * 0.05})`; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(cx, cy, R * 0.75, arcStart, arcStart + arcLen); ctx.stroke(); } }
+      if (st === 'SPEAKING') { const speakPulse = Math.sin(t * 8) * 0.5 + 0.5; ctx.strokeStyle = `rgba(0, 255, 136,${0.18 * speakPulse})`; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.arc(cx, cy, R * 0.55, 0, Math.PI * 2); ctx.stroke(); }
 
     };
     // The orb is the focal element: keep a real frame budget while it is
