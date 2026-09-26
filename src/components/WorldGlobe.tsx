@@ -34,6 +34,17 @@ const MARKERS: Marker[] = [
   { name: 'Moscow', lon: 37.6, lat: 55.7, color: '#ff8c00', status: 'warning', label: 'MONITORING' },
 ];
 
+// Heat zones — soft radial activity overlays over the satellite base. The
+// reference is a dark map with glowing hot regions, not a bare wireframe, so
+// these are drawn under the arcs rather than replaced by them.
+const HEAT_ZONES: { lon: number; lat: number; radius: number; color: string; intensity: number }[] = [
+  { lon: 55, lat: 25, radius: 22, color: '#ff8c00', intensity: 0.14 },  // Middle East
+  { lon: 37, lat: 55, radius: 17, color: '#ff8c00', intensity: 0.09 },  // Russia
+  { lon: 127, lat: 37, radius: 12, color: '#ff2244', intensity: 0.18 }, // Korean peninsula
+  { lon: -100, lat: 35, radius: 24, color: '#00f0ff', intensity: 0.05 }, // US
+  { lon: 10, lat: 50, radius: 19, color: '#00f0ff', intensity: 0.06 },  // Europe
+];
+
 // Connection arcs — the glowing links between nodes that make this a network
 // view rather than a plain globe. Referenced by marker name.
 const CONNECTIONS: [string, string][] = [
@@ -179,26 +190,56 @@ export default function WorldGlobe() {
     path.context(ctx)(geoGraticule().step([30, 30])());
     ctx.stroke();
 
-    // ── Continent coastlines (wireframe) ──
-    // Stroke only — a filled landmass turns this into a satellite/heatmap
-    // read. A faint interior wash keeps the sphere from looking hollow while
-    // the cyan coast carries the geography.
+    // ── Continent landmass (satellite base) ──
+    // A dark lit-teal fill with a glowing coast. The reference is a dark
+    // satellite-style map, so the land keeps its mass; the heat zones below
+    // supply the colour rather than the land itself.
     ctx.save();
     ctx.beginPath();
     path.context(ctx)(LAND);
-    ctx.fillStyle = 'rgba(0, 240, 255, 0.035)';
+    ctx.fillStyle = 'rgba(30, 78, 92, 0.9)';
+    ctx.shadowColor = 'rgba(0, 240, 255, 0.35)';
+    ctx.shadowBlur = 9;
     ctx.fill();
-    ctx.shadowColor = 'rgba(0, 240, 255, 0.45)';
-    ctx.shadowBlur = 6;
-    ctx.strokeStyle = 'rgba(140, 250, 255, 0.55)';
-    ctx.lineWidth = 0.6;
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(140, 250, 255, 0.5)';
+    ctx.lineWidth = 0.55;
     ctx.stroke();
     ctx.restore();
 
-    // ── Connection arcs ──
+    // ── Heat zones ──
+    // Soft radial glows that pulse gently, sitting on the landmass and under
+    // the connection arcs.
+    const t = Date.now() / 1000;
+    HEAT_ZONES.forEach(zone => {
+      const projected = projection([zone.lon, zone.lat]);
+      if (!projected) return;
+      const [px, py] = projected;
+      const dx = px - cx;
+      const dy = py - cy;
+      if (dx * dx + dy * dy > r * r) return;
+
+      const pulse = 1 + Math.sin(t * 1.5 + zone.lon * 0.05) * 0.15;
+      const zoneR = zone.radius * zoom * pulse;
+      const grad = ctx.createRadialGradient(px, py, 0, px, py, zoneR);
+      const [cr, cg, cb] = hexToRgb(zone.color);
+      grad.addColorStop(0, `rgba(${cr},${cg},${cb},${zone.intensity * 1.5})`);
+      grad.addColorStop(0.45, `rgba(${cr},${cg},${cb},${zone.intensity * 0.75})`);
+      grad.addColorStop(0.75, `rgba(${cr},${cg},${cb},${zone.intensity * 0.22})`);
+      grad.addColorStop(1, 'transparent');
+      ctx.save();
+      ctx.shadowColor = `rgba(${cr},${cg},${cb},0.55)`;
+      ctx.shadowBlur = 12;
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(px, py, zoneR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+
+    // ── Connection arcs (over the heat map) ──
     // Sampled along the great-circle-ish path between two nodes; the arc is
     // lifted toward the limb so it reads as a link over the sphere.
-    const t = Date.now() / 1000;
     const byName = new Map(MARKERS.map(m => [m.name, m]));
     ctx.save();
     ctx.lineWidth = 1;

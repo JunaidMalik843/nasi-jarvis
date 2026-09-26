@@ -21,20 +21,33 @@ interface AgentOfficeProps {
 
 // ─────────────────────────────────────────────────────────────
 // NASI Agent Office — canvas-rendered operations floor
-// Textured floor (panels + seams + scuffs) → sparse per-zone props
-// (one wall screen + one plant) → desks → monitors → seated agent
-// sprites with varied idle behaviour → hover tooltip → click to select
-// Deliberately spacious: each zone is a desk + agent + a prop or two,
-// with clean, readable floor between zones (no wall-to-wall furniture).
+// Architectural floor plan: a horizontal corridor splits the plate into
+// two bands of rooms, with a vertical spur off the corridor. Rooms get
+// real walls with doorways and open passages, varied furniture kits,
+// desks and agents — not a uniform grid of bordered cells.
 // ─────────────────────────────────────────────────────────────
 
-const GRID_COLS = 4;
 const TILE = 32;
 const ZONE_ORDER = ['Core', 'Research', 'Web', 'Commerce', 'Infrastructure', 'Communication', 'Security'];
 
-type Desk = { agent: Agent; cx: number; deskY: number; w: number; h: number; scale: number };
-type Cell = { dept: string; color: string; col: number; row: number; left: number; top: number; w: number; h: number; desks: Desk[] };
-type Layout = { cells: Cell[]; rows: number; cellW: number; cellH: number; scale: number };
+/** Non-department rooms. Always present so the floor reads as an interior
+ *  with a lounge and a utility space, not just department boxes. */
+const SPECIAL_ROOMS: { dept: string; kind: 'lounge' | 'server'; color: string }[] = [
+  { dept: 'Break Lounge', kind: 'lounge', color: '#ff8c00' },
+  { dept: 'Server Room', kind: 'server', color: '#00ff88' },
+];
+
+type Desk = { agent: Agent; cx: number; deskY: number; w: number; h: number; scale: number; style: number };
+type Cell = {
+  dept: string; color: string; col: number; row: number;
+  left: number; top: number; w: number; h: number; desks: Desk[];
+  band: 'top' | 'bottom'; special?: 'lounge' | 'server';
+  kit: number; index: number; doorX: number; openLeft: boolean;
+};
+type Layout = {
+  cells: Cell[]; rows: number; cellW: number; cellH: number; scale: number;
+  corridorY: number; corridorH: number; spurX: number; spurW: number;
+};
 
 // Exact Stonic sprite footprint: 20×28px at scale 1, assembled from a
 // distinct pixel head and body with 1px outlines.
@@ -324,8 +337,8 @@ function drawFallbackAgent(
 }
 
 function computeLayout(list: Agent[], W: number, H: number): Layout {
-  // Group agents by department in fixed zone order (Infrastructure holds 2 agents
-  // → rendered as one merged zone spanning two cells, no wall between them).
+  // Group agents by department in fixed zone order (Infrastructure holds 2
+  // agents → one room with two desks, not two half rooms).
   const grouped: { dept: string; agents: Agent[] }[] = [];
   for (const dept of ZONE_ORDER) {
     const inDept = list.filter(a => a.department === dept);
@@ -338,34 +351,100 @@ function computeLayout(list: Agent[], W: number, H: number): Layout {
       g.agents.push(a);
     }
   }
-  const rows = Math.max(1, Math.ceil(grouped.length / GRID_COLS));
-  const cellW = W / GRID_COLS;
-  const cellH = H / rows;
-  // Sprites/furniture scale with the zone height so mobile and desktop keep the
-  // same proportions instead of one breakpoint looking cramped.
-  const s = clamp(cellH / 158, 0.6, 1.05);
+
+  const rooms: { dept: string; color: string; agents: Agent[]; special?: 'lounge' | 'server' }[] =
+    grouped.map(g => ({ dept: g.dept, color: g.agents[0]?.color || '#00f0ff', agents: g.agents }));
+  for (const sp of SPECIAL_ROOMS) rooms.push({ dept: sp.dept, color: sp.color, agents: [], special: sp.kind });
+
+  // The plate: a horizontal corridor with rooms above and below it, plus a
+  // vertical spur splitting the lower band — a T-shaped plan reads as a
+  // building, where an even grid reads as a spreadsheet.
+  const n = rooms.length;
+  const topCount = Math.max(1, Math.ceil(n / 2));
+  const botCount = Math.max(1, n - topCount);
+
+  const corridorH = Math.round(clamp(H * 0.17, 38, 74));
+  const corridorY = Math.round(H * 0.52 - corridorH / 2);
+  const spurW = W > 560 ? Math.round(W * 0.09) : 0;
+  const topH = corridorY;
+  const botY = corridorY + corridorH;
+  const botH = H - botY;
+  const s = clamp(Math.min(topH, botH) / 150, 0.58, 1.05);
   const deskW = BASE.deskW * s;
   const deskH = BASE.deskH * s;
-  const cells: Cell[] = grouped.map((g, i) => {
-    const col = i % GRID_COLS;
-    const row = Math.floor(i / GRID_COLS);
-    const left = col * cellW;
-    const top = row * cellH;
-    const desks: Desk[] = g.agents.map((agent, j) => ({
-      agent,
-      cx: left + cellW / 2 + (g.agents.length > 1 ? (j === 0 ? -0.2 : 0.2) * cellW : 0),
-      // Desks sit below the wall zone but are raised ~17px from the old bottom-
-      // hugging position: the reference gives the desk row visibly more air
-      // above the zone divider / department labels. The 58px floor keeps sprite
-      // heads (top ~ deskY - 34) clear of the wall band + screens (~21px deep).
-      deskY: top + Math.max(cellH * 0.60 - 17, 58),
-      w: deskW,
-      h: deskH,
-      scale: s,
-    }));
-    return { dept: g.dept, color: g.agents[0]?.color || '#00f0ff', col, row, left, top, w: cellW, h: cellH, desks };
+
+  const topWidth = W / topCount;
+  const botWidth = (W - spurW) / botCount;
+  const spurAfter = spurW > 0 ? Math.floor(botCount / 2) : -1;
+
+  const cells: Cell[] = rooms.map((room, i) => {
+    const isTop = i < topCount;
+    const k = isTop ? i : i - topCount;
+    const w = isTop ? topWidth : botWidth;
+    const left = isTop ? k * w : k * w + (spurAfter >= 0 && k >= spurAfter ? spurW : 0);
+    const top = isTop ? 0 : botY;
+    const h = isTop ? topH : botH;
+    // Usable floor inside the room, between its outer wall and the corridor.
+    const floorTop = isTop ? 13 : botY + 6;
+    const floorBottom = isTop ? corridorY - 3 : top + h - 4;
+    const desks: Desk[] = (() => {
+      // Two-desk rooms (Infrastructure) sit side by side when the room is wide
+      // enough, and stack front-to-back when it is not — otherwise the outer
+      // desks overhang the room walls on narrow viewports.
+      const sideBySide = room.agents.length < 2 || w >= deskW * 2 + 8 * s;
+      const spreadX = sideBySide
+        ? Math.min(w * 0.2, Math.max(0, w / 2 - deskW / 2 - 4 * s))
+        : 0;
+      const stackY = sideBySide ? 0 : deskH * 1.6 + 4 * s;
+      const baseDeskY = clamp(
+        floorTop + (floorBottom - floorTop) * 0.68,
+        floorTop + 32 * s,
+        floorBottom - 3,
+      );
+      return room.agents.map((agent, j) => {
+        const sign = j === 0 ? -1 : 1;
+        return {
+          agent,
+          cx: left + w / 2 + (room.agents.length > 1 ? sign * spreadX : 0),
+          deskY: clamp(
+            baseDeskY + (room.agents.length > 1 && !sideBySide ? sign * stackY : 0),
+            floorTop + 32 * s,
+            floorBottom - 3,
+          ),
+          w: deskW,
+          h: deskH,
+          scale: s,
+          // Four desk builds so neighbouring rooms never look copy-pasted.
+          style: (i * 3 + j) % 4,
+        };
+      });
+    })();
+    return {
+      dept: room.dept,
+      color: room.color,
+      col: k,
+      row: isTop ? 0 : 1,
+      left, top, w, h, desks,
+      band: isTop ? 'top' : 'bottom',
+      special: room.special,
+      kit: i % 6,
+      index: i,
+      // Doors alternate left/right of centre so the corridor wall is not a
+      // repeating pattern, and every other room keeps its left wall open so
+      // the rooms are connected by passages as well as doors.
+      doorX: left + w * (k % 2 === 0 ? 0.34 : 0.66),
+      openLeft: k > 0 && k % 2 === 1,
+    };
   });
-  return { cells, rows, cellW, cellH, scale: s };
+
+  return {
+    cells, rows: 2,
+    cellW: Math.max(topWidth, botWidth), cellH: topH,
+    scale: s,
+    corridorY, corridorH,
+    spurX: spurAfter >= 0 ? spurAfter * botWidth : 0,
+    spurW: spurAfter >= 0 ? spurW : 0,
+  };
 }
 
 function pickDesk(list: Agent[], W: number, H: number, x: number, y: number): Desk | null {
@@ -388,9 +467,9 @@ function pickDesk(list: Agent[], W: number, H: number, x: number, y: number): De
  * six radial gradients per paint. It is now rendered once into an offscreen
  * canvas and blitted in one drawImage.
  */
-function drawFloorLayer(g: CanvasRenderingContext2D, W: number, H: number, cellW: number) {
+function drawFloorLayer(g: CanvasRenderingContext2D, W: number, H: number, layout: Layout) {
   // Exact 32×32 floor tiles over the Stonic background, with the reference's
-  // low-contrast white grid. Corridors are carved by the wall/door geometry below.
+  // low-contrast white grid. Corridors are carved by the wall/door geometry above.
   g.fillStyle = '#0a0e17';
   g.fillRect(0, 0, W, H);
   g.strokeStyle = 'rgba(255,255,255,0.02)';
@@ -419,18 +498,18 @@ function drawFloorLayer(g: CanvasRenderingContext2D, W: number, H: number, cellW
     g.stroke();
   }
 
-  // Ambient ceiling lights: 1–2 soft light pools per zone column, cast low
-  // on the floor so the surface reads as lit rather than uniformly flat.
-  for (let c = 0; c < GRID_COLS; c++) {
-    const cxm = (c + 0.5) * cellW;
-    for (const [ly, lr, la] of [[H * 0.38, cellW * 0.62, 0.016], [H * 0.72, cellW * 0.5, 0.011]] as const) {
-      const pool = g.createRadialGradient(cxm, ly, 6, cxm, ly, lr);
-      pool.addColorStop(0, `rgba(120, 195, 225, ${la})`);
-      pool.addColorStop(0.55, `rgba(120, 195, 225, ${la * 0.4})`);
-      pool.addColorStop(1, 'transparent');
-      g.fillStyle = pool;
-      g.fillRect(c * cellW, 0, cellW, H);
-    }
+  // Ambient ceiling lights: one soft pool per room, so light follows the plan
+  // instead of an invisible column grid.
+  for (const cell of layout.cells) {
+    const cxm = cell.left + cell.w / 2;
+    const cym = cell.top + cell.h * 0.58;
+    const lr = Math.max(cell.w, cell.h) * 0.62;
+    const pool = g.createRadialGradient(cxm, cym, 6, cxm, cym, lr);
+    pool.addColorStop(0, 'rgba(120, 195, 225, 0.016)');
+    pool.addColorStop(0.55, 'rgba(120, 195, 225, 0.006)');
+    pool.addColorStop(1, 'transparent');
+    g.fillStyle = pool;
+    g.fillRect(cell.left, cell.top, cell.w, cell.h);
   }
 }
 
@@ -451,67 +530,212 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
   const focusRef = useRef<string | null>(focusAgent);
   focusRef.current = focusAgent;
 
-  /** Environmental prop set for one zone — makes the floor read as a real room. */
-  const drawProps = (ctx: CanvasRenderingContext2D, cell: Cell, s: number, t: number) => {
-    const { left, top, w, h } = cell;
-    const kind = cell.col + cell.row * GRID_COLS;
-
-    // ── Wall screen / notice board (top-left of the zone) ──
-    const pw = 30 * s, ph = 21 * s;
-    const px0 = left + 10 * s, py0 = top + 5 * s;
+  /** Wall-hung fitting: a lit panel with three text rows. Used by several kits. */
+  const drawWallScreen = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, kind: number, t: number, s: number) => {
     ctx.fillStyle = '#0e141c';
-    ctx.fillRect(px0, py0, pw, ph);
+    ctx.fillRect(x, y, w, h);
     ctx.strokeStyle = 'rgba(0, 240, 255, .28)';
     ctx.lineWidth = 0.8;
-    ctx.strokeRect(px0 + 0.5, py0 + 0.5, pw - 1, ph - 1);
-    // Faint glowing text lines (slight per-screen flicker)
+    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
     const flick = 0.5 + 0.2 * Math.sin(t * 1.7 + kind * 1.3);
     const colors = ['rgba(0, 240, 255,', 'rgba(0,255,136,', 'rgba(255, 140, 0,'];
     for (let li = 0; li < 3; li++) {
       ctx.fillStyle = colors[(kind + li) % 3] + (0.22 * flick).toFixed(3) + ')';
-      ctx.fillRect(px0 + 3 * s, py0 + (4 + li * 5) * s, (pw - 8 * s) * (li === 1 ? 0.62 : 0.85), 1.6 * s);
+      ctx.fillRect(x + 3 * s, y + (4 + li * 5) * s, (w - 8 * s) * (li === 1 ? 0.62 : 0.85), 1.6 * s);
     }
+  };
 
-    // ── Potted plant (bottom-left of the zone, on the floor) ──
-    const fx0 = left + 16 * s, fy0 = top + h - 46 * s;
+  /** Potted plant — kept as one option among many, not a fixture of every room. */
+  const drawPlant = (ctx: CanvasRenderingContext2D, x: number, y: number, s: number) => {
     ctx.fillStyle = '#1d2a20';
     for (let l = 0; l < 5; l++) {
       const ang = -Math.PI / 2 + (l - 2) * 0.42;
       ctx.beginPath();
-      ctx.ellipse(fx0 + Math.cos(ang) * 5 * s, fy0 + Math.sin(ang) * 7 * s, 2.6 * s, 5.2 * s, ang + Math.PI / 2, 0, Math.PI * 2);
+      ctx.ellipse(x + Math.cos(ang) * 5 * s, y + Math.sin(ang) * 7 * s, 2.6 * s, 5.2 * s, ang + Math.PI / 2, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.fillStyle = 'rgba(120, 190, 150, .16)';
-    ctx.beginPath(); ctx.ellipse(fx0 - 2 * s, fy0 - 5 * s, 1.6 * s, 3.6 * s, 0.4, 0, Math.PI * 2); ctx.fill();
-    // Pot
+    ctx.beginPath(); ctx.ellipse(x - 2 * s, y - 5 * s, 1.6 * s, 3.6 * s, 0.4, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#3a2a1e';
     ctx.beginPath();
-    ctx.moveTo(fx0 - 5 * s, fy0 + 4 * s); ctx.lineTo(fx0 + 5 * s, fy0 + 4 * s);
-    ctx.lineTo(fx0 + 3.6 * s, fy0 + 12 * s); ctx.lineTo(fx0 - 3.6 * s, fy0 + 12 * s);
+    ctx.moveTo(x - 5 * s, y + 4 * s); ctx.lineTo(x + 5 * s, y + 4 * s);
+    ctx.lineTo(x + 3.6 * s, y + 12 * s); ctx.lineTo(x - 3.6 * s, y + 12 * s);
     ctx.closePath(); ctx.fill();
     ctx.strokeStyle = 'rgba(190, 150, 110, .28)'; ctx.lineWidth = 0.7; ctx.stroke();
+  };
 
-    // ── One floor mat per workstation ── Keeps the desk anchored to the floor
-    // without surrounding it with furniture; everything else stays open floor.
+  /** Floor-standing shelf with book spines. */
+  const drawShelf = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, kind: number, s: number) => {
+    ctx.fillStyle = '#1a222c';
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = 'rgba(0, 240, 255, .16)';
+    ctx.lineWidth = 0.7;
+    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+    const spines = ['rgba(0, 240, 255, .4)', 'rgba(255, 140, 0, .38)', 'rgba(0, 255, 136, .34)', 'rgba(224, 230, 237, .26)'];
+    for (let shelf = 0; shelf < 3; shelf++) {
+      const sy = y + 2 + shelf * ((h - 4) / 3);
+      const sh = (h - 4) / 3 - 1.5;
+      let cx2 = x + 2;
+      let b = (kind + shelf) % 4;
+      while (cx2 < x + w - 4) {
+        const bw = 1.6 + ((b * 7 + shelf) % 3);
+        ctx.fillStyle = spines[b];
+        ctx.fillRect(cx2, sy + sh - 5.5, bw, 5.5);
+        cx2 += bw + 0.8;
+        b = (b + 1) % 4;
+      }
+      ctx.fillStyle = 'rgba(255,255,255,.06)';
+      ctx.fillRect(x + 1, sy + sh, w - 2, 0.8);
+    }
+  };
+
+  /** Server rack with blinking status LEDs. */
+  const drawRack = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, t: number, seed: number) => {
+    ctx.fillStyle = '#141a23';
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = 'rgba(0, 255, 136, .2)';
+    ctx.lineWidth = 0.7;
+    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+    const units = Math.max(3, Math.floor(h / 6));
+    for (let u = 0; u < units; u++) {
+      const uy = y + 2 + u * ((h - 4) / units);
+      const uh = (h - 4) / units - 1;
+      ctx.fillStyle = '#1b232e';
+      ctx.fillRect(x + 1.5, uy, w - 3, uh);
+      const lit = 0.35 + 0.45 * (0.5 + 0.5 * Math.sin(t * 3 + u * 1.7 + seed));
+      ctx.fillStyle = `rgba(0, 255, 136, ${lit})`;
+      ctx.fillRect(x + 2.5, uy + uh * 0.4, 1.2, 1.2);
+      ctx.fillStyle = `rgba(0, 240, 255, ${lit * 0.7})`;
+      ctx.fillRect(x + w - 4, uy + uh * 0.4, 1.2, 1.2);
+    }
+  };
+
+  /** Standing lamp — a pool of light with a slim stem. */
+  const drawLamp = (ctx: CanvasRenderingContext2D, x: number, y: number, s: number) => {
+    const pool = ctx.createRadialGradient(x, y - 12 * s, 2, x, y - 12 * s, 22 * s);
+    pool.addColorStop(0, 'rgba(255, 220, 160, .10)');
+    pool.addColorStop(1, 'transparent');
+    ctx.fillStyle = pool;
+    ctx.beginPath(); ctx.arc(x, y - 12 * s, 22 * s, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#2a3240';
+    ctx.fillRect(x - 0.8 * s, y - 14 * s, 1.6 * s, 14 * s);
+    ctx.fillStyle = '#3a4453';
+    ctx.beginPath();
+    ctx.moveTo(x - 5 * s, y - 18 * s); ctx.lineTo(x + 5 * s, y - 18 * s);
+    ctx.lineTo(x + 3 * s, y - 14 * s); ctx.lineTo(x - 3 * s, y - 14 * s);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(255, 235, 190, .55)';
+    ctx.fillRect(x - 4.4 * s, y - 17.6 * s, 8.8 * s, 1.2 * s);
+  };
+
+  /** Small rug — breaks up the bare floor between rooms. */
+  const drawRug = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, hue: string, s: number) => {
+    ctx.fillStyle = hue;
+    if (ctx.roundRect) ctx.beginPath(), ctx.roundRect(x, y, w, h, 3 * s); else ctx.beginPath(), ctx.rect(x, y, w, h);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.05)';
+    ctx.lineWidth = 0.6;
+    ctx.stroke();
+  };
+
+  /**
+   * Per-room furniture. Six kits, picked deterministically by room index, so
+   * no two neighbouring rooms carry the same plant+screen combination.
+   */
+  const drawProps = (ctx: CanvasRenderingContext2D, cell: Cell, s: number, t: number) => {
+    const { left, top, w, h, kit } = cell;
+    const floorBase = top + h - 6 * s;          // where floor furniture stands
+    const wallY = top + 6 * s;                  // wall-hung items
+
+    switch (kit) {
+      case 0: { // Wall screen + plant
+        drawWallScreen(ctx, left + 8 * s, wallY, 30 * s, 21 * s, cell.index, t, s);
+        drawPlant(ctx, left + 16 * s, floorBase - 12 * s, s);
+        break;
+      }
+      case 1: { // Bookshelf + filing cabinet
+        drawShelf(ctx, left + 8 * s, floorBase - 34 * s, Math.min(34 * s, w * 0.42), 30 * s, cell.index, s);
+        ctx.fillStyle = '#1d242e';
+        ctx.fillRect(left + w - 20 * s, floorBase - 20 * s, 15 * s, 18 * s);
+        ctx.strokeStyle = 'rgba(0, 240, 255, .14)'; ctx.lineWidth = 0.7;
+        ctx.strokeRect(left + w - 20 * s + 0.5, floorBase - 20 * s + 0.5, 15 * s - 1, 18 * s - 1);
+        ctx.fillStyle = 'rgba(255, 140, 0, .5)';
+        ctx.fillRect(left + w - 16 * s, floorBase - 17 * s, 7 * s, 1.4 * s);
+        break;
+      }
+      case 2: { // Whiteboard + standing lamp + rug
+        ctx.fillStyle = '#0f151d';
+        ctx.fillRect(left + 8 * s, wallY, Math.min(38 * s, w * 0.5), 18 * s);
+        ctx.strokeStyle = 'rgba(0, 240, 255, .24)'; ctx.lineWidth = 0.8;
+        ctx.strokeRect(left + 8 * s + 0.5, wallY + 0.5, Math.min(38 * s, w * 0.5) - 1, 18 * s - 1);
+        ctx.strokeStyle = 'rgba(224, 230, 237, .2)'; ctx.lineWidth = 0.9;
+        ctx.beginPath();
+        ctx.moveTo(left + 11 * s, wallY + 6 * s); ctx.lineTo(left + 20 * s, wallY + 6 * s);
+        ctx.moveTo(left + 11 * s, wallY + 10 * s); ctx.lineTo(left + 26 * s, wallY + 10 * s);
+        ctx.stroke();
+        drawRug(ctx, left + w * 0.3, floorBase - 12 * s, w * 0.5, 9 * s, 'rgba(28, 40, 48, .5)', s);
+        drawLamp(ctx, left + w - 14 * s, floorBase, s);
+        break;
+      }
+      case 3: { // Equipment rack + cable tray
+        drawRack(ctx, left + 8 * s, floorBase - 30 * s, 16 * s, 28 * s, t, cell.index);
+        ctx.fillStyle = 'rgba(0, 240, 255, .1)';
+        ctx.fillRect(left + 26 * s, floorBase - 4 * s, Math.min(30 * s, w - 34 * s), 1.6 * s);
+        ctx.fillStyle = 'rgba(0, 240, 255, .16)';
+        for (let k = 0; k < 3; k++) {
+          ctx.fillRect(left + 28 * s + k * 7 * s, floorBase - 12 * s, 0.9 * s, 8 * s);
+        }
+        break;
+      }
+      case 4: { // Printer + notice board
+        ctx.fillStyle = '#1b222c';
+        ctx.fillRect(left + 8 * s, floorBase - 18 * s, 22 * s, 16 * s);
+        ctx.strokeStyle = 'rgba(0, 240, 255, .16)'; ctx.lineWidth = 0.7;
+        ctx.strokeRect(left + 8 * s + 0.5, floorBase - 18 * s + 0.5, 22 * s - 1, 16 * s - 1);
+        ctx.fillStyle = 'rgba(224, 230, 237, .3)';
+        ctx.fillRect(left + 11 * s, floorBase - 20 * s, 12 * s, 3 * s);  // paper out
+        ctx.fillStyle = 'rgba(0, 240, 255, .5)';
+        ctx.fillRect(left + 11 * s, floorBase - 15 * s, 3 * s, 1.2 * s);
+        drawWallScreen(ctx, left + w - 26 * s, wallY, 20 * s, 15 * s, cell.index + 2, t, s);
+        break;
+      }
+      default: { // Water cooler + pinboard
+        ctx.fillStyle = '#16202b';
+        ctx.fillRect(left + 9 * s, floorBase - 20 * s, 9 * s, 18 * s);
+        ctx.fillStyle = 'rgba(0, 240, 255, .35)';
+        ctx.fillRect(left + 11 * s, floorBase - 24 * s, 5 * s, 5 * s);
+        ctx.fillStyle = 'rgba(0, 255, 136, .3)';
+        ctx.fillRect(left + 11 * s, floorBase - 12 * s, 5 * s, 3 * s);
+        ctx.fillStyle = '#0f151d';
+        ctx.fillRect(left + w - 24 * s, wallY, 17 * s, 13 * s);
+        ctx.strokeStyle = 'rgba(255, 140, 0, .22)'; ctx.lineWidth = 0.7;
+        ctx.strokeRect(left + w - 24 * s + 0.5, wallY + 0.5, 17 * s - 1, 13 * s - 1);
+        ctx.fillStyle = 'rgba(255, 255, 255, .16)';
+        ctx.fillRect(left + w - 21 * s, wallY + 3 * s, 4 * s, 5 * s);
+        ctx.fillRect(left + w - 15 * s, wallY + 5 * s, 4 * s, 4 * s);
+        break;
+      }
+    }
+
+    // Floor mat per workstation — anchors the desk without walling it in.
     for (const d of cell.desks) {
       const ds = d.scale;
-      // Floor mat under the workstation — anchors the desk visually
       ctx.fillStyle = 'rgba(22, 29, 37, .32)';
       ctx.fillRect(d.cx - (d.w / 2 + 14 * ds), d.deskY + d.h + 1 * ds, d.w + 28 * ds, 9 * ds);
       ctx.strokeStyle = 'rgba(0, 240, 255, .07)';
       ctx.lineWidth = 0.6;
       ctx.strokeRect(d.cx - (d.w / 2 + 14 * ds) + 0.5, d.deskY + d.h + 1.5 * ds, d.w + 28 * ds - 1, 8 * ds);
     }
-
   };
 
-  /** Break area — a deliberately calm corner for grid slots no department
-   *  occupies: rug, sofa, one round table. Nothing else. */
-  const drawBreakArea = (ctx: CanvasRenderingContext2D, left: number, top: number, w: number, h: number, s: number, t: number, seed: number) => {
-    const bob = 0.5 + 0.5 * Math.sin(t * 0.9 + seed);
+  /** Break lounge — a real room: rug, sofa, coffee table, two stools, plants. */
+  const drawLounge = (ctx: CanvasRenderingContext2D, cell: Cell, s: number, t: number) => {
+    const { left, top, w, h } = cell;
+    const bob = 0.5 + 0.5 * Math.sin(t * 0.9 + cell.index);
+    const floorBase = top + h - 6 * s;
 
     // Rug
-    const rgx = left + w * 0.12, rgy = top + h * 0.34, rgw = w * 0.76, rgh = h * 0.46;
+    const rgx = left + w * 0.1, rgy = floorBase - 26 * s, rgw = w * 0.8, rgh = 24 * s;
     ctx.fillStyle = 'rgba(24, 42, 48, .5)';
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(rgx, rgy, rgw, rgh, 5 * s); else ctx.rect(rgx, rgy, rgw, rgh);
@@ -522,37 +746,87 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
     ctx.strokeStyle = 'rgba(0, 240, 255, .09)';
     ctx.strokeRect(rgx + 4 * s, rgy + 4 * s, rgw - 8 * s, rgh - 8 * s);
 
-    // Sofa along the top of the rug
-    const sfW = w * 0.5, sfH = 16 * s;
-    const sfX = left + w * 0.5 - sfW / 2, sfY = top + h * 0.26;
+    // Sofa against the corridor-facing wall
+    const sfW = w * 0.56, sfH = 15 * s;
+    const sfX = left + w * 0.5 - sfW / 2, sfY = floorBase - 34 * s;
     ctx.fillStyle = '#1b2430';
     ctx.fillRect(sfX, sfY, sfW, sfH);
     ctx.fillStyle = '#233040';
-    ctx.fillRect(sfX + 2 * s, sfY + 3 * s, sfW / 3 - 3 * s, sfH - 6 * s);
-    ctx.fillRect(sfX + sfW / 3 + 0.5 * s, sfY + 3 * s, sfW / 3 - 3 * s, sfH - 6 * s);
-    ctx.fillRect(sfX + (sfW * 2) / 3 + 1 * s, sfY + 3 * s, sfW / 3 - 3 * s, sfH - 6 * s);
+    for (let k = 0; k < 3; k++) {
+      ctx.fillRect(sfX + 2 * s + k * (sfW / 3), sfY + 3 * s, sfW / 3 - 3 * s, sfH - 6 * s);
+    }
     ctx.fillStyle = '#2b3949';
     ctx.fillRect(sfX, sfY, sfW, 4 * s);
     ctx.strokeStyle = 'rgba(150, 175, 196, .22)'; ctx.lineWidth = 0.8;
     ctx.strokeRect(sfX + 0.5, sfY + 0.5, sfW - 1, sfH - 1);
 
-    // Round table
-    const tx = left + w * 0.5, ty = top + h * 0.6;
+    // Coffee table with two mugs
+    const tx = left + w * 0.5, ty = floorBase - 14 * s;
     ctx.fillStyle = '#26313d';
-    ctx.beginPath(); ctx.ellipse(tx, ty, 15 * s, 6.5 * s, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(tx, ty, 15 * s, 6 * s, 0, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = 'rgba(0, 240, 255, .18)'; ctx.lineWidth = 0.8; ctx.stroke();
     ctx.fillStyle = '#1a222c';
-    ctx.fillRect(tx - 1.2 * s, ty + 4 * s, 2.4 * s, 8 * s);
-    // Mugs on the table
+    ctx.fillRect(tx - 1.2 * s, ty + 3 * s, 2.4 * s, 7 * s);
     ctx.fillStyle = `rgba(255, 140, 0, ${0.5 + 0.2 * bob})`;
     ctx.fillRect(tx - 6 * s, ty - 3 * s, 2.6 * s, 2.6 * s);
     ctx.fillStyle = 'rgba(0, 240, 255, .55)';
     ctx.fillRect(tx + 4 * s, ty - 2 * s, 2.6 * s, 2.6 * s);
 
-    // Sign
-    ctx.fillStyle = 'rgba(255, 140, 0, .5)';
-    ctx.font = '7px monospace'; ctx.textAlign = 'left';
-    ctx.fillText('\u25b8 BREAK AREA', left + 8, top + (seed % 2 === 0 ? 36 : 18));
+    // Two stools
+    for (const sx of [left + w * 0.24, left + w * 0.76]) {
+      ctx.fillStyle = '#222c38';
+      ctx.beginPath(); ctx.ellipse(sx, floorBase - 10 * s, 4.5 * s, 2.4 * s, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#161d26';
+      ctx.fillRect(sx - 1 * s, floorBase - 8 * s, 2 * s, 7 * s);
+    }
+
+    drawPlant(ctx, left + 10 * s, floorBase - 12 * s, s);
+    drawPlant(ctx, left + w - 10 * s, floorBase - 12 * s, s);
+  };
+
+  /** Server room — racks, cable trays, a wall of blinking status LEDs. */
+  const drawServerRoom = (ctx: CanvasRenderingContext2D, cell: Cell, s: number, t: number) => {
+    const { left, top, w, h } = cell;
+    const floorBase = top + h - 6 * s;
+    const rackW = Math.min(18 * s, w * 0.2);
+    const racks = Math.max(2, Math.min(4, Math.floor((w - 16 * s) / (rackW + 5 * s))));
+    for (let k = 0; k < racks; k++) {
+      drawRack(ctx, left + 8 * s + k * (rackW + 5 * s), floorBase - 32 * s, rackW, 30 * s, t, cell.index + k);
+    }
+    // Overhead cable tray
+    ctx.fillStyle = 'rgba(0, 240, 255, .12)';
+    ctx.fillRect(left + 6 * s, top + 14 * s, w - 12 * s, 2 * s);
+    ctx.fillStyle = 'rgba(0, 240, 255, .18)';
+    for (let k = 0; k < racks; k++) {
+      ctx.fillRect(left + 8 * s + k * (rackW + 5 * s) + rackW / 2 - 0.5 * s, top + 16 * s, 1 * s, 12 * s);
+    }
+    // Status readout on the wall
+    ctx.fillStyle = '#0e141c';
+    ctx.fillRect(left + w - 26 * s, top + 6 * s, 19 * s, 12 * s);
+    ctx.strokeStyle = 'rgba(0, 255, 136, .26)'; ctx.lineWidth = 0.7;
+    ctx.strokeRect(left + w - 26 * s + 0.5, top + 6 * s + 0.5, 19 * s - 1, 12 * s - 1);
+    for (let k = 0; k < 3; k++) {
+      const lit = 0.3 + 0.5 * (0.5 + 0.5 * Math.sin(t * 2.4 + k * 2 + cell.index));
+      ctx.fillStyle = `rgba(0, 255, 136, ${lit})`;
+      ctx.fillRect(left + w - 24 * s, top + 8 * s + k * 3.4 * s, (14 * s) * (0.4 + 0.6 * ((k + 1) % 3) / 2), 1.3 * s);
+    }
+  };
+
+  /** Room label plate. Sits at the room's inner-right corner so it never
+   *  collides with the wall fittings that kits place on the left. */
+  const drawRoomLabel = (ctx: CanvasRenderingContext2D, cell: Cell, text: string, s: number) => {
+    ctx.font = '7px monospace';
+    ctx.textAlign = 'left';
+    const label = `▸ ${text.toUpperCase()}`;
+    const tw = ctx.measureText(label).width;
+    const x = cell.left + cell.w - tw - 6;
+    const y = cell.band === 'top' ? cell.top + 14 : cell.top + 12;
+    ctx.fillStyle = 'rgba(8, 12, 18, .78)';
+    ctx.fillRect(x - 2, y - 6, tw + 4, 9);
+    ctx.fillStyle = cell.color;
+    ctx.globalAlpha = 0.62;
+    ctx.fillText(label, x, y);
+    ctx.globalAlpha = 1;
   };
 
   const draw = useCallback((dt = 1) => {
@@ -584,7 +858,7 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
     // ══ FLOOR ══ Blitted from the cached static layer (see drawFloorLayer).
     // Deliberately a touch above the page black so the floor reads as a surface
     // rather than a void.
-    const floorKey = `${Math.round(W)}x${Math.round(H)}x${Math.round(layout.cellW)}x${dpr}`;
+    const floorKey = `${Math.round(W)}x${Math.round(H)}x${Math.round(layout.corridorY)}x${Math.round(layout.spurX)}x${dpr}`;
     if (!floorRef.current || floorRef.current.key !== floorKey) {
       const off = document.createElement('canvas');
       off.width = Math.max(1, Math.round(W * dpr));
@@ -592,14 +866,14 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
       const octx = off.getContext('2d');
       if (octx) {
         octx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        drawFloorLayer(octx, W, H, layout.cellW);
+        drawFloorLayer(octx, W, H, layout);
       }
       floorRef.current = { key: floorKey, canvas: off };
     }
     ctx.drawImage(floorRef.current.canvas, 0, 0, W, H);
 
-    // ══ WALLS ══ Thin baseline only — the roster row directly above acts as
-    // this canvas's header, so no top band is wasted here.
+    // ══ HEADER BAND ══ The roster row above acts as the canvas header, so only
+    // a thin band is used here.
     ctx.fillStyle = '#141a21';
     ctx.fillRect(0, 0, W, 3);
     ctx.strokeStyle = 'rgba(0, 240, 255, .22)';
@@ -610,55 +884,140 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
     ctx.textAlign = 'right';
     ctx.fillText('AGENT OPERATIONS CENTER', W - 8, 11);
 
-    const drawSeg = (x1: number, y1: number, x2: number, y2: number) => {
-      ctx.strokeStyle = '#161d25'; ctx.lineWidth = 4;
+    // ══ CORRIDOR ══ A distinctly different floor treatment: darker plate, a
+    // lighter runner, a dashed centre line and pooled lights. This is what
+    // separates "walkway" from "office floor" at a glance.
+    const { corridorY, corridorH, spurX, spurW } = layout;
+    ctx.fillStyle = 'rgba(11, 17, 24, .92)';
+    ctx.fillRect(0, corridorY, W, corridorH);
+    if (spurW > 0) {
+      ctx.fillRect(spurX, corridorY, spurW, H - corridorY);
+    }
+    ctx.fillStyle = 'rgba(0, 240, 255, .07)';
+    ctx.fillRect(0, corridorY + corridorH * 0.26, W, corridorH * 0.48);
+    if (spurW > 0) {
+      ctx.fillRect(spurX + spurW * 0.26, corridorY, spurW * 0.48, H - corridorY);
+    }
+    // Runner edge lines — give the walkway a hard boundary distinct from the
+    // room floors it separates.
+    ctx.strokeStyle = 'rgba(0, 240, 255, .18)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, corridorY + corridorH * 0.26 + 0.5); ctx.lineTo(W, corridorY + corridorH * 0.26 + 0.5);
+    ctx.moveTo(0, corridorY + corridorH * 0.74 - 0.5); ctx.lineTo(W, corridorY + corridorH * 0.74 - 0.5);
+    if (spurW > 0) {
+      ctx.moveTo(spurX + spurW * 0.26 + 0.5, corridorY); ctx.lineTo(spurX + spurW * 0.26 + 0.5, H);
+      ctx.moveTo(spurX + spurW * 0.74 - 0.5, corridorY); ctx.lineTo(spurX + spurW * 0.74 - 0.5, H);
+    }
+    ctx.stroke();
+    // Centre line + directional chevrons
+    ctx.strokeStyle = 'rgba(0, 240, 255, .16)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([7, 9]);
+    ctx.beginPath();
+    ctx.moveTo(0, corridorY + corridorH / 2 + 0.5);
+    ctx.lineTo(W, corridorY + corridorH / 2 + 0.5);
+    if (spurW > 0) {
+      ctx.moveTo(spurX + spurW / 2 + 0.5, corridorY);
+      ctx.lineTo(spurX + spurW / 2 + 0.5, H);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.strokeStyle = 'rgba(0, 240, 255, .13)';
+    ctx.lineWidth = 1;
+    for (let cx = 14; cx < W - 10; cx += 34) {
+      const cy = corridorY + corridorH / 2;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - 3); ctx.lineTo(cx + 4, cy); ctx.lineTo(cx, cy + 3);
+      ctx.stroke();
+    }
+    // Ceiling light pools along the corridor
+    for (let k = 0; k < 4; k++) {
+      const lx = (k + 0.5) * (W / 4);
+      const pool = ctx.createRadialGradient(lx, corridorY + corridorH / 2, 3, lx, corridorY + corridorH / 2, W / 5);
+      pool.addColorStop(0, 'rgba(130, 205, 235, .10)');
+      pool.addColorStop(1, 'transparent');
+      ctx.fillStyle = pool;
+      ctx.fillRect(lx - W / 5, corridorY, (W / 5) * 2, corridorH);
+    }
+
+    // ══ WALLS ══ Real segments: rooms are bounded by walls with doorways onto
+    // the corridor, every other interior wall is left open as a passage, and
+    // the outer shell is closed. Not every room gets four borders.
+    const wall = (x1: number, y1: number, x2: number, y2: number) => {
+      ctx.strokeStyle = '#161d25'; ctx.lineWidth = 4; ctx.lineCap = 'butt';
       ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-      ctx.strokeStyle = 'rgba(0, 240, 255, .16)'; ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(0, 240, 255, .17)'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
     };
+    // Horizontal wall with a doorway gap, plus a lit threshold in the opening.
+    const wallDoorH = (x1: number, x2: number, y: number, doorC: number, doorW: number) => {
+      const a = Math.max(x1, doorC - doorW / 2);
+      const b = Math.min(x2, doorC + doorW / 2);
+      if (a > x1) wall(x1, y, a, y);
+      if (b < x2) wall(b, y, x2, y);
+      if (b > a) {
+        ctx.fillStyle = 'rgba(0, 240, 255, .12)';
+        ctx.fillRect(a, y - 1.5, b - a, 3);
+      }
+    };
+    // Vertical wall with an opening.
+    const wallDoorV = (x: number, y1: number, y2: number, doorC: number, doorW: number) => {
+      const a = Math.max(y1, doorC - doorW / 2);
+      const b = Math.min(y2, doorC + doorW / 2);
+      if (a > y1) wall(x, y1, x, a);
+      if (b < y2) wall(x, b, x, y2);
+      if (b > a) {
+        ctx.fillStyle = 'rgba(0, 240, 255, .12)';
+        ctx.fillRect(x - 1.5, a, 3, b - a);
+      }
+    };
+
+    // Outer shell — the plan is a building, so the perimeter is closed.
+    wall(0.5, 3, 0.5, H);                       // left
+    wall(W - 0.5, 3, W - 0.5, H);                // right
+    wall(0, H - 0.5, W, H - 0.5);                // bottom
+
+    const doorW = Math.min(26, layout.cellW * 0.24);
     for (const cell of layout.cells) {
-      // Vertical wall on the cell's right edge (skipped between merged same-dept zones)
-      if (cell.col < GRID_COLS - 1) {
-        const neighbor = layout.cells.find(c => c.row === cell.row && c.col === cell.col + 1);
-        if (!neighbor || neighbor.dept !== cell.dept) {
-          const x = cell.left + cell.w;
-          const gy = cell.top + cell.h * 0.62;
-          const gh = Math.min(34, cell.h * 0.28);
-          drawSeg(x, cell.top + 8, x, gy);
-          drawSeg(x, gy + gh, x, cell.top + cell.h);
+      const isTop = cell.band === 'top';
+      const roomTop = isTop ? 3 : corridorY + corridorH;
+      const roomBottom = isTop ? corridorY : H;
+      const corridorWallY = isTop ? corridorY : corridorY + corridorH;
+
+      // Wall facing the corridor, with this room's doorway.
+      wallDoorH(cell.left, cell.left + cell.w, corridorWallY, cell.doorX, doorW);
+
+      // Side walls. `openLeft` rooms have no left wall — an open passage
+      // between neighbours, so the plate is not a row of sealed boxes.
+      if (!cell.openLeft) {
+        if (cell.col === 0) {
+          // first room in the band: the shell already covers its left edge
+        } else if (isTop) {
+          wallDoorV(cell.left, roomTop, roomBottom, roomTop + (roomBottom - roomTop) * 0.55, 18);
+        } else {
+          wallDoorV(cell.left, roomTop + 2, roomBottom, roomTop + (roomBottom - roomTop) * 0.45, 18);
         }
       }
-      // Horizontal wall below this cell with a door gap at the walkway
-      if (cell.row < layout.rows - 1) {
-        const y = cell.top + cell.h;
-        const gx = cell.left + cell.w / 2;
-        const gw = Math.min(26, cell.w * 0.2);
-        drawSeg(cell.left + 8, y, gx - gw / 2, y);
-        drawSeg(gx + gw / 2, y, cell.left + cell.w - 8, y);
-      }
+
+      // Right wall for the last room in a band is the shell; interior right
+      // walls are drawn by the next room's left wall (or omitted as a passage).
     }
 
-    // ══ ZONE LABELS ══
+    // Spur walls — the vertical hallway is flanked by real walls.
+    if (spurW > 0) {
+      wall(spurX + 0.5, corridorY + corridorH, spurX + 0.5, H);
+      wall(spurX + spurW - 0.5, corridorY + corridorH, spurX + spurW - 0.5, H);
+    }
+
+    // ══ ROOM LABELS ══
+    for (const cell of layout.cells) drawRoomLabel(ctx, cell, cell.dept, s);
+
+    // ══ FURNITURE ══ (behind desks/sprites so it reads as fixtures)
     for (const cell of layout.cells) {
-      ctx.fillStyle = cell.color;
-      ctx.globalAlpha = 0.45;
-      ctx.font = '7px monospace';
-      ctx.textAlign = 'left';
-      ctx.fillText(`▸ ${cell.dept.toUpperCase()}`, cell.left + (cell.row === 0 ? 48 : 8), cell.top + (cell.row === 0 ? 20 : 15));
-      ctx.globalAlpha = 1;
-    }
-
-    // ══ ENVIRONMENTAL PROPS ══ (behind desks/sprites so they read as furniture)
-    for (const cell of layout.cells) drawProps(ctx, cell, s, t);
-
-    // ══ BREAK AREAS ══ fill grid slots no department occupies so the floor
-    // never leaves a large empty bay.
-    const occupied = new Set(layout.cells.map(c => `${c.row}:${c.col}`));
-    for (let row = 0; row < layout.rows; row++) {
-      for (let col = 0; col < GRID_COLS; col++) {
-        if (occupied.has(`${row}:${col}`)) continue;
-        drawBreakArea(ctx, col * layout.cellW, row * layout.cellH, layout.cellW, layout.cellH, s, t, row * GRID_COLS + col);
-      }
+      if (cell.special === 'lounge') drawLounge(ctx, cell, s, t);
+      else if (cell.special === 'server') drawServerRoom(ctx, cell, s, t);
+      else drawProps(ctx, cell, s, t);
     }
 
     // ══ DESKS + SPRITES + MONITORS ══
@@ -782,12 +1141,16 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
         }
         }
 
-        // Desk — wood top + front face for depth (drawn after sprite → seated look)
-        ctx.fillStyle = '#4a3524';
+        // Desk — four builds so neighbouring rooms never look copy-pasted.
+        // 0 warm wood · 1 dark steel · 2 pale oak · 3 charcoal composite
+        const deskTops = ['#4a3524', '#2b3440', '#6b5136', '#3a3f46'];
+        const deskFronts = ['#2e2015', '#1b222b', '#4a3a26', '#25292f'];
+        const deskEdges = ['rgba(170, 125, 75, .6)', 'rgba(140, 175, 205, .5)', 'rgba(200, 165, 115, .55)', 'rgba(150, 165, 185, .5)'];
+        ctx.fillStyle = deskTops[d.style];
         ctx.fillRect(d.cx - d.w / 2, d.deskY, d.w, d.h);
-        ctx.fillStyle = '#2e2015';
+        ctx.fillStyle = d.style === 2 ? '#4a3a26' : deskFronts[d.style];
         ctx.fillRect(d.cx - d.w / 2, d.deskY + d.h * 0.55, d.w, d.h * 0.45);
-        ctx.strokeStyle = 'rgba(170, 125, 75, .6)';
+        ctx.strokeStyle = deskEdges[d.style];
         ctx.lineWidth = 1;
         ctx.strokeRect(d.cx - d.w / 2 + 0.5, d.deskY + 0.5, d.w - 1, d.h - 1);
         // Floor reflection — a faint mirrored glow beneath the desk, stronger
@@ -797,15 +1160,71 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
         refl.addColorStop(1, 'transparent');
         ctx.fillStyle = refl;
         ctx.fillRect(d.cx - d.w / 2, d.deskY + d.h + 9 * ds, d.w, 12 * ds);
-        // Desk clutter: mug + papers (both on the character's left, clear of the monitor)
-        ctx.fillStyle = '#8a6a45';
-        ctx.fillRect(d.cx - d.w / 2 + 5 * ds, d.deskY - 4 * ds, 5 * ds, 4 * ds);
-        ctx.fillStyle = 'rgba(210, 220, 230, .35)';
-        ctx.fillRect(d.cx - d.w / 2 + 14 * ds, d.deskY + 1.5 * ds, 11 * ds, 7 * ds);
+        // Desk clutter varies per build: mug + papers, or keyboard + phone,
+        // or a stack of drives, or a headset stand.
+        if (d.style === 0) {
+          ctx.fillStyle = '#8a6a45';
+          ctx.fillRect(d.cx - d.w / 2 + 5 * ds, d.deskY - 4 * ds, 5 * ds, 4 * ds);
+          ctx.fillStyle = 'rgba(210, 220, 230, .35)';
+          ctx.fillRect(d.cx - d.w / 2 + 14 * ds, d.deskY + 1.5 * ds, 11 * ds, 7 * ds);
+        } else if (d.style === 1) {
+          ctx.fillStyle = '#20262e';
+          ctx.fillRect(d.cx - d.w / 2 + 4 * ds, d.deskY + 1 * ds, 14 * ds, 6 * ds);   // keyboard
+          ctx.fillStyle = 'rgba(0, 240, 255, .3)';
+          ctx.fillRect(d.cx - d.w / 2 + 5 * ds, d.deskY + 2 * ds, 12 * ds, 1.2 * ds);
+          ctx.fillStyle = '#39424e';
+          ctx.fillRect(d.cx - d.w / 2 + 3 * ds, d.deskY - 6 * ds, 4 * ds, 6 * ds);    // phone handset
+        } else if (d.style === 2) {
+          ctx.fillStyle = 'rgba(210, 220, 230, .32)';
+          ctx.fillRect(d.cx - d.w / 2 + 5 * ds, d.deskY + 1.5 * ds, 13 * ds, 7 * ds); // open notebook
+          ctx.strokeStyle = 'rgba(120, 140, 160, .35)'; ctx.lineWidth = 0.6;
+          ctx.beginPath(); ctx.moveTo(d.cx - d.w / 2 + 11.5 * ds, d.deskY + 1.5 * ds);
+          ctx.lineTo(d.cx - d.w / 2 + 11.5 * ds, d.deskY + 8.5 * ds); ctx.stroke();
+          ctx.fillStyle = '#8a6a45';
+          ctx.fillRect(d.cx - d.w / 2 + 3 * ds, d.deskY - 4 * ds, 5 * ds, 4 * ds);
+        } else {
+          ctx.fillStyle = '#1d232b';                                            // drive stack
+          ctx.fillRect(d.cx - d.w / 2 + 4 * ds, d.deskY + 1 * ds, 12 * ds, 3 * ds);
+          ctx.fillRect(d.cx - d.w / 2 + 5 * ds, d.deskY + 5 * ds, 10 * ds, 3 * ds);
+          ctx.fillStyle = 'rgba(0, 255, 136, .45)';
+          ctx.fillRect(d.cx - d.w / 2 + 14 * ds, d.deskY + 1.6 * ds, 1.2 * ds, 1.2 * ds);
+          ctx.fillRect(d.cx - d.w / 2 + 13 * ds, d.deskY + 5.6 * ds, 1.2 * ds, 1.2 * ds);
+        }
 
         // Monitor — offset to the character's RIGHT so the outfit, arms and face
-        // stay visible instead of the screen covering the whole sprite.
-        const mW = 19 * ds, mH = 13 * ds;
+        // stay visible instead of the screen covering the whole sprite. Style 2
+        // is a laptop instead; style 1 gets a second small screen on the left;
+        // style 3 is an ultrawide.
+        if (d.style === 2) {
+          // Laptop: low screen + keyboard deck, tilted open on the desk.
+          const lw = 16 * ds, lh = 9 * ds;
+          const lx = d.cx + 4 * ds, ly = d.deskY - lh - 2 * ds;
+          ctx.fillStyle = '#171d26';
+          ctx.beginPath();
+          ctx.moveTo(lx, ly + lh); ctx.lineTo(lx + 2 * ds, ly);
+          ctx.lineTo(lx + lw, ly); ctx.lineTo(lx + lw - 1.5 * ds, ly + lh);
+          ctx.closePath(); ctx.fill();
+          ctx.fillStyle = active ? `rgba(0, 240, 255, ${0.5 + 0.3 * Math.abs(Math.sin(t * 3 + i))})` : '#26313f';
+          ctx.fillRect(lx + 1.5 * ds, ly + 1.4 * ds, lw - 4 * ds, lh - 2.6 * ds);
+          ctx.fillStyle = '#20262f';
+          ctx.fillRect(lx - 1 * ds, ly + lh, lw + 2 * ds, 2.4 * ds);
+          ctx.strokeStyle = 'rgba(130, 150, 170, .34)'; ctx.lineWidth = 0.8;
+          ctx.strokeRect(lx - 1 * ds, ly + lh, lw + 2 * ds, 2.4 * ds);
+        }
+        if (d.style === 1) {
+          // Secondary screen on the character's left.
+          const sW = 12 * ds, sH = 9 * ds;
+          const sx2 = d.cx - d.w / 2 + 2 * ds, sy2 = d.deskY - sH - 3 * ds;
+          ctx.fillStyle = '#0b111c';
+          ctx.fillRect(sx2, sy2, sW, sH);
+          ctx.fillStyle = active ? 'rgba(0, 255, 136, .45)' : '#212a35';
+          ctx.fillRect(sx2 + 1.5 * ds, sy2 + 1.5 * ds, sW - 3 * ds, sH - 3 * ds);
+          ctx.strokeStyle = 'rgba(130, 150, 170, .3)'; ctx.lineWidth = 0.8;
+          ctx.strokeRect(sx2 - 0.5, sy2 - 0.5, sW + 1, sH + 1);
+          ctx.fillStyle = '#141a22';
+          ctx.fillRect(sx2 + sW / 2 - 1.5 * ds, sy2 + sH, 3 * ds, 3 * ds);
+        }
+        const mW = (d.style === 3 ? 26 : 19) * ds, mH = (d.style === 3 ? 11 : 13) * ds;
         const mx = d.cx + 8 * ds, my = d.deskY - mH - 4 * ds;
         ctx.fillStyle = '#0b111c';
         ctx.fillRect(mx, my, mW, mH);
@@ -921,7 +1340,7 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
     ctx.font = '8px monospace';
     ctx.textAlign = 'left';
     ctx.fillStyle = 'rgba(0, 240, 255, .35)';
-    ctx.fillText(`OFFICE FLOOR — ${list.length} DESKS · ${layout.cells.length} ZONES`, 8, H - 6);
+    ctx.fillText(`OFFICE FLOOR — ${layout.cells.length} ROOMS · ${list.length} DESKS · CORRIDOR + SPUR`, 8, H - 6);
     if (orch.phase !== 'idle') {
       const txt = orch.phase === 'delegating'
         ? `MANAGER DELEGATING → ${(orch.route?.agent ?? '').toUpperCase()}`
