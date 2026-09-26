@@ -29,16 +29,16 @@ interface AgentOfficeProps {
 // ─────────────────────────────────────────────────────────────
 
 const GRID_COLS = 4;
-const TILE = 34;
+const TILE = 32;
 const ZONE_ORDER = ['Core', 'Research', 'Web', 'Commerce', 'Infrastructure', 'Communication', 'Security'];
 
 type Desk = { agent: Agent; cx: number; deskY: number; w: number; h: number; scale: number };
 type Cell = { dept: string; color: string; col: number; row: number; left: number; top: number; w: number; h: number; desks: Desk[] };
 type Layout = { cells: Cell[]; rows: number; cellW: number; cellH: number; scale: number };
 
-// Sprite / furniture dimensions at scale 1. Sprite totals ≈31px (head + torso),
-// ~2.6× the previous 12px-wide placeholder while still fitting every zone.
-const BASE = { deskW: 66, deskH: 18, spriteW: 16, torsoH: 20, headR: 5.5 };
+// Exact Stonic sprite footprint: 20×28px at scale 1, assembled from a
+// distinct pixel head and body with 1px outlines.
+const BASE = { deskW: 66, deskH: 18, spriteW: 20, torsoH: 18, headR: 5 };
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
@@ -53,7 +53,7 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
 // torso / sleeve / hand) so the existing head-turn, typing-hand and
 // stretch animations keep working in whole-pixel steps.
 // ─────────────────────────────────────────────────────────────
-const SP = { torsoW: 16, torsoH: 20, armW: 5, sleeveH: 8, handH: 4, headW: 12, headH: 12 };
+const SP = { torsoW: 16, torsoH: 18, armW: 2, sleeveH: 7, handH: 3, headW: 10, headH: 10 };
 
 /** Skin triples: [highlight, base, shadow] — four tones so the floor isn't uniform. */
 const SKIN = [
@@ -84,22 +84,29 @@ function mix(a: string, b: string, m: number): string {
   );
 }
 
-/** Paint a part at native resolution, then wrap its silhouette in a 1px tinted outline. */
-function buildPart(w: number, h: number, ink: string, paint: (g: CanvasRenderingContext2D) => void): HTMLCanvasElement {
+/** Paint a part at native resolution, then wrap its silhouette in a 1px tinted outline.
+ *  Returns null when the paint produced zero opaque pixels (failed build, e.g. a
+ *  rejected canvas allocation) so callers can fall back instead of blitting an
+ *  invisible empty canvas. */
+function buildPart(w: number, h: number, ink: string, paint: (g: CanvasRenderingContext2D) => void): HTMLCanvasElement | null {
   const tmp = document.createElement('canvas');
   tmp.width = w; tmp.height = h;
-  const g = tmp.getContext('2d')!;
+  const g = tmp.getContext('2d');
+  if (!g) return null;
   paint(g);
 
   const out = document.createElement('canvas');
   out.width = w + 2; out.height = h + 2; // +1px outline padding per side
-  const og = out.getContext('2d')!;
+  const og = out.getContext('2d');
+  if (!og) return null;
   // Dilate the silhouette into the padding ring…
   const px = g.getImageData(0, 0, w, h).data;
   og.fillStyle = ink;
+  let opaque = 0;
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       if (px[(y * w + x) * 4 + 3] === 0) continue;
+      opaque++;
       // +1 because the art is laid down at (1,1) — ring must hug THAT,
       // otherwise the outline drifts a pixel up-left (missing right/bottom edge).
       const ox = x + 1, oy = y + 1;
@@ -112,7 +119,7 @@ function buildPart(w: number, h: number, ink: string, paint: (g: CanvasRendering
   }
   // …then lay the art back on top so only the outer edge shows.
   og.drawImage(tmp, 1, 1);
-  return out;
+  return opaque > 0 ? out : null;
 }
 
 /** Torso: shoulder slope, 3-tone shirt, V collar, button placket, pocket seam, belt. */
@@ -123,13 +130,13 @@ function paintTorso(g: CanvasRenderingContext2D, color: string) {
   const deep = mix(color, '#000000', 0.55);
   for (let y = 0; y < h; y++) {
     let x0 = 0, x1 = w;
-    if (y === 0) { x0 = 5; x1 = 11; }
-    else if (y === 1) { x0 = 3; x1 = 13; }
-    else if (y === 2) { x0 = 1; x1 = 15; }
+    if (y === 0) { x0 = 4; x1 = 10; }
+    else if (y === 1) { x0 = 3; x1 = 11; }
+    else if (y === 2) { x0 = 1; x1 = 13; }
     for (let x = x0; x < x1; x++) {
-      let c = x < 5 ? lo : x < 11 ? color : hi;
-      if (y >= 13) c = x < 5 ? mix(deep, '#000000', 0.25) : x < 11 ? deep : mix(deep, hi, 0.30);
-      if (y >= 18) c = y === 18 ? '#161b24' : '#0d1017'; // belt line
+      let c = x < 4 ? lo : x < 9 ? color : hi;
+      if (y >= 13) c = x < 4 ? mix(deep, '#000000', 0.25) : x < 9 ? deep : mix(deep, hi, 0.30);
+      if (y >= 17) c = y === 17 ? '#161b24' : '#0d1017';
       g.fillStyle = c;
       g.fillRect(x, y, 1, 1);
     }
@@ -137,11 +144,11 @@ function paintTorso(g: CanvasRenderingContext2D, color: string) {
   // Shirt folds & seams: V collar, button placket, chest-pocket line.
   const fold = mix(color, '#000000', 0.44);
   g.fillStyle = fold;
-  [[6, 2], [9, 2], [7, 3], [8, 3]].forEach(([x, y]) => g.fillRect(x, y, 1, 1));
-  for (let y = 4; y < 13; y++) g.fillRect(7, y, 1, 1);
-  g.fillRect(11, 10, 3, 1); g.fillRect(11, 11, 1, 1);
+  [[5, 2], [8, 2], [6, 3], [7, 3]].forEach(([x, y]) => g.fillRect(x, y, 1, 1));
+  for (let y = 4; y < 13; y++) g.fillRect(6, y, 1, 1);
+  g.fillRect(9, 10, 3, 1); g.fillRect(9, 11, 1, 1);
   g.fillStyle = hi;
-  g.fillRect(11, 9, 3, 1);
+  g.fillRect(9, 9, 3, 1);
 }
 
 /** Upper arm: sleeve with shoulder cap, 3-tone fold shading and a darker cuff. */
@@ -181,7 +188,7 @@ function paintHand(g: CanvasRenderingContext2D, skin: string[]) {
  * brow + 2px eye gazing right, 1px nose bump past the skull edge, mouth line.
  */
 function paintHead(g: CanvasRenderingContext2D, variant: number, skin: string[], hair: string[]) {
-  const cx = 5, cy = 6, r = 5.5;
+  const cx = 4, cy = 4.5, r = 4.5;
   const inside = (x: number, y: number) => {
     const dx = x - cx, dy = y - cy;
     return dx * dx + dy * dy <= r * r;
@@ -208,8 +215,8 @@ function paintHead(g: CanvasRenderingContext2D, variant: number, skin: string[],
       if (y <= 2) return true;
       if (y === 3 && x <= 7 && x % 2 === 1) return true;
     } else if (y <= 3) return true;
-    if (x <= 1) return y <= (variant === 1 ? 9 : 6); // back of head; bob is longer
-    if (variant === 1 && x === 2 && y <= 7) return true; // bob volume
+    if (x <= 1) return y <= (variant === 1 ? 8 : 5); // back of head; bob is longer
+    if (variant === 1 && x === 2 && y <= 6) return true; // bob volume
     return false;
   };
   const [hairHi, hairBase, hairLo] = hair;
@@ -230,19 +237,23 @@ function paintHead(g: CanvasRenderingContext2D, variant: number, skin: string[],
   }
 
   // Brow + eye (white then pupil, gaze toward the monitor on the right).
-  g.fillStyle = hairLo;  g.fillRect(7, 5, 2, 1);
-  g.fillStyle = '#f4f7fa'; g.fillRect(7, 6, 1, 1);
-  g.fillStyle = '#10141b'; g.fillRect(8, 6, 1, 1);
+  g.fillStyle = hairLo;  g.fillRect(6, 4, 2, 1);
+  g.fillStyle = '#f4f7fa'; g.fillRect(6, 5, 1, 1);
+  g.fillStyle = '#10141b'; g.fillRect(7, 5, 1, 1);
   // Nose bump past the skull edge + mouth line.
-  g.fillStyle = skinHi; g.fillRect(11, 6, 1, 1);
-  g.fillStyle = skinLo; g.fillRect(8, 9, 2, 1);
+  g.fillStyle = skinHi; g.fillRect(9, 5, 1, 1);
+  g.fillStyle = skinLo; g.fillRect(7, 8, 2, 1);
 }
 
-/** Per-piece cache — sprites are static art, rebuilt only on first use. */
-const spriteCache = new Map<string, HTMLCanvasElement>();
-function cachePart(key: string, make: () => HTMLCanvasElement): HTMLCanvasElement {
-  let c = spriteCache.get(key);
-  if (!c) { c = make(); spriteCache.set(key, c); }
+/** Per-piece cache — sprites are static art, rebuilt only on first use.
+ *  A null entry means "built, but painted empty" — paint is deterministic, so
+ *  the failed result is cached too and the caller uses its fallback. (Note the
+ *  explicit has() check: a falsy get() alone would rebuild forever.) */
+const spriteCache = new Map<string, HTMLCanvasElement | null>();
+function cachePart(key: string, make: () => HTMLCanvasElement | null): HTMLCanvasElement | null {
+  if (spriteCache.has(key)) return spriteCache.get(key)!;
+  const c = make();
+  spriteCache.set(key, c);
   return c;
 }
 
@@ -260,6 +271,56 @@ function getAgentSprite(agentIdx: number, color: string) {
     hand: cachePart(`hd|${skinIdx}`, () => buildPart(SP.armW, SP.handH, skinInk, g => paintHand(g, skin))),
     head: cachePart(`h|${variant}|${skinIdx}|${hairIdx}`, () => buildPart(SP.headW, SP.headH, skinInk, g => paintHead(g, variant, skin, hair))),
   };
+}
+
+/** Set once per session the first time the pixel-art path fails, so the
+ *  console shows WHY a fallback is in use without spamming per frame. */
+let spriteFallbackWarned = false;
+
+/**
+ * Last-resort agent drawing — same silhouette as the pixel-art sprite but
+ * painted directly with whole-pixel vector fills (3-tone torso, dark belt,
+ * outlined head with hair cap and eye, arms + typing hands). Guarantees an
+ * agent is ALWAYS visible at their desk if the cache/build/blit path fails.
+ */
+function drawFallbackAgent(
+  ctx: CanvasRenderingContext2D,
+  sxI: number, bodyTopI: number, ds: number, color: string,
+  typeL: number, typeR: number, headTurn: number,
+) {
+  const tw = Math.round(BASE.spriteW * ds), th = Math.round(BASE.torsoH * ds);
+  const x0 = Math.round(sxI - tw / 2), y0 = Math.round(bodyTopI);
+  const hi = mix(color, '#ffffff', 0.30);
+  const lo = mix(color, '#000000', 0.34);
+  const deep = mix(color, '#000000', 0.55);
+  // 1px dark silhouette behind the torso…
+  ctx.fillStyle = mix(color, '#000000', 0.72);
+  ctx.fillRect(x0 - 1, y0 - 1, tw + 2, th + 2);
+  // …then the 3-tone shirt and belt on top.
+  const c1 = Math.round(tw * 0.34), c2 = Math.round(tw * 0.68);
+  ctx.fillStyle = lo;   ctx.fillRect(x0, y0, c1, th);
+  ctx.fillStyle = color; ctx.fillRect(x0 + c1, y0, c2 - c1, th);
+  ctx.fillStyle = hi;   ctx.fillRect(x0 + c2, y0, tw - c2, th);
+  ctx.fillStyle = deep; ctx.fillRect(x0, y0 + Math.round(th * 0.74), tw, Math.round(th * 0.26));
+  // Arms + hands (skin) typing at the desk edge.
+  const armW = Math.max(1, Math.round(2 * ds)), armH = Math.round(8 * ds);
+  ctx.fillStyle = mix(color, '#000000', 0.18);
+  ctx.fillRect(x0 - armW + 1, y0 + Math.round(4 * ds), armW, armH);
+  ctx.fillRect(x0 + tw - 1, y0 + Math.round(4 * ds), armW, armH);
+  ctx.fillStyle = '#d6ab7d';
+  ctx.fillRect(x0 - armW + 1, y0 + Math.round(13 * ds) + typeL, armW, Math.round(4 * ds));
+  ctx.fillRect(x0 + tw - 1, y0 + Math.round(13 * ds) + typeR, armW, Math.round(4 * ds));
+  // Head: outlined hair cap + face + one visible eye.
+  const hw = Math.round(10 * ds), hh = Math.round(10 * ds);
+  const hx = Math.round(sxI + headTurn - hw / 2), hy = Math.round(bodyTopI - hh);
+  ctx.fillStyle = '#0c0e14';
+  ctx.fillRect(hx - 1, hy - 1, hw + 2, hh + 2);
+  ctx.fillStyle = '#e2c09a';
+  ctx.fillRect(hx, hy + Math.round(hh * 0.34), hw, Math.round(hh * 0.66));
+  ctx.fillStyle = '#242a44';
+  ctx.fillRect(hx, hy, hw, Math.round(hh * 0.42));
+  ctx.fillStyle = '#10141b';
+  ctx.fillRect(hx + Math.round(hw * 0.62), hy + Math.round(hh * 0.55), Math.max(1, Math.round(ds)), Math.max(1, Math.round(ds)));
 }
 
 function computeLayout(list: Agent[], W: number, H: number): Layout {
@@ -302,7 +363,7 @@ function computeLayout(list: Agent[], W: number, H: number): Layout {
       h: deskH,
       scale: s,
     }));
-    return { dept: g.dept, color: g.agents[0]?.color || '#00ebf0', col, row, left, top, w: cellW, h: cellH, desks };
+    return { dept: g.dept, color: g.agents[0]?.color || '#00f0ff', col, row, left, top, w: cellW, h: cellH, desks };
   });
   return { cells, rows, cellW, cellH, scale: s };
 }
@@ -328,34 +389,22 @@ function pickDesk(list: Agent[], W: number, H: number, x: number, y: number): De
  * canvas and blitted in one drawImage.
  */
 function drawFloorLayer(g: CanvasRenderingContext2D, W: number, H: number, cellW: number) {
-  g.fillStyle = '#070809';
+  // Exact 32×32 floor tiles over the Stonic background, with the reference's
+  // low-contrast white grid. Corridors are carved by the wall/door geometry below.
+  g.fillStyle = '#0a0e17';
   g.fillRect(0, 0, W, H);
-  for (let c = 0; c < Math.ceil(W / TILE); c++) {
-    for (let r = 0; r < Math.ceil(H / TILE); r++) {
-      const x = c * TILE, y = r * TILE;
-      g.fillStyle = (c + r) % 2 === 0 ? '#080a0d' : '#090c0f';
-      g.fillRect(x, y, TILE, TILE);
-    }
-  }
-
-  // Panel seams — larger floor bays every 3 tiles, brighter than the grid.
-  g.strokeStyle = 'rgba(140, 180, 205, .055)';
+  g.strokeStyle = 'rgba(255,255,255,0.02)';
   g.lineWidth = 1;
-  for (let c = 0; c <= Math.ceil(W / TILE); c += 3) {
-    g.beginPath(); g.moveTo(c * TILE + 0.5, 0); g.lineTo(c * TILE + 0.5, H); g.stroke();
+  g.beginPath();
+  for (let x = 0; x <= W; x += TILE) {
+    g.moveTo(x + 0.5, 0);
+    g.lineTo(x + 0.5, H);
   }
-  for (let r = 0; r <= Math.ceil(H / TILE); r += 3) {
-    g.beginPath(); g.moveTo(0, r * TILE + 0.5); g.lineTo(W, r * TILE + 0.5); g.stroke();
+  for (let y = 0; y <= H; y += TILE) {
+    g.moveTo(0, y + 0.5);
+    g.lineTo(W, y + 0.5);
   }
-
-  // Fine tile grid — subtle, keeps the checkerboard legible.
-  g.strokeStyle = 'rgba(0, 235, 240, .038)';
-  g.lineWidth = 0.5;
-  for (let c = 0; c < Math.ceil(W / TILE); c++) {
-    for (let r = 0; r < Math.ceil(H / TILE); r++) {
-      g.strokeRect(c * TILE + 0.25, r * TILE + 0.25, TILE - 0.5, TILE - 0.5);
-    }
-  }
+  g.stroke();
 
   // Scuffs / scratches — deterministic diagonal marks so the surface looks worn.
   g.lineWidth = 0.7;
@@ -412,12 +461,12 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
     const px0 = left + 10 * s, py0 = top + 5 * s;
     ctx.fillStyle = '#0e141c';
     ctx.fillRect(px0, py0, pw, ph);
-    ctx.strokeStyle = 'rgba(0, 235, 240, .28)';
+    ctx.strokeStyle = 'rgba(0, 240, 255, .28)';
     ctx.lineWidth = 0.8;
     ctx.strokeRect(px0 + 0.5, py0 + 0.5, pw - 1, ph - 1);
     // Faint glowing text lines (slight per-screen flicker)
     const flick = 0.5 + 0.2 * Math.sin(t * 1.7 + kind * 1.3);
-    const colors = ['rgba(0, 235, 240,', 'rgba(0,232,138,', 'rgba(255, 176, 32,'];
+    const colors = ['rgba(0, 240, 255,', 'rgba(0,255,136,', 'rgba(255, 140, 0,'];
     for (let li = 0; li < 3; li++) {
       ctx.fillStyle = colors[(kind + li) % 3] + (0.22 * flick).toFixed(3) + ')';
       ctx.fillRect(px0 + 3 * s, py0 + (4 + li * 5) * s, (pw - 8 * s) * (li === 1 ? 0.62 : 0.85), 1.6 * s);
@@ -449,7 +498,7 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
       // Floor mat under the workstation — anchors the desk visually
       ctx.fillStyle = 'rgba(22, 29, 37, .32)';
       ctx.fillRect(d.cx - (d.w / 2 + 14 * ds), d.deskY + d.h + 1 * ds, d.w + 28 * ds, 9 * ds);
-      ctx.strokeStyle = 'rgba(0, 235, 240, .07)';
+      ctx.strokeStyle = 'rgba(0, 240, 255, .07)';
       ctx.lineWidth = 0.6;
       ctx.strokeRect(d.cx - (d.w / 2 + 14 * ds) + 0.5, d.deskY + d.h + 1.5 * ds, d.w + 28 * ds - 1, 8 * ds);
     }
@@ -467,10 +516,10 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(rgx, rgy, rgw, rgh, 5 * s); else ctx.rect(rgx, rgy, rgw, rgh);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(0, 235, 240, .12)';
+    ctx.strokeStyle = 'rgba(0, 240, 255, .12)';
     ctx.lineWidth = 0.8;
     ctx.stroke();
-    ctx.strokeStyle = 'rgba(0, 235, 240, .09)';
+    ctx.strokeStyle = 'rgba(0, 240, 255, .09)';
     ctx.strokeRect(rgx + 4 * s, rgy + 4 * s, rgw - 8 * s, rgh - 8 * s);
 
     // Sofa along the top of the rug
@@ -491,17 +540,17 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
     const tx = left + w * 0.5, ty = top + h * 0.6;
     ctx.fillStyle = '#26313d';
     ctx.beginPath(); ctx.ellipse(tx, ty, 15 * s, 6.5 * s, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = 'rgba(0, 235, 240, .18)'; ctx.lineWidth = 0.8; ctx.stroke();
+    ctx.strokeStyle = 'rgba(0, 240, 255, .18)'; ctx.lineWidth = 0.8; ctx.stroke();
     ctx.fillStyle = '#1a222c';
     ctx.fillRect(tx - 1.2 * s, ty + 4 * s, 2.4 * s, 8 * s);
     // Mugs on the table
-    ctx.fillStyle = `rgba(255, 176, 32, ${0.5 + 0.2 * bob})`;
+    ctx.fillStyle = `rgba(255, 140, 0, ${0.5 + 0.2 * bob})`;
     ctx.fillRect(tx - 6 * s, ty - 3 * s, 2.6 * s, 2.6 * s);
-    ctx.fillStyle = 'rgba(0, 235, 240, .55)';
+    ctx.fillStyle = 'rgba(0, 240, 255, .55)';
     ctx.fillRect(tx + 4 * s, ty - 2 * s, 2.6 * s, 2.6 * s);
 
     // Sign
-    ctx.fillStyle = 'rgba(255, 176, 32, .5)';
+    ctx.fillStyle = 'rgba(255, 140, 0, .5)';
     ctx.font = '7px monospace'; ctx.textAlign = 'left';
     ctx.fillText('\u25b8 BREAK AREA', left + 8, top + (seed % 2 === 0 ? 36 : 18));
   };
@@ -553,10 +602,10 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
     // this canvas's header, so no top band is wasted here.
     ctx.fillStyle = '#141a21';
     ctx.fillRect(0, 0, W, 3);
-    ctx.strokeStyle = 'rgba(0, 235, 240, .22)';
+    ctx.strokeStyle = 'rgba(0, 240, 255, .22)';
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(0, 3.5); ctx.lineTo(W, 3.5); ctx.stroke();
-    ctx.fillStyle = 'rgba(0, 235, 240, .26)';
+    ctx.fillStyle = 'rgba(0, 240, 255, .26)';
     ctx.font = '7px monospace';
     ctx.textAlign = 'right';
     ctx.fillText('AGENT OPERATIONS CENTER', W - 8, 11);
@@ -564,7 +613,7 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
     const drawSeg = (x1: number, y1: number, x2: number, y2: number) => {
       ctx.strokeStyle = '#161d25'; ctx.lineWidth = 4;
       ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-      ctx.strokeStyle = 'rgba(0, 235, 240, .16)'; ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(0, 240, 255, .16)'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
     };
     for (const cell of layout.cells) {
@@ -613,6 +662,15 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
     }
 
     // ══ DESKS + SPRITES + MONITORS ══
+    // The reference floor contains eight desks but only five visible staff.
+    // Keep focus visible by replacing the fifth roster slot when necessary.
+    const visibleAgentNames = new Set(liveList.slice(0, 5).map(a => a.name));
+    const focusedName = focusRef.current || orch.agent;
+    if (focusedName && liveList.some(a => a.name === focusedName) && !visibleAgentNames.has(focusedName)) {
+      const lastVisible = Array.from(visibleAgentNames).at(-1);
+      if (lastVisible) visibleAgentNames.delete(lastVisible);
+      visibleAgentNames.add(focusedName);
+    }
     let gi = 0;
     for (const cell of layout.cells) {
       for (const d of cell.desks) {
@@ -645,7 +703,9 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
         const sx = d.cx + leanX;
         const torsoW = BASE.spriteW * ds;
         const torsoH = BASE.torsoH * ds;
+        const showAgent = visibleAgentNames.has(d.agent.name);
 
+        if (showAgent) {
         // Chair back (behind the body)
         ctx.fillStyle = '#1b2231';
         ctx.beginPath();
@@ -666,10 +726,13 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
         // integer positions with smoothing off. All motion (bob, lean, head
         // turn, typing hands, stretch) is quantised to whole pixels so edges
         // stay crisp instead of smearing across sub-pixel boundaries.
-        const sprite = getAgentSprite(i, d.agent.color);
-        const blit = (img: HTMLCanvasElement, x: number, y: number) => {
-          ctx.drawImage(img, Math.round(x) - 1, Math.round(y) - 1); // −1: outline padding
-        };
+        //
+        // GUARDED: the shared animLoop swallows frame exceptions silently, so a
+        // failure anywhere in the cache-build → blit stage used to end the frame
+        // between the chair and the desk with no error surfaced anywhere —
+        // agents (and everything drawn after them) simply vanished. Any build or
+        // blit failure now falls back to drawFallbackAgent so a character is
+        // ALWAYS visible at the desk, and logs the first cause to the console.
         const bodyTopI = Math.round(bodyTop);
         const sxI = Math.round(sx);
         const armLiftQ = Math.round(stretch * 9 * ds);
@@ -679,15 +742,45 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
         const torsoL = sxI - SP.torsoW / 2;
         const sleeveL = torsoL - SP.armW + 1;
         const sleeveR = torsoL + SP.torsoW - 1;
-        ctx.imageSmoothingEnabled = false;
-        blit(sprite.torso, torsoL, bodyTopI);
-        blit(sprite.sleeve, sleeveL, armTop);
-        blit(sprite.sleeve, sleeveR, armTop);
-        blit(sprite.hand, sleeveL, armTop + SP.sleeveH + typeL);
-        blit(sprite.hand, sleeveR, armTop + SP.sleeveH + typeR);
-        // Head rides the same body transform; shifts in whole pixels on head-turn.
-        blit(sprite.head, sxI + Math.round(headTurn) - 5, bodyTopI - 10);
-        ctx.imageSmoothingEnabled = true;
+        let spriteOK = false;
+        try {
+          const sprite = getAgentSprite(i, d.agent.color);
+          const { torso, sleeve, hand, head } = sprite;
+          if (
+            torso && sleeve && hand && head &&
+            torso.width > 2 && torso.height > 2 &&
+            head.width > 2 && head.height > 2 &&
+            Number.isFinite(torsoL) && Number.isFinite(bodyTopI)
+          ) {
+            const blit = (img: HTMLCanvasElement, x: number, y: number) => {
+              ctx.drawImage(img, Math.round(x) - 1, Math.round(y) - 1); // −1: outline padding
+            };
+            ctx.imageSmoothingEnabled = false;
+            blit(torso, torsoL, bodyTopI);
+            blit(sleeve, sleeveL, armTop);
+            blit(sleeve, sleeveR, armTop);
+            blit(hand, sleeveL, armTop + SP.sleeveH + typeL);
+            blit(hand, sleeveR, armTop + SP.sleeveH + typeR);
+            // Head rides the same body transform; shifts in whole pixels on head-turn.
+            blit(head, sxI + Math.round(headTurn) - 5, bodyTopI - 10);
+            spriteOK = true;
+          }
+          ctx.imageSmoothingEnabled = true;
+        } catch (err) {
+          ctx.imageSmoothingEnabled = true;
+          if (!spriteFallbackWarned) {
+            spriteFallbackWarned = true;
+            console.warn('[AgentOffice] pixel-art sprite build failed — using vector fallback:', err);
+          }
+        }
+        if (!spriteOK) {
+          if (!spriteFallbackWarned) {
+            spriteFallbackWarned = true;
+            console.warn('[AgentOffice] pixel-art sprite parts unavailable — using vector fallback.');
+          }
+          drawFallbackAgent(ctx, sxI, bodyTopI, ds, d.agent.color, typeL, typeR, headTurn);
+        }
+        }
 
         // Desk — wood top + front face for depth (drawn after sprite → seated look)
         ctx.fillStyle = '#4a3524';
@@ -700,7 +793,7 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
         // Floor reflection — a faint mirrored glow beneath the desk, stronger
         // when the agent's monitor is active (the screen "lights" the floor).
         const refl = ctx.createLinearGradient(0, d.deskY + d.h + 9 * ds, 0, d.deskY + d.h + 9 * ds + 12 * ds);
-        refl.addColorStop(0, active ? 'rgba(0, 235, 240, .05)' : 'rgba(150, 190, 215, .022)');
+        refl.addColorStop(0, active ? 'rgba(0, 240, 255, .05)' : 'rgba(150, 190, 215, .022)');
         refl.addColorStop(1, 'transparent');
         ctx.fillStyle = refl;
         ctx.fillRect(d.cx - d.w / 2, d.deskY + d.h + 9 * ds, d.w, 12 * ds);
@@ -718,9 +811,9 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
         ctx.fillRect(mx, my, mW, mH);
         const scrX = mx + 2 * ds, scrY = my + 2 * ds, scrW = mW - 4 * ds, scrH = mH - 4 * ds;
         if (active) {
-          ctx.shadowColor = '#00ebf0';
+          ctx.shadowColor = '#00f0ff';
           ctx.shadowBlur = 12;
-          ctx.fillStyle = `rgba(0, 235, 240, ${0.62 + 0.38 * Math.abs(Math.sin(t * 3 + i))})`;
+          ctx.fillStyle = `rgba(0, 240, 255, ${0.62 + 0.38 * Math.abs(Math.sin(t * 3 + i))})`;
           ctx.fillRect(scrX, scrY, scrW, scrH);
           ctx.shadowBlur = 0;
           // Faint "code editor" UI: 4 rows of mono text blocks with an
@@ -759,7 +852,7 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
             ctx.fillRect(scrX + indent, scrY + 2.4 * ds + k * 2.8 * ds, lw, 1);
           }
         }
-        ctx.strokeStyle = active ? 'rgba(0, 235, 240, .55)' : 'rgba(130, 150, 170, .34)';
+        ctx.strokeStyle = active ? 'rgba(0, 240, 255, .55)' : 'rgba(130, 150, 170, .34)';
         ctx.lineWidth = 1;
         ctx.strokeRect(mx - 1, my - 1, mW + 2, mH + 2);
         // Stand
@@ -777,12 +870,12 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
         // ── Working indicators (active agents only) ──
         if (active) {
           const halo = 0.26 + 0.34 * Math.abs(Math.sin(t * 4 + i));
-          ctx.strokeStyle = `rgba(0, 235, 240, ${halo})`;
+          ctx.strokeStyle = `rgba(0, 240, 255, ${halo})`;
           ctx.lineWidth = 1;
           ctx.beginPath();
           ctx.ellipse(sx, bodyTop + torsoH * 0.5, torsoW * 0.85, torsoH * 0.72, 0, 0, Math.PI * 2);
           ctx.stroke();
-          ctx.fillStyle = 'rgba(0, 235, 240, .95)';
+          ctx.fillStyle = 'rgba(0, 240, 255, .95)';
           ctx.font = '7px monospace';
           ctx.textAlign = 'center';
           ctx.fillText('● ACTIVE', d.cx, d.deskY + d.h + 23);
@@ -827,7 +920,7 @@ export default function AgentOffice({ agents, onSelectAgent, focusAgent = null }
     // ══ Corner HUD readout ══
     ctx.font = '8px monospace';
     ctx.textAlign = 'left';
-    ctx.fillStyle = 'rgba(0, 235, 240, .35)';
+    ctx.fillStyle = 'rgba(0, 240, 255, .35)';
     ctx.fillText(`OFFICE FLOOR — ${list.length} DESKS · ${layout.cells.length} ZONES`, 8, H - 6);
     if (orch.phase !== 'idle') {
       const txt = orch.phase === 'delegating'

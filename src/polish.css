@@ -44,13 +44,13 @@
    console spans the full height of the command center.
    ═══════════════════════════════════════════════════════════════ */
 
-.nasi-command-center { grid-template-columns: 20% 45% 35%; }
+.nasi-command-center { grid-template-columns: minmax(0, 25fr) minmax(0, 45fr) minmax(0, 30fr); gap: 12px; }
 
 .nasi-center-panel {
   flex-direction: column;
   align-items: stretch;
-  gap: 12px;
-  padding: 14px;
+  gap: 10px;
+  padding: 0;
   overflow: hidden;
 }
 
@@ -69,9 +69,9 @@
   min-height: 0;
   flex: 1 1 auto;
   box-shadow:
-    0 0 34px rgba(0, 235, 240, .09),
+    0 0 34px rgba(0, 240, 255, .09),
     0 12px 34px rgba(0, 0, 0, .6),
-    inset 0 0 30px rgba(0, 235, 240, .012);
+    inset 0 0 30px rgba(0, 240, 255, .012);
 }
 .nasi-agent-town-office { flex: 1 1 auto; min-height: 250px; }
 
@@ -97,12 +97,12 @@
   display: flex; align-items: center; gap: 5px;
   padding: 6px 10px; flex-shrink: 0;
   overflow-x: auto; overflow-y: hidden;
-  border-bottom: 1px solid rgba(0, 235, 240, .06);
+  border-bottom: 1px solid rgba(0, 240, 255, .06);
   background: rgba(4, 7, 12, .55);
   scrollbar-width: thin;
 }
 .nasi-roster-row::-webkit-scrollbar { height: 3px; }
-.nasi-roster-row::-webkit-scrollbar-thumb { background: rgba(0, 235, 240, .12); border-radius: 2px; }
+.nasi-roster-row::-webkit-scrollbar-thumb { background: rgba(0, 240, 255, .12); border-radius: 2px; }
 .nasi-roster-pill {
   display: flex; align-items: center; gap: 5px;
   padding: 2px 8px 2px 2px; border-radius: 20px;
@@ -110,10 +110,10 @@
   background: rgba(8, 12, 18, .7);
   transition: var(--t); white-space: nowrap; flex-shrink: 0;
 }
-.nasi-roster-pill:hover { border-color: var(--line-2); background: rgba(0, 235, 240, .05); }
+.nasi-roster-pill:hover { border-color: var(--line-2); background: rgba(0, 240, 255, .05); }
 .nasi-roster-pill.active {
   border-color: var(--agent-color);
-  background: rgba(0, 235, 240, .06);
+  background: rgba(0, 240, 255, .06);
   box-shadow: 0 0 12px -2px var(--agent-color);
 }
 .nasi-roster-face {
@@ -127,9 +127,9 @@
   text-transform: uppercase; color: var(--text-2);
 }
 .nasi-roster-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
-.nasi-roster-dot.active { background: var(--emerald); box-shadow: 0 0 6px rgba(0, 232, 138, .8); animation: pulse 1.8s infinite; }
+.nasi-roster-dot.active { background: var(--emerald); box-shadow: 0 0 6px rgba(0, 255, 136, .8); animation: pulse 1.8s infinite; }
 .nasi-roster-dot.idle { background: var(--text-4); }
-.nasi-roster-dot.offline { background: var(--crimson); box-shadow: 0 0 6px rgba(255, 82, 82, .6); }
+.nasi-roster-dot.offline { background: var(--crimson); box-shadow: 0 0 6px rgba(34, 34, 68, .6); }
 
 /* ── Circuit traces: sharp 90° corners, like PCB signal paths ── */
 .nasi-route-base, .nasi-route-glow, .nasi-route-flow {
@@ -190,7 +190,7 @@
   max-height: none !important;
   overflow: hidden !important;
   align-items: stretch !important;
-  border-top: 1px solid rgba(0, 235, 240, .06);
+  border-top: 1px solid rgba(0, 240, 255, .06);
   flex-shrink: 0;
   scrollbar-width: none;
 }
@@ -199,13 +199,13 @@
   flex: 1 1 0; min-width: 0;
   display: flex; align-items: center; justify-content: center; gap: 5px;
   padding: 7px 4px;
-  border-right: 1px solid rgba(0, 235, 240, .07);
+  border-right: 1px solid rgba(0, 240, 255, .07);
   background: rgba(4, 7, 12, .4);
   transition: var(--t);
 }
 .nasi-dept-pill:last-child { border-right: 0; }
-.nasi-dept-pill:hover { background: rgba(0, 235, 240, .06); }
-.nasi-dept-pill.active { background: rgba(0, 232, 138, .06); }
+.nasi-dept-pill:hover { background: rgba(0, 240, 255, .06); }
+.nasi-dept-pill.active { background: rgba(0, 255, 136, .06); }
 .nasi-dept-pill-icon {
   width: 5px; height: 5px; border-radius: 1px; flex-shrink: 0;
   box-shadow: 0 0 6px -1px currentColor;
@@ -218,9 +218,9 @@
 }
 .nasi-dept-pill.active .nasi-dept-pill-name { color: var(--emerald); }
 .nasi-dept-pill-dot { width: 4px; height: 4px; border-radius: 50%; flex-shrink: 0; }
-.nasi-dept-pill-dot.active { background: var(--emerald); box-shadow: 0 0 6px rgba(0, 232, 138, .8); animation: pulse 1.8s infinite; }
+.nasi-dept-pill-dot.active { background: var(--emerald); box-shadow: 0 0 6px rgba(0, 255, 136, .8); animation: pulse 1.8s infinite; }
 .nasi-dept-pill-dot.idle { background: var(--text-4); }
-.nasi-dept-pill-dot.offline { background: var(--crimson); box-shadow: 0 0 6px rgba(255, 82, 82, .5); }
+.nasi-dept-pill-dot.offline { background: var(--crimson); box-shadow: 0 0 6px rgba(34, 34, 68, .5); }
 
 /* ═══════════════════════════════════════════════════════════════
    PREMIUM POLISH PASS — refinement only, no behaviour changes
@@ -229,76 +229,76 @@
 /* ── 1 · TOPBAR ── */
 .nasi-brandname {
   letter-spacing: .52em; margin-right: -.52em;
-  text-shadow: 0 0 10px rgba(0, 235, 240, .9), 0 0 28px rgba(0, 235, 240, .5), 0 0 70px rgba(0, 235, 240, .25);
+  text-shadow: 0 0 10px rgba(0, 240, 255, .9), 0 0 28px rgba(0, 240, 255, .5), 0 0 70px rgba(0, 240, 255, .25);
 }
 .nasi-topbar-btn { border: 1px solid transparent; transition: all 200ms ease; }
-.nasi-topbar-btn:hover { color: var(--text-1, #cfe9f2); background: rgba(0, 235, 240, .04); }
+.nasi-topbar-btn:hover { color: var(--text-1, #cfe9f2); background: rgba(0, 240, 255, .04); }
 .nasi-topbar-btn.active {
-  background: linear-gradient(180deg, rgba(0, 235, 240, .16), rgba(0, 235, 240, .07));
-  border-color: rgba(0, 235, 240, .38);
+  background: linear-gradient(180deg, rgba(0, 240, 255, .16), rgba(0, 240, 255, .07));
+  border-color: rgba(0, 240, 255, .38);
   color: #aef3ff;
-  box-shadow: 0 0 18px rgba(0, 235, 240, .22), inset 0 0 12px rgba(0, 235, 240, .08);
-  text-shadow: 0 0 10px rgba(0, 235, 240, .65);
+  box-shadow: 0 0 18px rgba(0, 240, 255, .22), inset 0 0 12px rgba(0, 240, 255, .08);
+  text-shadow: 0 0 10px rgba(0, 240, 255, .65);
 }
 .nasi-topbar-actions { gap: 7px; }
 .nasi-icon-btn { width: 30px; height: 30px; transition: all 200ms ease; }
 .nasi-icon-btn:hover {
-  color: var(--cyan); background: rgba(0, 235, 240, .08); border-color: rgba(0, 235, 240, .3);
-  box-shadow: 0 0 16px rgba(0, 235, 240, .22), inset 0 0 8px rgba(0, 235, 240, .06);
-  text-shadow: 0 0 8px rgba(0, 235, 240, .5);
+  color: var(--cyan); background: rgba(0, 240, 255, .08); border-color: rgba(0, 240, 255, .3);
+  box-shadow: 0 0 16px rgba(0, 240, 255, .22), inset 0 0 8px rgba(0, 240, 255, .06);
+  text-shadow: 0 0 8px rgba(0, 240, 255, .5);
 }
 .nasi-topbar .nasi-status-dot { width: 7px; height: 7px; }
 
 /* ── 2 · LEFT PANEL — status feed ── */
 .nasi-feed-event { transition: all 200ms ease; }
-.nasi-feed-event + .nasi-feed-event { border-top: 1px solid rgba(0, 235, 240, .045); }
+.nasi-feed-event + .nasi-feed-event { border-top: 1px solid rgba(0, 240, 255, .045); }
 .nasi-feed-event-time {
   min-width: 32px; text-align: center;
   padding: 1px 4px; border-radius: 2px;
-  background: rgba(0, 235, 240, .04);
-  border: 1px solid rgba(0, 235, 240, .07);
+  background: rgba(0, 240, 255, .04);
+  border: 1px solid rgba(0, 240, 255, .07);
   text-shadow: 0 0 6px currentColor;
 }
 .nasi-feed-card { transition: box-shadow 400ms ease, border-color 400ms ease; }
 .nasi-feed-card.online {
-  border-color: rgba(0, 232, 138, .35);
-  box-shadow: 0 0 16px rgba(0, 232, 138, .12), inset 0 0 18px rgba(0, 232, 138, .04);
+  border-color: rgba(0, 255, 136, .35);
+  box-shadow: 0 0 16px rgba(0, 255, 136, .12), inset 0 0 18px rgba(0, 255, 136, .04);
 }
 .nasi-feed-card.offline {
-  border-color: rgba(255, 82, 82, .3);
-  box-shadow: 0 0 14px rgba(255, 82, 82, .1);
+  border-color: rgba(34, 34, 68, .3);
+  box-shadow: 0 0 14px rgba(34, 34, 68, .1);
 }
 .nasi-feed-card-title { display: flex; align-items: center; gap: 7px; }
 .nasi-feed-card-dot {
   width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0;
-  background: var(--emerald); box-shadow: 0 0 8px rgba(0, 232, 138, .9);
+  background: var(--emerald); box-shadow: 0 0 8px rgba(0, 255, 136, .9);
   animation: pulse 2s infinite;
 }
-.nasi-feed-card.offline .nasi-feed-card-dot { background: var(--crimson); box-shadow: 0 0 8px rgba(255, 82, 82, .8); animation-duration: 1s; }
+.nasi-feed-card.offline .nasi-feed-card-dot { background: var(--crimson); box-shadow: 0 0 8px rgba(34, 34, 68, .8); animation-duration: 1s; }
 
 /* ── 3 · CORE CARD ── */
 /* Bracket frame: brighter frame + four glowing corner brackets */
 .nasi-core-area::before {
-  border-color: rgba(0, 235, 240, .09);
-  box-shadow: 0 0 18px rgba(0, 235, 240, .05), inset 0 0 26px rgba(0, 235, 240, .018);
+  border-color: rgba(0, 240, 255, .09);
+  box-shadow: 0 0 18px rgba(0, 240, 255, .05), inset 0 0 26px rgba(0, 240, 255, .018);
   background-image:
-    linear-gradient(rgba(0, 235, 240, .5), rgba(0, 235, 240, .5)),
-    linear-gradient(rgba(0, 235, 240, .5), rgba(0, 235, 240, .5)),
-    linear-gradient(rgba(0, 235, 240, .5), rgba(0, 235, 240, .5)),
-    linear-gradient(rgba(0, 235, 240, .5), rgba(0, 235, 240, .5)),
-    linear-gradient(rgba(0, 235, 240, .5), rgba(0, 235, 240, .5)),
-    linear-gradient(rgba(0, 235, 240, .5), rgba(0, 235, 240, .5)),
-    linear-gradient(rgba(0, 235, 240, .5), rgba(0, 235, 240, .5)),
-    linear-gradient(rgba(0, 235, 240, .5), rgba(0, 235, 240, .5)),
-    radial-gradient(ellipse at 50% 50%, rgba(0, 235, 240, .02), transparent 70%);
+    linear-gradient(rgba(0, 240, 255, .5), rgba(0, 240, 255, .5)),
+    linear-gradient(rgba(0, 240, 255, .5), rgba(0, 240, 255, .5)),
+    linear-gradient(rgba(0, 240, 255, .5), rgba(0, 240, 255, .5)),
+    linear-gradient(rgba(0, 240, 255, .5), rgba(0, 240, 255, .5)),
+    linear-gradient(rgba(0, 240, 255, .5), rgba(0, 240, 255, .5)),
+    linear-gradient(rgba(0, 240, 255, .5), rgba(0, 240, 255, .5)),
+    linear-gradient(rgba(0, 240, 255, .5), rgba(0, 240, 255, .5)),
+    linear-gradient(rgba(0, 240, 255, .5), rgba(0, 240, 255, .5)),
+    radial-gradient(ellipse at 50% 50%, rgba(0, 240, 255, .02), transparent 70%);
   background-repeat: no-repeat;
   background-size: 16px 1.5px, 1.5px 16px, 16px 1.5px, 1.5px 16px, 16px 1.5px, 1.5px 16px, 16px 1.5px, 1.5px 16px, 100% 100%;
   background-position: left top, left top, right top, right top, left bottom, left bottom, right bottom, right bottom, 0 0;
-  filter: drop-shadow(0 0 5px rgba(0, 235, 240, .28));
+  filter: drop-shadow(0 0 5px rgba(0, 240, 255, .28));
 }
 .nasi-core-area::after {
-  border-color: rgba(0, 235, 240, .55);
-  box-shadow: 0 0 10px rgba(0, 235, 240, .3);
+  border-color: rgba(0, 240, 255, .55);
+  box-shadow: 0 0 10px rgba(0, 240, 255, .3);
 }
 /* Pipeline label: bigger + breathing.
    Kept `position: absolute` (inherited from styles.css) and stretched across
@@ -307,8 +307,8 @@
 .nasi-core-card-label {
   right: 14px;
   font-size: 8.5px; letter-spacing: .26em;
-  color: rgba(0, 235, 240, .7);
-  text-shadow: 0 0 10px rgba(0, 235, 240, .3);
+  color: rgba(0, 240, 255, .7);
+  text-shadow: 0 0 10px rgba(0, 240, 255, .3);
   animation: label-breathe 3.4s ease-in-out infinite;
 }
 @keyframes label-breathe { 0%, 100% { opacity: .75; } 50% { opacity: 1; } }
@@ -338,7 +338,7 @@
   transition: background 300ms ease;
 }
 .nasi-agent-town-dot.live {
-  background: var(--emerald); box-shadow: 0 0 9px rgba(0, 232, 138, .9);
+  background: var(--emerald); box-shadow: 0 0 9px rgba(0, 255, 136, .9);
   animation: pulse 1.6s infinite;
 }
 .nasi-agent-town-dot.idle { background: var(--text-4); opacity: .6; }
@@ -348,10 +348,10 @@
   content: attr(data-tip);
   position: absolute; left: 50%; bottom: calc(100% + 7px); transform: translateX(-50%) translateY(3px);
   padding: 4px 9px; border-radius: 3px;
-  background: rgba(6, 12, 18, .96); border: 1px solid rgba(0, 235, 240, .25);
+  background: rgba(6, 12, 18, .96); border: 1px solid rgba(0, 240, 255, .25);
   color: var(--text-1, #cfe9f2); font-family: var(--mono); font-size: 8px; letter-spacing: .08em;
   white-space: nowrap; pointer-events: none; opacity: 0;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, .6), 0 0 12px rgba(0, 235, 240, .12);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .6), 0 0 12px rgba(0, 240, 255, .12);
   transition: opacity 160ms ease, transform 160ms ease; z-index: 60;
 }
 .nasi-roster-pill:hover::after { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -372,7 +372,7 @@
 .nasi-wave-idle-dots i {
   width: 4px; height: 4px; border-radius: 50%; background: var(--cyan);
   opacity: .25; animation: waitdot 1.4s ease-in-out infinite;
-  box-shadow: 0 0 6px rgba(0, 235, 240, .5);
+  box-shadow: 0 0 6px rgba(0, 240, 255, .5);
 }
 .nasi-wave-idle-dots i:nth-child(2) { animation-delay: .22s; }
 .nasi-wave-idle-dots i:nth-child(3) { animation-delay: .44s; }
@@ -402,13 +402,13 @@
   50% { box-shadow: 0 0 20px -1px var(--agent-color); }
 }
 @keyframes active-glow-soft {
-  0%, 100% { box-shadow: inset 0 0 8px rgba(0, 232, 138, .05); }
-  50% { box-shadow: inset 0 0 14px rgba(0, 232, 138, .12); }
+  0%, 100% { box-shadow: inset 0 0 8px rgba(0, 255, 136, .05); }
+  50% { box-shadow: inset 0 0 14px rgba(0, 255, 136, .12); }
 }
 .nasi-agent-town-delegate.working { animation: delegate-pulse 1.6s ease-in-out infinite; }
 @keyframes delegate-pulse {
-  0%, 100% { box-shadow: 0 0 8px rgba(0, 232, 138, .15); }
-  50% { box-shadow: 0 0 16px rgba(0, 232, 138, .35); }
+  0%, 100% { box-shadow: 0 0 8px rgba(0, 255, 136, .15); }
+  50% { box-shadow: 0 0 16px rgba(0, 255, 136, .35); }
 }
 
 /* ── Mobile: keep parity, trim hover-only flourishes ── */
@@ -429,24 +429,24 @@
 .nasi-input-send, .nasi-input-mic {
   position: relative;
   background:
-    linear-gradient(180deg, rgba(120, 200, 230, .09) 0%, rgba(0, 235, 240, .02) 38%, transparent 55%),
+    linear-gradient(180deg, rgba(120, 200, 230, .09) 0%, rgba(0, 240, 255, .02) 38%, transparent 55%),
     linear-gradient(180deg, #17232b 0%, #0c151b 100%);
-  border: 1px solid rgba(0, 235, 240, .2);
+  border: 1px solid rgba(0, 240, 255, .2);
   box-shadow:
     inset 0 1px 0 rgba(185, 240, 255, .12),
     0 2px 5px rgba(0, 0, 0, .5),
-    0 0 12px rgba(0, 235, 240, .05);
+    0 0 12px rgba(0, 240, 255, .05);
   transition: all 180ms cubic-bezier(.4, 0, .2, 1);
 }
 .nasi-topbar-btn:hover, .nasi-icon-btn:hover, .nasi-console-tab:hover, .nasi-agent-tab:hover,
 .nasi-dept-pill:hover, .nasi-roster-pill:hover, .nasi-stop-btn:hover:not(:disabled), .nasi-live-btn:hover,
 .nasi-input-send:hover:not(:disabled), .nasi-input-mic:hover {
-  border-color: rgba(0, 235, 240, .45);
+  border-color: rgba(0, 240, 255, .45);
   box-shadow:
     inset 0 1px 0 rgba(185, 240, 255, .16),
     0 2px 6px rgba(0, 0, 0, .5),
-    0 0 18px rgba(0, 235, 240, .16),
-    0 0 42px rgba(0, 235, 240, .06);
+    0 0 18px rgba(0, 240, 255, .16),
+    0 0 42px rgba(0, 240, 255, .06);
   filter: brightness(1.12);
 }
 .nasi-topbar-btn:active, .nasi-icon-btn:active, .nasi-console-tab:active, .nasi-agent-tab:active,
@@ -457,46 +457,46 @@
   box-shadow:
     inset 0 1px 0 rgba(185, 240, 255, .08),
     0 1px 2px rgba(0, 0, 0, .6),
-    0 0 8px rgba(0, 235, 240, .06);
+    0 0 8px rgba(0, 240, 255, .06);
 }
 /* Keep the active/filled states readable on top of the new base */
 .nasi-topbar-btn.active {
   background:
-    linear-gradient(180deg, rgba(0, 235, 240, .17), rgba(0, 235, 240, .06)),
+    linear-gradient(180deg, rgba(0, 240, 255, .17), rgba(0, 240, 255, .06)),
     linear-gradient(180deg, #14262e 0%, #0a141a 100%);
-  border-color: rgba(0, 235, 240, .4);
+  border-color: rgba(0, 240, 255, .4);
   box-shadow:
     inset 0 1px 0 rgba(185, 240, 255, .18),
     0 2px 5px rgba(0, 0, 0, .5),
-    0 0 18px rgba(0, 235, 240, .18);
+    0 0 18px rgba(0, 240, 255, .18);
 }
 .nasi-console-tab.active {
   background:
-    linear-gradient(180deg, rgba(0, 235, 240, .1), rgba(0, 235, 240, .03)),
+    linear-gradient(180deg, rgba(0, 240, 255, .1), rgba(0, 240, 255, .03)),
     linear-gradient(180deg, #14262e, #0a141a);
 }
 .nasi-agent-tab.active, .nasi-dept-pill.active, .nasi-roster-pill:has(.nasi-roster-dot.active),
 .nasi-live-btn.active {
   filter: brightness(1.14);
-  border-color: rgba(0, 235, 240, .42);
+  border-color: rgba(0, 240, 255, .42);
 }
 /* The round mic keeps its radial treatment, upgraded to match */
 .nasi-mic {
   background:
     radial-gradient(circle at 38% 30%, rgba(160, 230, 255, .16), transparent 55%),
     linear-gradient(180deg, #16262e 0%, #08121a 100%);
-  border: 1px solid rgba(0, 235, 240, .32);
+  border: 1px solid rgba(0, 240, 255, .32);
   box-shadow:
     inset 0 1px 0 rgba(185, 240, 255, .2),
     0 3px 8px rgba(0, 0, 0, .55),
-    0 0 20px rgba(0, 235, 240, .14);
+    0 0 20px rgba(0, 240, 255, .14);
 }
 .nasi-mic:active { transform: scale(.95); filter: brightness(.9); }
-.nasi-mic svg { filter: drop-shadow(0 0 5px rgba(0, 235, 240, .55)); }
+.nasi-mic svg { filter: drop-shadow(0 0 5px rgba(0, 240, 255, .55)); }
 /* Icon drop-shadows everywhere */
 .nasi-topbar-btn svg, .nasi-icon-btn svg, .nasi-console-tab svg, .nasi-agent-tab svg,
 .nasi-stop-btn svg, .nasi-live-btn svg, .nasi-input-send svg, .nasi-input-mic svg {
-  filter: drop-shadow(0 0 3px rgba(0, 235, 240, .3));
+  filter: drop-shadow(0 0 3px rgba(0, 240, 255, .3));
 }
 
 /* ── 3 · UNIFIED SECTION HEADERS ── */
@@ -523,8 +523,8 @@
 .nasi-agent-town-header::after, .nasi-voice-section-label::after {
   content: '';
   position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
-  background: linear-gradient(90deg, rgba(0, 235, 240, .38), rgba(0, 235, 240, .1) 45%, transparent 90%);
-  box-shadow: 0 0 7px rgba(0, 235, 240, .14);
+  background: linear-gradient(90deg, rgba(0, 240, 255, .38), rgba(0, 240, 255, .1) 45%, transparent 90%);
+  box-shadow: 0 0 7px rgba(0, 240, 255, .14);
   pointer-events: none;
 }
 .nasi-feed-header::after { left: 0; }
@@ -532,7 +532,7 @@
 .nasi-agent-town-header::after { left: 12px; right: 12px; }
 .nasi-voice-section-label::after { left: 2px; right: 2px; }
 .nasi-console-tabs::after { content: none; }
-.nasi-agent-town-header { text-shadow: 0 0 10px rgba(0, 235, 240, .25); }
+.nasi-agent-town-header { text-shadow: 0 0 10px rgba(0, 240, 255, .25); }
 
 /* ── 5 · LAYERED DEPTH SHADOWS on every card ── */
 /* Tight dark contact shadow (physical depth) + soft outer glow (sci-fi). */
@@ -540,8 +540,8 @@
   box-shadow:
     0 2px 6px rgba(0, 0, 0, .72),
     0 10px 26px rgba(0, 0, 0, .5),
-    0 0 26px rgba(0, 235, 240, .07),
-    0 0 68px rgba(0, 235, 240, .028),
+    0 0 26px rgba(0, 240, 255, .07),
+    0 0 68px rgba(0, 240, 255, .028),
     inset 0 1px 0 rgba(185, 240, 255, .05);
 }
 /* Core card uses filter drop-shadows (clip-path clips box-shadow); stack
@@ -549,7 +549,7 @@
 .nasi-core-card {
   filter:
     drop-shadow(0 5px 20px rgba(0, 0, 0, .6))
-    drop-shadow(0 0 26px rgba(0, 235, 240, .14));
+    drop-shadow(0 0 26px rgba(0, 240, 255, .14));
 }
 
 /* ── 6 · VIEW/TAB TRANSITIONS — 150-200ms fade+rise, never a snap ── */
@@ -579,9 +579,9 @@
   /* Card edge follows the live accent. Thin (1px) but nearly opaque: the edge
      stays crisp and bright, and the drop-shadow filter below does the softening
      — instead of a thick, washed-out semi-transparent line. */
-  --card-border: color-mix(in srgb, var(--cyan) 92%, transparent);
-  --cyan-blend: color-mix(in srgb, var(--cyan) 90%, #2fffd0 10%);
-  --glow-cyan-blend: color-mix(in srgb, var(--glow-cyan) 88%, rgba(47, 255, 208, .5) 12%);
+  --card-border: rgba(0, 240, 255, 0.15);
+  --cyan-blend: #00f0ff;
+  --glow-cyan-blend: #00f0ff;
 }
 
 /* ── Cards: crisp edge + REAL outer depth ──
@@ -598,27 +598,27 @@
      4–8% alpha — visually negligible, expensive per frame. */
   filter:
     drop-shadow(0 5px 20px rgba(0, 0, 0, .62))
-    drop-shadow(0 0 26px rgba(0, 235, 240, .16));
+    drop-shadow(0 0 26px rgba(0, 240, 255, .16));
   box-shadow:
     inset 0 1px 0 rgba(190, 245, 255, .1),
-    inset 0 0 30px rgba(0, 235, 240, .03);
+    inset 0 0 30px rgba(0, 240, 255, .03);
 }
 .nasi-core-card {
   border-color: var(--card-border);
   filter:
     drop-shadow(0 5px 20px rgba(0, 0, 0, .6))
-    drop-shadow(0 0 28px rgba(0, 235, 240, .15));
+    drop-shadow(0 0 28px rgba(0, 240, 255, .15));
 }
 
 /* ── Bloom +~45% on every active / highlighted element ── */
 .nasi-topbar-btn.active {
-  border-color: rgba(0, 235, 240, .52);
-  box-shadow: 0 0 6px var(--glow-core), 0 0 28px rgba(0, 235, 240, .34), inset 0 0 18px rgba(0, 235, 240, .13);
-  text-shadow: 0 0 14px rgba(0, 235, 240, .85);
+  border-color: rgba(0, 240, 255, .52);
+  box-shadow: 0 0 6px var(--glow-core), 0 0 28px rgba(0, 240, 255, .34), inset 0 0 18px rgba(0, 240, 255, .13);
+  text-shadow: 0 0 14px rgba(0, 240, 255, .85);
 }
 .nasi-icon-btn:hover {
-  border-color: rgba(0, 235, 240, .46);
-  box-shadow: 0 0 6px var(--glow-core), 0 0 26px rgba(0, 235, 240, .34), inset 0 0 12px rgba(0, 235, 240, .1);
+  border-color: rgba(0, 240, 255, .46);
+  box-shadow: 0 0 6px var(--glow-core), 0 0 26px rgba(0, 240, 255, .34), inset 0 0 12px rgba(0, 240, 255, .1);
 }
 .nasi-routing-node.active {
   box-shadow:
@@ -631,40 +631,40 @@
     inset 0 0 20px color-mix(in srgb, var(--node-color) 16%, transparent);
 }
 .nasi-console-tab.active {
-  box-shadow: 0 0 5px var(--glow-core), inset 0 -2px 14px rgba(0, 235, 240, .13), 0 0 22px rgba(0, 235, 240, .1);
-  text-shadow: 0 0 12px rgba(0, 235, 240, .78);
+  box-shadow: 0 0 5px var(--glow-core), inset 0 -2px 14px rgba(0, 240, 255, .13), 0 0 22px rgba(0, 240, 255, .1);
+  text-shadow: 0 0 12px rgba(0, 240, 255, .78);
 }
 .nasi-console-tab.active::after {
   box-shadow:
     0 0 16px var(--glow-cyan-blend),
-    0 0 36px rgba(0, 235, 240, .62),
-    0 2px 22px rgba(0, 235, 240, .44);
+    0 0 36px rgba(0, 240, 255, .62),
+    0 2px 22px rgba(0, 240, 255, .44);
 }
 .nasi-agent-tab.active {
-  border-color: rgba(0, 235, 240, .44);
-  box-shadow: 0 0 5px var(--glow-core), 0 0 20px rgba(0, 235, 240, .2), inset 0 0 12px rgba(0, 235, 240, .08);
-  text-shadow: 0 0 11px rgba(0, 235, 240, .65);
+  border-color: rgba(0, 240, 255, .44);
+  box-shadow: 0 0 5px var(--glow-core), 0 0 20px rgba(0, 240, 255, .2), inset 0 0 12px rgba(0, 240, 255, .08);
+  text-shadow: 0 0 11px rgba(0, 240, 255, .65);
 }
-.nasi-start-btn { border-color: rgba(0, 235, 240, .95); }
+.nasi-start-btn { border-color: rgba(0, 240, 255, .95); }
 /* ── Hot core / cool edge ──
    Every glow below stacks a small near-white bloom (--glow-core) INSIDE the
    coloured halo. That two-tone mix is what makes a light source read as hot at
    the centre and cool at the edge, instead of one flat coloured smear. */
 .nasi-feed-status.online {
-  box-shadow: 0 0 4px var(--glow-core), 0 0 16px rgba(0, 232, 138, .95), 0 0 34px rgba(0, 232, 138, .45);
+  box-shadow: 0 0 4px var(--glow-core), 0 0 16px rgba(0, 255, 136, .95), 0 0 34px rgba(0, 255, 136, .45);
 }
 .nasi-roster-pill.active {
   box-shadow: 0 0 6px -1px var(--glow-core), 0 0 20px -1px var(--agent-color), 0 0 36px -8px var(--agent-color);
 }
 .nasi-roster-dot.active, .nasi-dept-pill-dot.active {
-  box-shadow: 0 0 4px var(--glow-core), 0 0 12px rgba(0, 232, 138, .95), 0 0 28px rgba(0, 232, 138, .5);
+  box-shadow: 0 0 4px var(--glow-core), 0 0 12px rgba(0, 255, 136, .95), 0 0 28px rgba(0, 255, 136, .5);
 }
 .nasi-agent-town-dot.live {
-  box-shadow: 0 0 4px var(--glow-core), 0 0 12px rgba(0, 232, 138, .95), 0 0 30px rgba(0, 232, 138, .52);
+  box-shadow: 0 0 4px var(--glow-core), 0 0 12px rgba(0, 255, 136, .95), 0 0 30px rgba(0, 255, 136, .52);
 }
 .nasi-core-card-dot { box-shadow: 0 0 4px var(--glow-core), 0 0 10px var(--cyan), 0 0 22px color-mix(in srgb, var(--cyan) 60%, transparent); }
 .nasi-status-dot.online {
-  box-shadow: 0 0 4px var(--glow-core), 0 0 12px rgba(0, 232, 138, .9), 0 0 26px rgba(0, 232, 138, .45);
+  box-shadow: 0 0 4px var(--glow-core), 0 0 12px rgba(0, 255, 136, .9), 0 0 26px rgba(0, 255, 136, .45);
 }
 .nasi-status-dot, .nasi-feed-status, .nasi-roster-dot, .nasi-dept-pill-dot, .nasi-agent-town-dot {
   /* hot core also on the neutral/offline dots, so no dot looks like a flat disc */
@@ -709,7 +709,7 @@
 .nasi-settings-chip { background: rgba(5, 9, 12, .75); }
 .nasi-settings-input { background: rgba(5, 9, 12, .85); }
 .nasi-settings-select { background-color: rgba(5, 9, 12, .85); }
-.nasi-settings-provider-fields { border-left: 1px solid rgba(0, 235, 240, .45); }
+.nasi-settings-provider-fields { border-left: 1px solid rgba(0, 240, 255, .45); }
 .nasi-toggle { background: rgba(5, 9, 12, .85); }
 .nasi-agent-capabilities { background: rgba(5, 9, 12, .6); }
 .nasi-agent-connection-status { background: rgba(5, 9, 12, .6); }
@@ -723,10 +723,10 @@
    Loaded last so these intentional emphasis rules win over the base skin.
    ═══════════════════════════════════════════════════════════════ */
 :root {
-  --cyan: #00f2f4;
+  --cyan: #00f0ff;
   --cyan-dim: #12bcc2;
-  --emerald: #00f095;
-  --amber: #ffbd32;
+  --emerald: #00ff88;
+  --amber: #ff8c00;
   --crimson: #ff5e62;
 }
 
@@ -735,22 +735,22 @@
 .nasi-app { isolation: isolate; }
 .nasi-app::before {
   background-image:
-    radial-gradient(circle at 14% 24%, rgba(0, 242, 244, .72) 0 2.4px, transparent 3.8px),
-    radial-gradient(circle at 78% 18%, rgba(0, 240, 149, .58) 0 2.2px, transparent 3.6px),
-    radial-gradient(circle at 63% 74%, rgba(0, 242, 244, .48) 0 2px, transparent 3.4px),
-    radial-gradient(circle at 31% 82%, rgba(255, 189, 50, .46) 0 2.1px, transparent 3.5px),
+    radial-gradient(circle at 14% 24%, rgba(0, 240, 255, .72) 0 2.4px, transparent 3.8px),
+    radial-gradient(circle at 78% 18%, rgba(0, 255, 136, .58) 0 2.2px, transparent 3.6px),
+    radial-gradient(circle at 63% 74%, rgba(0, 240, 255, .48) 0 2px, transparent 3.4px),
+    radial-gradient(circle at 31% 82%, rgba(255, 140, 0, .46) 0 2.1px, transparent 3.5px),
     radial-gradient(circle at 48% 42%, rgba(213, 255, 255, .38) 0 1.5px, transparent 2.8px),
-    repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0, 242, 244, .012) 3px, rgba(0, 242, 244, .012) 4px);
+    repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0, 240, 255, .012) 3px, rgba(0, 240, 255, .012) 4px);
   background-size: 360px 280px, 460px 370px, 560px 450px, 640px 520px, 520px 410px, auto;
   animation: nasi-ambient-drift 22s linear infinite;
   opacity: 1;
 }
 .nasi-app::after {
   background:
-    radial-gradient(circle at 84% 30%, rgba(0, 242, 244, .28) 0 2px, transparent 3.2px),
-    radial-gradient(circle at 18% 68%, rgba(0, 240, 149, .24) 0 1.8px, transparent 3px),
-    radial-gradient(circle at 90% 76%, rgba(255, 189, 50, .2) 0 1.6px, transparent 2.8px),
-    radial-gradient(ellipse 70% 55% at 50% 40%, rgba(0, 242, 244, .018), transparent 55%),
+    radial-gradient(circle at 84% 30%, rgba(0, 240, 255, .28) 0 2px, transparent 3.2px),
+    radial-gradient(circle at 18% 68%, rgba(0, 255, 136, .24) 0 1.8px, transparent 3px),
+    radial-gradient(circle at 90% 76%, rgba(255, 140, 0, .2) 0 1.6px, transparent 2.8px),
+    radial-gradient(ellipse 70% 55% at 50% 40%, rgba(0, 240, 255, .018), transparent 55%),
     radial-gradient(ellipse 130% 100% at 50% 48%, transparent 42%, rgba(0, 0, 0, .9) 100%);
   background-size: 280px 230px, 390px 320px, 520px 410px, auto, auto;
   animation: nasi-ambient-drift-reverse 28s linear infinite;
@@ -771,8 +771,8 @@
 .nasi-core-canvas {
   filter:
     drop-shadow(0 0 18px rgba(213, 255, 255, .42))
-    drop-shadow(0 0 72px rgba(0, 242, 244, .42))
-    drop-shadow(0 0 190px rgba(0, 242, 244, .22));
+    drop-shadow(0 0 72px rgba(0, 240, 255, .42))
+    drop-shadow(0 0 190px rgba(0, 240, 255, .22));
 }
 
 /* Premium edge shimmer. The mask keeps the highlight on the border itself,
@@ -785,7 +785,7 @@
   z-index: 4;
   padding: 2px;
   pointer-events: none;
-  background: linear-gradient(110deg, transparent 18%, rgba(0, 242, 244, .16) 34%, rgba(235, 255, 255, 1) 50%, rgba(0, 240, 149, .2) 66%, transparent 82%);
+  background: linear-gradient(110deg, transparent 18%, rgba(0, 240, 255, .16) 34%, rgba(235, 255, 255, 1) 50%, rgba(0, 255, 136, .2) 66%, transparent 82%);
   background-size: 300% 100%;
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
@@ -804,22 +804,22 @@
 .nasi-start-btn {
   box-shadow:
     0 0 14px var(--glow-core),
-    0 0 78px rgba(0, 242, 244, .52),
-    0 0 190px rgba(0, 242, 244, .26),
-    inset 0 0 34px rgba(0, 242, 244, .18);
+    0 0 78px rgba(0, 240, 255, .52),
+    0 0 190px rgba(0, 240, 255, .26),
+    inset 0 0 34px rgba(0, 240, 255, .18);
 }
 @keyframes start-idle-pulse {
   0%, 100% {
-    box-shadow: 0 0 14px var(--glow-core), 0 0 78px rgba(0, 242, 244, .52), 0 0 190px rgba(0, 242, 244, .26), inset 0 0 34px rgba(0, 242, 244, .18);
-    border-color: rgba(0, 242, 244, .82);
+    box-shadow: 0 0 14px var(--glow-core), 0 0 78px rgba(0, 240, 255, .52), 0 0 190px rgba(0, 240, 255, .26), inset 0 0 34px rgba(0, 240, 255, .18);
+    border-color: rgba(0, 240, 255, .82);
   }
   50% {
-    box-shadow: 0 0 20px var(--glow-core), 0 0 112px rgba(0, 242, 244, .78), 0 0 250px rgba(0, 242, 244, .36), inset 0 0 48px rgba(0, 242, 244, .28);
-    border-color: rgba(0, 242, 244, 1);
+    box-shadow: 0 0 20px var(--glow-core), 0 0 112px rgba(0, 240, 255, .78), 0 0 250px rgba(0, 240, 255, .36), inset 0 0 48px rgba(0, 240, 255, .28);
+    border-color: rgba(0, 240, 255, 1);
   }
 }
 .nasi-start-btn:hover {
-  box-shadow: 0 0 112px rgba(0, 242, 244, .78), 0 0 250px rgba(0, 242, 244, .36), inset 0 0 48px rgba(0, 242, 244, .28);
+  box-shadow: 0 0 112px rgba(0, 240, 255, .78), 0 0 250px rgba(0, 240, 255, .36), inset 0 0 48px rgba(0, 240, 255, .28);
 }
 
 /* Active indicators now read as light sources, not colored pixels. */
@@ -835,4 +835,193 @@
   .nasi-app::before, .nasi-app::after,
   .nasi-core-card::before, .nasi-agent-town::before,
   .nasi-start-btn { animation: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   NASI DESIGN SYSTEM — final value layer
+   Deep space navy #0a0e17 → #0d1117, neon cyan #00f0ff, amber
+   #ff8c00, electric green #00ff88, crimson #ff2244, 25/45/30
+   columns, glassmorphic cards. Loaded last so every earlier
+   approximation is replaced directly.
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  --bg: #0a0e17;
+  --bg-2: #0d1117;
+  --page-grad: linear-gradient(180deg, #0a0e17 0%, #0d1117 100%);
+  /* Glassmorphism: translucent deep-space navy + backdrop blur. */
+  --panel: rgba(10, 14, 23, 0.85);
+  --panel-2: rgba(10, 14, 23, 0.85);
+  --card-bg: rgba(10, 14, 23, 0.85);
+  --card-border: rgba(0, 240, 255, 0.15);
+  --line: rgba(0, 240, 255, 0.15);
+  --cyan: #00f0ff;
+  --cyan-dim: #00b8cc;
+  --emerald: #00ff88;
+  --amber: #ff8c00;
+  --crimson: #ff2244;
+  --text: #e0e6ed;
+  --text-2: #8892a0;
+  --glow-cyan: rgba(0, 240, 255, 0.6);
+  --cyan-blend: #00f0ff;
+  --glow-cyan-blend: #00f0ff;
+  --font: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Consolas, monospace;
+  --mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Consolas, monospace;
+  /* UI copy uses Inter; terminal/code surfaces keep the mono stack. */
+  --font-ui: 'Inter', 'JetBrains Mono', system-ui, -apple-system, sans-serif;
+  --card-glow: 0 0 10px rgba(0, 240, 255, 0.1);
+}
+
+html, body, #root { background: #0a0e17; }
+.nasi-app {
+  grid-template-rows: 32px 1fr auto;
+  background: var(--page-grad);
+}
+.nasi-app::after {
+  background: radial-gradient(ellipse 74% 62% at 50% 44%, rgba(10, 14, 23, 0) 28%, rgba(4, 7, 12, .5) 72%, rgba(0, 0, 0, .94) 100%);
+}
+.nasi-topbar { height: 32px; min-height: 32px; }
+.nasi-command-center {
+  grid-template-columns: minmax(0, 25fr) minmax(0, 45fr) minmax(0, 30fr);
+  gap: 12px;
+  padding: 0;
+}
+.nasi-left-panel,
+.nasi-console-panel,
+.nasi-core-card,
+.nasi-agent-town {
+  margin: 0;
+  border: 1px solid rgba(0, 240, 255, 0.15);
+  background: rgba(10, 14, 23, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.1);
+}
+.nasi-left-panel,
+.nasi-console-panel { height: 100%; }
+.nasi-center-panel {
+  gap: 10px;
+  padding: 0;
+  background: transparent;
+}
+
+/* Header/label typography: exact 9–11px range with 2–3px tracking. */
+.nasi-topbar-btn,
+.nasi-feed-header,
+.nasi-core-card-label,
+.nasi-routing-node-label,
+.nasi-agent-town-title,
+.nasi-agent-tab,
+.nasi-dept-pill-name,
+.nasi-roster-name,
+.nasi-console-tab,
+.nasi-state-label,
+.nasi-voice-section-label,
+.nasi-notes-label,
+.nasi-settings-label,
+.nasi-sidebar-title,
+.nasi-start-btn {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 10px;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+}
+.nasi-brandname { font-size: 11px; letter-spacing: 2.5px; }
+
+/* Exact node accents, including presentation attributes on the measured SVG.
+   MEMORY cyan · SKILLS green · SOUL amber · SETTING white. */
+.nasi-routing-node[data-node-id="MEMORY"] { --node-color: #00f0ff !important; }
+.nasi-routing-node[data-node-id="SKILLS"] { --node-color: #00ff88 !important; }
+.nasi-routing-node[data-node-id="SOUL"] { --node-color: #ff8c00 !important; }
+.nasi-routing-node[data-node-id="SETTING"] { --node-color: #e0e6ed !important; }
+.nasi-route-group[data-route-id="MEMORY"] { stroke: #00f0ff !important; }
+.nasi-route-group[data-route-id="SETTING"] { stroke: #e0e6ed !important; }
+.nasi-route-group[data-route-id="SKILLS"] { stroke: #00ff88 !important; }
+.nasi-route-group[data-route-id="SOUL"] { stroke: #ff8c00 !important; }
+.nasi-theme-chip:first-child {
+  border-color: rgba(0, 240, 255, .6) !important;
+  box-shadow: 0 0 10px rgba(0, 240, 255, .25) !important;
+}
+.nasi-agent-connection-status > span:first-child.active { background: #00ff88 !important; }
+
+/* Exact core footprint and glow. */
+.nasi-core-wrapper { width: 200px; height: 200px; }
+.nasi-core-canvas {
+  width: 160px !important;
+  height: 160px !important;
+  filter: none !important;
+  box-shadow: 0 0 60px rgba(0,240,255,0.12), 0 0 120px rgba(0,240,255,0.04);
+}
+.nasi-core-area { gap: 10px; }
+
+/* Routing lines: 1.5px straight segments only. */
+.nasi-route-base,
+.nasi-route-glow,
+.nasi-route-flow {
+  stroke-width: 1.5px;
+  stroke-linecap: butt;
+  stroke-linejoin: miter;
+}
+.nasi-route-glow { filter: none; opacity: .2; }
+.nasi-route-base { opacity: .7; }
+.nasi-route-flow { opacity: .8; }
+.nasi-route-group.active .nasi-route-base,
+.nasi-route-group.active .nasi-route-flow { stroke-width: 1.5px; }
+
+/* START: cut-corner plate with an animated border ring. */
+.nasi-start-btn {
+  border: 1px solid #00f0ff;
+  border-radius: 0;
+  clip-path: polygon(
+    10px 0,
+    calc(100% - 10px) 0,
+    100% 10px,
+    100% calc(100% - 10px),
+    calc(100% - 10px) 100%,
+    10px 100%,
+    0 calc(100% - 10px),
+    0 10px
+  );
+  box-shadow: 0 0 60px rgba(0,240,255,0.12), 0 0 120px rgba(0,240,255,0.04);
+  animation: none;
+}
+.nasi-start-btn::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border: 1px solid rgba(0, 240, 255, .6);
+  clip-path: inherit;
+  pointer-events: none;
+  animation: nasi-start-ring 2.6s ease-in-out infinite;
+}
+@keyframes nasi-start-ring {
+  0%, 100% { opacity: .2; }
+  50% { opacity: 1; }
+}
+.nasi-start-btn:hover {
+  box-shadow: 0 0 60px rgba(0,240,255,0.12), 0 0 120px rgba(0,240,255,0.04);
+}
+
+/* Thin 4px cyan scrollbars on a dark track. */
+.nasi-console-body::-webkit-scrollbar,
+.nasi-settings-modal::-webkit-scrollbar,
+.nasi-memory-list::-webkit-scrollbar { width: 4px; }
+.nasi-console-body::-webkit-scrollbar-track,
+.nasi-settings-modal::-webkit-scrollbar-track,
+.nasi-memory-list::-webkit-scrollbar-track { background: rgba(10, 14, 23, .9); }
+.nasi-console-body::-webkit-scrollbar-thumb,
+.nasi-settings-modal::-webkit-scrollbar-thumb,
+.nasi-memory-list::-webkit-scrollbar-thumb {
+  background: rgba(0, 240, 255, .35);
+  border-radius: 2px;
+}
+.nasi-console-body::-webkit-scrollbar-thumb:hover,
+.nasi-settings-modal::-webkit-scrollbar-thumb:hover,
+.nasi-memory-list::-webkit-scrollbar-thumb:hover { background: rgba(0, 240, 255, .6); }
+
+@media (max-width: 768px) {
+  .nasi-command-center { grid-template-columns: 1fr; gap: 10px; }
+  .nasi-left-panel, .nasi-console-panel, .nasi-core-card, .nasi-agent-town { backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .nasi-center-panel { gap: 10px; }
+  .nasi-core-wrapper { width: 200px; height: 200px; }
+  .nasi-core-canvas { width: 160px !important; height: 160px !important; }
 }

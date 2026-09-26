@@ -55,6 +55,8 @@ interface NasiSettings {
   geminiApiKey: string; geminiModel: string; openaiApiKey: string; openaiModel: string;
   claudeApiKey: string; claudeModel: string; grokApiKey: string; grokModel: string; activeProvider: string;
   elevenlabsApiKey: string; elevenlabsVoiceId: string; elevenlabsModel: string; customVoiceId: string;
+  /** Human label for a custom voice — shown in the voice log instead of the raw ID. */
+  customVoiceName: string;
 }
 const DEFAULT_SETTINGS: NasiSettings = {
   assistantName: 'NASI', theme: 'cyan', animationIntensity: 'medium',
@@ -62,7 +64,7 @@ const DEFAULT_SETTINGS: NasiSettings = {
   autoSpeak: true, liveVoice: false, memoryEnabled: true, contextLength: 20, personality: 'warm',
   geminiApiKey: '', geminiModel: 'gemini-2.0-flash', openaiApiKey: '', openaiModel: 'gpt-4o-mini',
   claudeApiKey: '', claudeModel: 'claude-3-haiku-20240307', grokApiKey: '', grokModel: 'grok-2-1212', activeProvider: 'gemini',
-  elevenlabsApiKey: '', elevenlabsVoiceId: '21m00Tcm4TlvDq8ikWAM', elevenlabsModel: 'eleven_flash_v2_5', customVoiceId: '',
+  elevenlabsApiKey: '', elevenlabsVoiceId: '21m00Tcm4TlvDq8ikWAM', elevenlabsModel: 'eleven_flash_v2_5', customVoiceId: '', customVoiceName: '',
 };
 function loadSettings(): NasiSettings {
   try {
@@ -86,11 +88,18 @@ function loadSettings(): NasiSettings {
   return { ...DEFAULT_SETTINGS };
 }
 function saveSettings(s: NasiSettings) {
+  // Dual-write: localStorage is the fast/offline cache, the server copy is the
+  // cross-device source of truth (fetched on load by the sync effect below).
   try {
     localStorage.setItem('nasi_settings', JSON.stringify(s));
   } catch (err) {
     console.warn('[Settings] Failed to save to localStorage:', err);
   }
+  fetch('/api/settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ settings: s }),
+  }).catch(err => console.warn('[Settings] Server save failed:', err));
 }
 
 // Baseline agent roster. `status` here is the RESTING state only — the Manager
@@ -104,20 +113,20 @@ const DEPT_SHORT: Record<string, string> = {
 };
 
 const AGENTS: Agent[] = [
-  { name: 'Manager', role: 'NASI Manager', color: '#00ebf0', status: 'Idle', initials: 'NM', department: 'Core' },
-  { name: 'Research', role: 'Research Agent', color: '#00ebf0', status: 'Idle', initials: 'RA', department: 'Research' },
-  { name: 'Browser', role: 'Web Agent', color: '#00e88a', status: 'Idle', initials: 'WA', department: 'Web' },
-  { name: 'Shopify', role: 'Shopify Agent', color: '#00e88a', status: 'Not Connected', initials: 'SA', department: 'Commerce' },
-  { name: 'Computer', role: 'Computer Agent', color: '#ffb020', status: 'Not Connected', initials: 'CA', department: 'Infrastructure' },
-  { name: 'Comm', role: 'Communication Agent', color: '#00ebf0', status: 'Not Connected', initials: 'CO', department: 'Communication' },
-  { name: 'File', role: 'File Agent', color: '#ffb020', status: 'Idle', initials: 'FA', department: 'Infrastructure' },
-  { name: 'Security', role: 'Security Agent', color: '#ff5252', status: 'Idle', initials: 'XA', department: 'Security' },
+  { name: 'Manager', role: 'NASI Manager', color: '#00f0ff', status: 'Idle', initials: 'NM', department: 'Core' },
+  { name: 'Research', role: 'Research Agent', color: '#00f0ff', status: 'Idle', initials: 'RA', department: 'Research' },
+  { name: 'Browser', role: 'Web Agent', color: '#00ff88', status: 'Idle', initials: 'WA', department: 'Web' },
+  { name: 'Shopify', role: 'Shopify Agent', color: '#00ff88', status: 'Not Connected', initials: 'SA', department: 'Commerce' },
+  { name: 'Computer', role: 'Computer Agent', color: '#ff8c00', status: 'Not Connected', initials: 'CA', department: 'Infrastructure' },
+  { name: 'Comm', role: 'Communication Agent', color: '#00f0ff', status: 'Not Connected', initials: 'CO', department: 'Communication' },
+  { name: 'File', role: 'File Agent', color: '#ff8c00', status: 'Idle', initials: 'FA', department: 'Infrastructure' },
+  { name: 'Security', role: 'Security Agent', color: '#ff2244', status: 'Idle', initials: 'XA', department: 'Security' },
 ];
 const PROVIDERS = [
-  { id: 'gemini', name: 'Google Gemini', keyEnv: 'GEMINI_API_KEY' },
-  { id: 'openai', name: 'OpenAI', keyEnv: 'OPENAI_API_KEY' },
-  { id: 'claude', name: 'Anthropic Claude', keyEnv: 'CLAUDE_API_KEY' },
-  { id: 'grok', name: 'xAI Grok', keyEnv: 'GROK_API_KEY' },
+  { id: 'gemini', name: 'Google Gemini', short: 'Gemini', using: 'Gemini', keyLabel: 'Gemini API Key', keyEnv: 'GEMINI_API_KEY' },
+  { id: 'openai', name: 'OpenAI', short: 'OpenAI (GPT)', using: 'OpenAI', keyLabel: 'OpenAI API Key', keyEnv: 'OPENAI_API_KEY' },
+  { id: 'grok', name: 'xAI Grok', short: 'Grok (xAI)', using: 'Grok', keyLabel: 'xAI API Key', keyEnv: 'GROK_API_KEY' },
+  { id: 'claude', name: 'Anthropic Claude', short: 'Claude (Anthropic)', using: 'Claude', keyLabel: 'Anthropic API Key', keyEnv: 'CLAUDE_API_KEY' },
 ];
 
 // Real ElevenLabs premade voice IDs (verified against the ElevenLabs library).
@@ -151,14 +160,14 @@ function SystemFeed({ connectionStatus, coreState, memories, orchestrationText }
   }, []);
 
   const events = useMemo(() => [
-    { time: 'NOW', text: `NASI Core: ${coreState}`, color: coreState === 'IDLE' ? '#1a7a55' : '#00ebf0' },
-    { time: 'SYS', text: `Backend: ${connectionStatus}`, color: connectionStatus === 'online' ? '#00e88a' : '#ff5252' },
-    { time: 'MEM', text: `${vectorStats?.totalMemories ?? memories.length} memories (${vectorStats?.embeddingType || 'tfidf'})`, color: '#ffb020' },
+    { time: 'MON', text: `NASI Core: ${coreState}`, color: '#00f0ff' },
+    { time: 'SYS', text: `Backend: ${connectionStatus}`, color: connectionStatus === 'online' ? '#00ff88' : '#ff2244' },
+    { time: 'MEM', text: `${vectorStats?.totalMemories ?? memories.length} memories (${vectorStats?.embeddingType || 'tfidf'})`, color: '#4d9fff' },
     orchestrationText
-      ? { time: 'Agt', text: orchestrationText, color: '#00e88a' }
-      : { time: 'Agt', text: `${AGENTS.filter(a => a.status !== 'Not Connected').length} agents standing by`, color: '#00ebf0' },
-    { time: 'NET', text: 'Voice pipeline: Browser STT + ElevenLabs TTS', color: '#6d9296' },
-    { time: 'SEC', text: 'Security monitoring active', color: '#ff5252' },
+      ? { time: 'AGT', text: orchestrationText, color: '#b26bff' }
+      : { time: 'AGT', text: `${AGENTS.filter(a => a.status !== 'Not Connected').length} agents standing by`, color: '#b26bff' },
+    { time: 'NET', text: 'Voice pipeline: Browser STT + ElevenLabs TTS', color: '#e0e6ed' },
+    { time: 'SEC', text: 'Security monitoring active', color: '#ff2244' },
   ], [connectionStatus, coreState, memories.length, vectorStats, orchestrationText]);
 
   return (
@@ -402,7 +411,7 @@ function LiveConsolePanel({
             <div className="nasi-voice-section-label">CONVERSATION</div>
             {messages.map((msg, i) => (
               <div key={i} className="nasi-console-line">
-                <span className="nasi-console-ts">{msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                <span className="nasi-console-ts">{msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''}</span>
                 <span className={`nasi-console-badge ${msg.from === 'user' ? 'user' : 'nasi'}`}>{msg.from === 'user' ? 'U' : 'N'}</span>
                 <span className="nasi-console-text">{msg.text.length > 300 ? msg.text.slice(0, 300) + '...' : msg.text}</span>
               </div>
@@ -416,7 +425,7 @@ function LiveConsolePanel({
       </div>
 
       {/* Command input at bottom of console */}
-      <div style={{ padding: '8px 10px', borderTop: '1px solid rgba(0, 235, 240,.05)' }}>
+      <div style={{ padding: '8px 10px', borderTop: '1px solid rgba(0, 240, 255,.05)' }}>
         <div className="nasi-command-input" style={{ maxWidth: '100%' }}>
           <input className="nasi-input" value={command} onChange={e => setCommand(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && command.trim()) handleSend(command); }} placeholder="Talk to NASI..." />
@@ -489,7 +498,7 @@ function MemoryModal({ memories, deleteMemory, clearMemories, onClose }: {
                 <div className="nasi-memory-item-header">
                   <span className="nasi-memory-category">{m.category}</span>
                   <span className="nasi-memory-importance">★ {m.importance}</span>
-                  {m._score != null && <span style={{ fontSize: 9, color: '#00ebf0', opacity: 0.7 }}>({(m._score * 100).toFixed(0)}% match)</span>}
+                  {m._score != null && <span style={{ fontSize: 9, color: '#00f0ff', opacity: 0.7 }}>({(m._score * 100).toFixed(0)}% match)</span>}
                 </div>
                 <div className="nasi-memory-key">{m.key}</div>
                 <div className="nasi-memory-value">{m.value}</div>
@@ -529,53 +538,51 @@ function App() {
   // finishes faster than the hop still shows the routed agent working first.
   const delegationRef = useRef({ routed: false, done: false });
 
-// Apply theme CSS variables from settings.theme whenever the theme changes
+// The Stonic reference uses one fixed instrument palette. Keep the saved theme
+// preference for compatibility, but never override the exact reference colors.
 useEffect(() => {
   const root = document.documentElement;
   const body = document.body;
-  const apply = (t: NasiSettings['theme']) => {
-    if (t === 'cyan') {
-      // Canonical palette — must match the :root defaults in styles.css, since
-      // these inline properties win over the stylesheet on load.
-      root.style.setProperty('--cyan', '#00ebf0');
-      root.style.setProperty('--cyan-dim', '#0fa8b0');
-      root.style.setProperty('--emerald', '#00e88a');
-      root.style.setProperty('--amber', '#ffb020');
-      root.style.setProperty('--crimson', '#ff5252');
-      root.style.setProperty('--line', 'rgba(0, 235, 240, .18)');
-      root.style.setProperty('--line-2', 'rgba(0, 235, 240, .34)');
-      root.style.setProperty('--line-3', 'rgba(0, 235, 240, .48)');
-      root.style.setProperty('--glow-cyan', 'rgba(0, 235, 240, .6)');
-      body.style.background = '#000000';
-    } else if (t === 'emerald') {
-      root.style.setProperty('--cyan', '#00ff88');
-      root.style.setProperty('--cyan-dim', '#109c5a');
-      root.style.setProperty('--emerald', '#66ffbb');
-      root.style.setProperty('--amber', '#ffd24a');
-      root.style.setProperty('--crimson', '#ff5a5a');
-      root.style.setProperty('--line', 'rgba(0, 255, 136, .18)');
-      root.style.setProperty('--line-2', 'rgba(0, 255, 136, .34)');
-      root.style.setProperty('--line-3', 'rgba(0, 255, 136, .48)');
-      root.style.setProperty('--glow-cyan', 'rgba(0, 255, 136, .6)');
-      body.style.background = '#000c06';
-    } else if (t === 'crimson') {
-      root.style.setProperty('--cyan', '#ff6644');
-      root.style.setProperty('--cyan-dim', '#9f2e16');
-      root.style.setProperty('--emerald', '#ff8a6a');
-      root.style.setProperty('--amber', '#ffe2a0');
-      root.style.setProperty('--crimson', '#ff2222');
-      root.style.setProperty('--line', 'rgba(255, 102, 68, .18)');
-      root.style.setProperty('--line-2', 'rgba(255, 102, 68, .34)');
-      root.style.setProperty('--line-3', 'rgba(255, 102, 68, .48)');
-      root.style.setProperty('--glow-cyan', 'rgba(255, 102, 68, .6)');
-      body.style.background = '#0c0202';
-    }
-  };
-  apply(settings.theme);
-  return () => { root.style.setProperty('--cyan', '#00ebf0'); root.style.setProperty('--line', 'rgba(0, 235, 240, .18)'); body.style.background = '#000000'; };
-}, [settings.theme]);
+  root.style.setProperty('--cyan', '#00f0ff');
+  root.style.setProperty('--cyan-dim', '#00a8c8');
+  root.style.setProperty('--emerald', '#00ff88');
+  root.style.setProperty('--amber', '#ff8c00');
+  root.style.setProperty('--crimson', '#ff2244');
+  root.style.setProperty('--line', 'rgba(0, 240, 255, 0.15)');
+  root.style.setProperty('--line-2', 'rgba(0, 240, 255, 0.34)');
+  root.style.setProperty('--line-3', 'rgba(0, 240, 255, 0.48)');
+  root.style.setProperty('--glow-cyan', 'rgba(0, 240, 255, 0.6)');
+  body.style.background = '#0a0e17';
+  return () => { body.style.background = '#0a0e17'; };
+}, []);
   const [settingsDraft, setSettingsDraft] = useState<NasiSettings>(settings);
   const [settingsSaved, setSettingsSaved] = useState(false);
+
+  // ── Cross-device settings sync ── On load, the server copy wins (source of
+  // truth); localStorage is only the fallback when the server call fails.
+  // Setting BOTH states to the same object keeps the debounced auto-save from
+  // echoing a PUT back at the server we just read from.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/settings');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const server = data?.settings;
+        if (!cancelled && server && typeof server === 'object') {
+          const merged = { ...DEFAULT_SETTINGS, ...server } as NasiSettings;
+          setSettings(merged);
+          setSettingsDraft(merged);
+          try { localStorage.setItem('nasi_settings', JSON.stringify(merged)); } catch { /* cache best-effort */ }
+        }
+      } catch (err) {
+        // Server unreachable — keep the localStorage copy loaded at startup.
+        console.warn('[Settings] Server sync unavailable, using localStorage:', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const [liveVoiceActive, setLiveVoiceActive] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'online' | 'offline'>('checking');
   const [activeNode, setActiveNode] = useState<string | null>(null);
@@ -591,19 +598,21 @@ useEffect(() => {
     if (showChat) { setRoutes([]); return; }
     const center = centerRef.current, nodes = nodesRef.current, core = coreRef.current;
     const overlay = center?.querySelector<SVGSVGElement>('.nasi-routing-overlay');
-    if (!center || !nodes || !core || !overlay) return;
+    const orb = core?.querySelector<HTMLCanvasElement>('.nasi-core-canvas');
+    if (!center || !nodes || !core || !orb || !overlay) return;
     const cb = center.getBoundingClientRect();
     // Coordinates are measured against the SVG overlay itself — it is inset in
     // the core card, not the center panel, so using the panel would draw every
     // trace offset by the card's position within the panel.
     const sb = overlay.getBoundingClientRect();
     const coreB = core.getBoundingClientRect();
+    const orbB = orb.getBoundingClientRect();
     const nodeEls = nodes.querySelectorAll<HTMLElement>('.nasi-routing-node');
     const defs = [
-      { id: 'MEMORY', color: '#00ebf0' },
-      { id: 'SKILLS', color: '#00e88a' },
-      { id: 'SOUL', color: '#ffb020' },
-      { id: 'SETTING', color: '#8fa3b8' },
+      { id: 'MEMORY', color: '#00f0ff' },
+      { id: 'SKILLS', color: '#00ff88' },
+      { id: 'SOUL', color: '#ff8c00' },
+      { id: 'SETTING', color: '#e0e6ed' },
     ];
     const next: { id: string; color: string; d: string; tx: number; ty: number }[] = [];
     nodeEls.forEach((el, ni) => {
@@ -615,24 +624,19 @@ useEffect(() => {
       if (coreB.left < cb.left || coreB.right > cb.right) return;
       const sx = nb.right - sb.left;
       const sy = nb.top + nb.height / 2 - sb.top;
-      const orbCx = coreB.left + coreB.width / 2 - sb.left;
-      const cy = coreB.top + coreB.height / 2 - sb.top;
-      // Traces run straight right from each node into the orb's LEFT side. Each
-      // line lands on its own contact point down the orb's edge, so the four stay
-      // parallel-ish instead of all four piling into one spot. The top and bottom
-      // lines get a single gentle elbow; the middle two are near-straight.
-      const entryX = coreB.left - sb.left - 4;
-      // Bail only when the node's right edge actually reaches the orb. A
-      // larger threshold silently erased every trace whenever the card's
-      // flex layout shifted the nav column a few pixels toward the orb.
-      if (entryX <= sx + 2) return;
+      const orbCx = orbB.left + orbB.width / 2 - sb.left;
+      const cy = orbB.top + orbB.height / 2 - sb.top;
+      // Each trace leaves the nav button with one exact 40px horizontal run,
+      // then makes one sharp angled segment into the orb's left edge. There is
+      // deliberately no curve or extra elbow in this reference geometry.
+      const entryX = orbB.left - sb.left - 2;
+      const bendX = sx + 40;
+      if (entryX <= bendX + 2) return;
       const spread = Math.min(15, coreB.height * 0.085);
       const entryY = cy + (ni - 1.5) * spread;
-      // Staggered bend points so no two elbows sit on the same vertical line.
-      const bendX = sx + (entryX - sx) * (0.46 + ni * 0.05);
       const d =
-        `M ${sx.toFixed(1)},${sy.toFixed(1)} H ${bendX.toFixed(1)} ` +
-        `Q ${entryX.toFixed(1)},${sy.toFixed(1)} ${entryX.toFixed(1)},${entryY.toFixed(1)}`;
+        `M ${sx.toFixed(1)},${sy.toFixed(1)} ` +
+        `H ${bendX.toFixed(1)} L ${entryX.toFixed(1)},${entryY.toFixed(1)}`;
       next.push({ id: def.id, color: def.color, d, tx: orbCx, ty: cy });
     });
     setRoutes(next);
@@ -668,6 +672,11 @@ useEffect(() => {
     // Use customVoiceId if set, otherwise fall back to preset voice selection
     elevenlabsVoiceId: settings.customVoiceId || settings.elevenlabsVoiceId || undefined,
     elevenlabsModel: settings.elevenlabsModel || undefined,
+    // Human label for the voice log: custom name first, then the preset voice's
+    // name — the raw ID only shows when the user never labelled the voice.
+    elevenlabsVoiceName: settings.customVoiceName ||
+      (!settings.customVoiceId && elevenlabsVoices.find(v => v.id === settings.elevenlabsVoiceId)?.name) ||
+      undefined,
   }), [settings]);
 
   const { micStatus, transcript, lastTranscript, voicesLoaded, voiceLog, errorMessage, startListening, stopAll, stopSpeech, speak, pushLog } = useVoice(voiceConfig);
@@ -688,6 +697,7 @@ useEffect(() => {
     const draftActive = showSettings;
     const apiKey = draftActive ? settingsDraft.elevenlabsApiKey : settings.elevenlabsApiKey;
     const voiceId = draftActive ? (settingsDraft.customVoiceId || settingsDraft.elevenlabsVoiceId) : (settings.customVoiceId || settings.elevenlabsVoiceId);
+    const voiceLabel = (draftActive ? settingsDraft.customVoiceName : settings.customVoiceName) || voiceId;
     const model = draftActive ? settingsDraft.elevenlabsModel : settings.elevenlabsModel;
     const speed = draftActive ? settingsDraft.voiceSpeed : settings.voiceSpeed;
     const pitch = draftActive ? settingsDraft.voicePitch : settings.voicePitch;
@@ -695,7 +705,7 @@ useEffect(() => {
     // If ElevenLabs API key is available (from draft or saved), call it directly
     // to avoid stale closure issues with the useVoice hook.
     if (apiKey && apiKey.trim()) {
-      pushLog(`TTS: TEST — calling ElevenLabs directly (key=${apiKey.slice(0,4)}..., voice=${voiceId})`, true);
+      pushLog(`TTS: TEST — calling ElevenLabs directly (key=${apiKey.slice(0,4)}..., voice=${voiceLabel})`, true);
       try {
         const res = await fetch('/api/voice/tts', {
           method: 'POST',
@@ -761,6 +771,7 @@ useEffect(() => {
   const sentenceQueueRef = useRef<string[]>([]);
   const isSpeakingQueueRef = useRef(false);
   const queueDoneRef = useRef(false);
+  const voiceTurnStartRef = useRef(0);
 
   const pumpSentenceQueue = useCallback(async () => {
     if (isSpeakingQueueRef.current) return;
@@ -769,7 +780,12 @@ useEffect(() => {
       while (sentenceQueueRef.current.length > 0) {
         const sentence = sentenceQueueRef.current.shift()!;
         const ttsText = sentence.length > 500 ? sentence.slice(0, 500) + '...' : sentence;
-        await speak(ttsText, settings.voiceSpeed, settings.voicePitch, settings.voiceVolume);
+        await speak(ttsText, settings.voiceSpeed, settings.voicePitch, settings.voiceVolume, (ttsMs) => {
+          if (voiceTurnStartRef.current > 0) {
+            pushLog(`⏱ End-to-end voice turn: ${Math.round(performance.now() - voiceTurnStartRef.current)}ms (TTS request ${ttsMs}ms)`);
+            voiceTurnStartRef.current = 0;
+          }
+        });
       }
     } finally {
       isSpeakingQueueRef.current = false;
@@ -779,7 +795,7 @@ useEffect(() => {
         setCoreState('IDLE');
       }
     }
-  }, [speak, settings.voiceSpeed, settings.voicePitch, settings.voiceVolume]);
+  }, [speak, settings.voiceSpeed, settings.voicePitch, settings.voiceVolume, pushLog]);
 
   const enqueueSentence = useCallback((text: string) => {
     if (!settings.autoSpeak || !text.trim()) return;
@@ -835,7 +851,7 @@ useEffect(() => {
     if (memCmd) {
       try {
         if (memCmd.type === 'remember') {
-          await createMemory(memCmd.category, memCmd.key, memCmd.value, 5, activeConversationId || undefined);
+          await createMemory(memCmd.category, memCmd.key, memCmd.value, 5, activeConversationId || undefined, settings.geminiApiKey || undefined);
           const response = getMemoryResponse(memCmd);
           if (activeConversationId) { await addMessage(activeConversationId, 'user', text, source); await addMessage(activeConversationId, 'assistant', response, 'text'); }
           else { const conv = await createConversation(text); if (conv) await addMessage(conv.id, 'assistant', response, 'text'); }
@@ -846,12 +862,14 @@ useEffect(() => {
           if (match) await deleteMemory(match.id);
           const response = getMemoryResponse(memCmd);
           if (activeConversationId) { await addMessage(activeConversationId, 'user', text, source); await addMessage(activeConversationId, 'assistant', response, 'text'); }
+          else { const conv = await createConversation(text); if (conv) await addMessage(conv.id, 'assistant', response, 'text'); }
           setIsSending(false); if (source === 'voice') speakWithSettings(response); return;
         }
         if (memCmd.type === 'forget_all') {
           await clearMemories();
           const response = getMemoryResponse(memCmd);
           if (activeConversationId) { await addMessage(activeConversationId, 'user', text, source); await addMessage(activeConversationId, 'assistant', response, 'text'); }
+          else { const conv = await createConversation(text); if (conv) await addMessage(conv.id, 'assistant', response, 'text'); }
           setIsSending(false); if (source === 'voice') speakWithSettings(response); return;
         }
         if (memCmd.type === 'recall') {
@@ -859,6 +877,7 @@ useEffect(() => {
           const memoryList = memories.length > 0 ? memories.map(m => `• ${m.key}: ${m.value}`).join('\n') : "I don't have any memories stored yet.";
           const fullResponse = `${response}\n\n${memoryList}`;
           if (activeConversationId) { await addMessage(activeConversationId, 'user', text, source); await addMessage(activeConversationId, 'assistant', fullResponse, 'text'); }
+          else { const conv = await createConversation(text); if (conv) await addMessage(conv.id, 'assistant', fullResponse, 'text'); }
           setIsSending(false); if (source === 'voice') speakWithSettings(fullResponse); return;
         }
       } catch (err) { console.warn('[Memory] Error:', err); }
@@ -869,10 +888,16 @@ useEffect(() => {
     beginDelegation(text);
     // Voice path uses streaming + sentence-level TTS; text path uses plain JSON.
     const isVoice = source === 'voice';
+    if (isVoice) voiceTurnStartRef.current = performance.now();
     sentenceQueueRef.current = [];
     isSpeakingQueueRef.current = false;
     queueDoneRef.current = false;
     const turnStart = performance.now();
+    // Active AI provider (Settings → AI Model): provider, model and its key
+    // travel with every generate call so the server can route + auth correctly.
+    const aiProvider = (['gemini', 'openai', 'claude', 'grok'].includes(settings.activeProvider) ? settings.activeProvider : 'gemini');
+    const aiModel = (settings as any)[`${aiProvider}Model`] as string | undefined;
+    const aiKey = ((settings as any)[`${aiProvider}ApiKey`] as string | undefined) || undefined;
     try {
       let responseText = '';
       if (isVoice) {
@@ -880,7 +905,7 @@ useEffect(() => {
         // Streaming SSE — speak each sentence as soon as it completes
         const res = await fetch('/api/gemini/generate-stream', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: text, systemInstruction, conversationId: convId, apiKey: settings.geminiApiKey || undefined }),
+          body: JSON.stringify({ prompt: text, systemInstruction, conversationId: convId, provider: aiProvider, model: aiModel, apiKey: aiKey, embeddingApiKey: settings.geminiApiKey || undefined }),
         });
         if (!res.ok || !res.body) throw new Error(`Stream HTTP ${res.status}`);
         const reader = res.body.getReader();
@@ -892,7 +917,7 @@ useEffect(() => {
 
         const emitSentences = () => {
           // Emit complete sentences (keeping delimiters), leave the tail in buffer
-          const m = sentenceBuf.match(/^[\s\S]*?[.!?۔؟]+(?:\s+|$)/);
+          const m = sentenceBuf.match(/[\s\S]*?[.!?۔؟]+(?:\s+|$)/);
           if (m) {
             const sentence = m[0].trim();
             sentenceBuf = sentenceBuf.slice(m[0].length);
@@ -920,7 +945,8 @@ useEffect(() => {
             emitSentences();
           } else if (ev === 'done') {
             const t = payload.timings || {};
-            pushLog(`⏱ Server: mem ${t['Memory retrieval (server)'] ?? '?'}ms · LLM ${payload.totalMs ?? '?'}ms total`);
+            pushLog(`⏱ LLM response complete: ${Math.round(performance.now() - turnStart)}ms`);
+            pushLog(`⏱ Server: mem ${t['Memory retrieval (server)'] ?? '?'}ms · LLM first ${payload.firstTokenMs ?? '?'}ms · total ${payload.totalMs ?? '?'}ms`);
           }
         };
 
@@ -943,7 +969,7 @@ useEffect(() => {
         if (sentenceBuf.trim()) { enqueueSentence(sentenceBuf.trim()); sentenceBuf = ''; }
         responseText = fullText;
       } else {
-        const res = await fetch('/api/gemini/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: text, systemInstruction, conversationId: convId, apiKey: settings.geminiApiKey || undefined }) });
+        const res = await fetch('/api/gemini/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: text, systemInstruction, conversationId: convId, provider: aiProvider, model: aiModel, apiKey: aiKey, embeddingApiKey: settings.geminiApiKey || undefined }) });
         const data = await res.json();
         responseText = data.text || 'Command received.';
         if (data.status === 'simulated' || data.status === 'autonomous_fallback') {
@@ -966,7 +992,7 @@ useEffect(() => {
       if (convId) await addMessage(convId, 'assistant', 'Channel unavailable. Check API key in Settings.', 'text');
       if (isVoice) setCoreState('IDLE');
     } finally { setIsSending(false); endDelegation(); }
-  }, [isSending, activeConversationId, systemInstruction, memories, settings.geminiApiKey, settings.autoSpeak, createConversation, addMessage, createMemory, deleteMemory, clearMemories, speakWithSettings, enqueueSentence, pushLog, setCoreState, beginDelegation, endDelegation]);
+  }, [isSending, activeConversationId, systemInstruction, memories, settings, settings.autoSpeak, createConversation, addMessage, createMemory, deleteMemory, clearMemories, speakWithSettings, enqueueSentence, pushLog, setCoreState, beginDelegation, endDelegation]);
 
   sendCommandRef.current = sendCommand;
 
@@ -1029,7 +1055,7 @@ useEffect(() => {
             <circle cx="16" cy="16" r="14" fill="none" stroke="#122838" strokeWidth="0.7" opacity="0.7" />
             <circle cx="16" cy="16" r="10" fill="none" stroke="#122838" strokeWidth="0.4" strokeDasharray="2 3" opacity="0.6" />
             <circle cx="16" cy="16" r="5" fill="#122838" opacity="0.4" />
-            <circle cx="16" cy="16" r="2" fill="#00ebf0" />
+            <circle cx="16" cy="16" r="2" fill="#00f0ff" />
           </svg>
           <span className="nasi-brandname">NASI</span>
         </div>
@@ -1091,10 +1117,10 @@ useEffect(() => {
             {/* Routing nodes — left column, each line starts at its right edge */}
             <div className="nasi-routing-nodes" ref={nodesRef}>
               {[
-                { id: 'MEMORY', color: '#00ebf0', icon: <Database size={11} />, action: () => setShowMemory(true) },
-                { id: 'SKILLS', color: '#00e88a', icon: <Zap size={11} />, action: () => setShowChat(true) },
-                { id: 'SOUL', color: '#ffb020', icon: <BrainCircuit size={11} />, action: () => setShowSettings(true) },
-                { id: 'SETTING', color: '#8fa3b8', icon: <Settings2 size={11} />, action: () => setShowSettings(true) },
+                { id: 'MEMORY', color: '#00f0ff', icon: <Database size={11} />, action: () => setShowMemory(true) },
+                { id: 'SKILLS', color: '#00ff88', icon: <Zap size={11} />, action: () => setShowChat(true) },
+                { id: 'SOUL', color: '#ff8c00', icon: <BrainCircuit size={11} />, action: () => setShowSettings(true) },
+                { id: 'SETTING', color: '#e0e6ed', icon: <Settings2 size={11} />, action: () => setShowSettings(true) },
               ].map((n, i) => (
                 <button key={n.id} data-node-id={n.id}
                   className={`nasi-routing-node ${activeNode === n.id ? 'active' : ''}`}
@@ -1124,7 +1150,7 @@ useEffect(() => {
               ))}
               {routes[0] && (
                 <g>
-                  <circle className="nasi-route-converge" cx={routes[0].tx} cy={routes[0].ty} r="5" fill="none" stroke="rgba(0,217,255,.3)" strokeWidth="1">
+                  <circle className="nasi-route-converge" cx={routes[0].tx} cy={routes[0].ty} r="5" fill="none" stroke="rgba(0,240,255,.3)" strokeWidth="1">
                     <animate attributeName="r" values="4;11;4" dur="2.4s" repeatCount="indefinite" />
                     <animate attributeName="opacity" values=".3;.05;.3" dur="2.4s" repeatCount="indefinite" />
                   </circle>
@@ -1246,6 +1272,10 @@ useEffect(() => {
                     <label className="nasi-settings-field-label">CUSTOM VOICE ID {settingsDraft.customVoiceId && <span style={{ color: 'var(--emerald)', opacity: 0.7 }}>(overrides preset)</span>}</label>
                     <input className="nasi-settings-input" value={settingsDraft.customVoiceId} onChange={e => setSettingsDraft(s => ({ ...s, customVoiceId: e.target.value.trim() }))} placeholder="Paste your ElevenLabs voice ID..." style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.05em' }} />
                   </div>
+                  <div className="nasi-settings-field">
+                    <label className="nasi-settings-field-label">VOICE NAME {settingsDraft.customVoiceName && <span style={{ color: 'var(--emerald)', opacity: 0.7 }}>(shown in voice log)</span>}</label>
+                    <input className="nasi-settings-input" value={settingsDraft.customVoiceName} onChange={e => setSettingsDraft(s => ({ ...s, customVoiceName: e.target.value }))} placeholder="e.g. My Cloned Voice" />
+                  </div>
                   <div className="nasi-settings-field"><label className="nasi-settings-field-label">MODEL</label><div className="nasi-settings-row-group">{elevenlabsModels.map(v => <button key={v.value} className={`nasi-settings-chip ${settingsDraft.elevenlabsModel === v.value ? 'active' : ''}`} onClick={() => setSettingsDraft(s => ({ ...s, elevenlabsModel: v.value }))}>{v.label}</button>)}</div></div>
                 </>
               )}
@@ -1256,9 +1286,9 @@ useEffect(() => {
               <div className="nasi-settings-field">
                 <label className="nasi-settings-field-label">ACCENT COLOR</label>
                 <div className="nasi-settings-row-group">
-                  <button className="nasi-theme-chip" onClick={() => setSettingsDraft(s => ({ ...s, theme: 'cyan' }))} style={{ borderColor: 'rgba(0, 235, 240,.6)', boxShadow: '0 0 10px rgba(0, 235, 240,.25)' }}><span style={{ background: 'var(--cyan)', width: 14, height: 14, borderRadius: '50%', display: 'inline-block', marginRight: 6, boxShadow: '0 0 8px var(--cyan)' }} />CYAN</button>
+                  <button className="nasi-theme-chip" onClick={() => setSettingsDraft(s => ({ ...s, theme: 'cyan' }))} style={{ borderColor: 'rgba(0, 240, 255,.6)', boxShadow: '0 0 10px rgba(0, 240, 255,.25)' }}><span style={{ background: 'var(--cyan)', width: 14, height: 14, borderRadius: '50%', display: 'inline-block', marginRight: 6, boxShadow: '0 0 8px var(--cyan)' }} />CYAN</button>
                   <button className="nasi-theme-chip" onClick={() => setSettingsDraft(s => ({ ...s, theme: 'emerald' }))} style={{ borderColor: 'rgba(0,255,136,.6)', boxShadow: '0 0 10px rgba(0,255,136,.25)' }}><span style={{ background: 'var(--emerald)', width: 14, height: 14, borderRadius: '50%', display: 'inline-block', marginRight: 6, boxShadow: '0 0 8px var(--emerald)' }} />EMERALD</button>
-                  <button className="nasi-theme-chip" onClick={() => setSettingsDraft(s => ({ ...s, theme: 'crimson' }))} style={{ borderColor: 'rgba(255,102,68,.6)', boxShadow: '0 0 10px rgba(255,102,68,.25)' }}><span style={{ background: 'var(--crimson)', width: 14, height: 14, borderRadius: '50%', display: 'inline-block', marginRight: 6, boxShadow: '0 0 8px var(--crimson)' }} />CRIMSON</button>
+                  <button className="nasi-theme-chip" onClick={() => setSettingsDraft(s => ({ ...s, theme: 'crimson' }))} style={{ borderColor: 'rgba(255,34,68,.6)', boxShadow: '0 0 10px rgba(255,34,68,.25)' }}><span style={{ background: 'var(--crimson)', width: 14, height: 14, borderRadius: '50%', display: 'inline-block', marginRight: 6, boxShadow: '0 0 8px var(--crimson)' }} />CRIMSON</button>
                 </div>
               </div>
             </SettingsGroup>
@@ -1266,18 +1296,48 @@ useEffect(() => {
               <SettingsChips label="PERSONALITY" options={[{ label: 'Warm', value: 'warm' }, { label: 'Professional', value: 'professional' }, { label: 'Playful', value: 'playful' }, { label: 'Stoic', value: 'stoic' }]} selected={settingsDraft.personality} onChange={v => setSettingsDraft(s => ({ ...s, personality: v as PersonalityType }))} />
               <SettingsToggle label="MEMORY" checked={settingsDraft.memoryEnabled} onChange={v => setSettingsDraft(s => ({ ...s, memoryEnabled: v }))} />
             </SettingsGroup>
-            <SettingsGroup title="AI PROVIDERS" icon={<Key size={9} />}>
-              {PROVIDERS.map(p => (
-                <div key={p.id} className="nasi-settings-provider">
-                  <button className={`nasi-settings-chip ${settingsDraft.activeProvider === p.id ? 'active' : ''}`} onClick={() => setSettingsDraft(s => ({ ...s, activeProvider: p.id }))}>{p.name}</button>
-                  {settingsDraft.activeProvider === p.id && (
-                    <div className="nasi-settings-provider-fields">
-                      <input className="nasi-settings-input" type="password" value={(settingsDraft as any)[`${p.id}ApiKey`] || ''} onChange={e => setSettingsDraft(s => ({ ...s, [`${p.id}ApiKey`]: e.target.value }))} placeholder={`${p.name} API key`} />
-                      <input className="nasi-settings-input" value={(settingsDraft as any)[`${p.id}Model`] || ''} onChange={e => setSettingsDraft(s => ({ ...s, [`${p.id}Model`]: e.target.value }))} placeholder="Model name" />
+            <SettingsGroup title="AI MODEL" icon={<Key size={9} />}>
+              <div className="nasi-settings-field">
+                <label className="nasi-settings-field-label">PROVIDER</label>
+                <select className="nasi-settings-input nasi-settings-select"
+                  value={PROVIDERS.some(p => p.id === settingsDraft.activeProvider) ? settingsDraft.activeProvider : 'gemini'}
+                  onChange={e => setSettingsDraft(s => ({ ...s, activeProvider: e.target.value }))}>
+                  {PROVIDERS.map(p => <option key={p.id} value={p.id}>{p.short}</option>)}
+                </select>
+              </div>
+              {(() => {
+                const pid = PROVIDERS.some(p => p.id === settingsDraft.activeProvider) ? settingsDraft.activeProvider : 'gemini';
+                const p = PROVIDERS.find(x => x.id === pid)!;
+                const model = ((settingsDraft as any)[`${pid}Model`] as string | undefined) || '';
+                const hasKey = Boolean(((settingsDraft as any)[`${pid}ApiKey`] as string | undefined)?.trim());
+                return (
+                  <div className="nasi-settings-provider-fields">
+                    <div className="nasi-settings-field">
+                      <label className="nasi-settings-field-label">CURRENTLY USING</label>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.05em', color: 'var(--cyan)' }}>
+                        {p.using} — {model || 'default model'}
+                      </div>
                     </div>
-                  )}
-                </div>
-              ))}
+                    <div className="nasi-settings-field">
+                      <label className="nasi-settings-field-label">
+                        {p.keyLabel}{' '}
+                        {hasKey
+                          ? <span style={{ color: 'var(--emerald)', opacity: 0.7 }}>(saved)</span>
+                          : <span style={{ color: 'var(--amber)', opacity: 0.7 }}>(not set)</span>}
+                      </label>
+                      <input className="nasi-settings-input" type="password" value={(settingsDraft as any)[`${pid}ApiKey`] || ''}
+                        onChange={e => setSettingsDraft(s => ({ ...s, [`${pid}ApiKey`]: e.target.value }))}
+                        placeholder={`${p.keyLabel} — server falls back to ${p.keyEnv}`} />
+                    </div>
+                    <div className="nasi-settings-field">
+                      <label className="nasi-settings-field-label">MODEL NAME</label>
+                      <input className="nasi-settings-input" value={model}
+                        onChange={e => setSettingsDraft(s => ({ ...s, [`${pid}Model`]: e.target.value }))}
+                        placeholder="Model name" style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.05em' }} />
+                    </div>
+                  </div>
+                );
+              })()}
             </SettingsGroup>
             <div className="nasi-settings-actions">
               <button className="nasi-modal-btn primary" onClick={handleSaveSettings}><Save size={10} /> {settingsSaved ? 'SAVED ✓' : 'SAVE'}</button>
@@ -1306,7 +1366,7 @@ useEffect(() => {
         <div className="nasi-modal-bg" onClick={() => setSelectedAgent(null)}>
           <div className="nasi-modal nasi-agent-modal" onClick={e => e.stopPropagation()}>
             <button className="nasi-modal-close" onClick={() => setSelectedAgent(null)}><X size={14} /></button>
-            <div className="nasi-agent-avatar" style={{ background: selectedAgent.color, color: '#030608' }}>{selectedAgent.initials}</div>
+            <div className="nasi-agent-avatar" style={{ background: selectedAgent.color, color: '#0a0e17' }}>{selectedAgent.initials}</div>
             <div className="nasi-modal-kicker" style={{ color: selectedAgent.color }}><span className="nasi-dot" style={{ background: selectedAgent.color }} /> AGENT</div>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{selectedAgent.name}</h3>
             <div className="nasi-agent-role">{selectedAgent.role}</div>
@@ -1325,7 +1385,7 @@ useEffect(() => {
               </div>
             </div>
             <div className="nasi-agent-connection-status">
-              <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: selectedAgent.status === 'Active' ? '#00e88a' : selectedAgent.status === 'Idle' ? '#1a7a55' : '#ff5252', boxShadow: '0 0 6px currentColor' }} />
+              <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: selectedAgent.status === 'Active' ? '#00ff88' : selectedAgent.status === 'Idle' ? '#0f7a4d' : '#ff2244', boxShadow: '0 0 6px currentColor' }} />
               <span>{selectedAgent.status === 'Idle' ? 'Standing by' : selectedAgent.status === 'Active' ? 'Active' : 'Not connected'}</span>
             </div>
             <button className="nasi-modal-btn" onClick={() => setSelectedAgent(null)}>CLOSE</button>

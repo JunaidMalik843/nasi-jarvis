@@ -21,25 +21,25 @@ interface Marker {
 }
 
 const MARKERS: Marker[] = [
-  { name: 'NYC', lon: -74, lat: 40.7, color: '#00e88a', status: 'active', label: 'OPERATIONAL' },
-  { name: 'London', lon: 0, lat: 51.5, color: '#00e88a', status: 'active', label: 'OPERATIONAL' },
-  { name: 'Tokyo', lon: 139.7, lat: 35.7, color: '#00e88a', status: 'active', label: 'OPERATIONAL' },
-  { name: 'Mumbai', lon: 72.9, lat: 19.1, color: '#00e88a', status: 'active', label: 'STANDBY' },
-  { name: 'Sydney', lon: 151.2, lat: -33.9, color: '#00e88a', status: 'active', label: 'STANDBY' },
-  { name: 'Dubai', lon: 55.3, lat: 25.2, color: '#ffb020', status: 'warning', label: 'ELEVATED' },
-  { name: 'São Paulo', lon: -46.6, lat: -23.5, color: '#00e88a', status: 'active', label: 'OPERATIONAL' },
-  { name: 'Singapore', lon: 103.8, lat: 1.35, color: '#00e88a', status: 'active', label: 'OPERATIONAL' },
-  { name: 'Seoul', lon: 127, lat: 37.5, color: '#ff5252', status: 'critical', label: 'ALERT' },
-  { name: 'Moscow', lon: 37.6, lat: 55.7, color: '#ffb020', status: 'warning', label: 'MONITORING' },
+  { name: 'NYC', lon: -74, lat: 40.7, color: '#00ff88', status: 'active', label: 'OPERATIONAL' },
+  { name: 'London', lon: 0, lat: 51.5, color: '#00ff88', status: 'active', label: 'OPERATIONAL' },
+  { name: 'Tokyo', lon: 139.7, lat: 35.7, color: '#00ff88', status: 'active', label: 'OPERATIONAL' },
+  { name: 'Mumbai', lon: 72.9, lat: 19.1, color: '#00ff88', status: 'active', label: 'STANDBY' },
+  { name: 'Sydney', lon: 151.2, lat: -33.9, color: '#00ff88', status: 'active', label: 'STANDBY' },
+  { name: 'Dubai', lon: 55.3, lat: 25.2, color: '#ff8c00', status: 'warning', label: 'ELEVATED' },
+  { name: 'São Paulo', lon: -46.6, lat: -23.5, color: '#00ff88', status: 'active', label: 'OPERATIONAL' },
+  { name: 'Singapore', lon: 103.8, lat: 1.35, color: '#00ff88', status: 'active', label: 'OPERATIONAL' },
+  { name: 'Seoul', lon: 127, lat: 37.5, color: '#ff2244', status: 'critical', label: 'ALERT' },
+  { name: 'Moscow', lon: 37.6, lat: 55.7, color: '#ff8c00', status: 'warning', label: 'MONITORING' },
 ];
 
 // Heat zones — regions with activity overlays
 const HEAT_ZONES: { lon: number; lat: number; radius: number; color: string; intensity: number }[] = [
-  { lon: 55, lat: 25, radius: 18, color: '#ffb020', intensity: 0.12 },  // Middle East
-  { lon: 37, lat: 55, radius: 14, color: '#ffb020', intensity: 0.08 },  // Russia
-  { lon: 127, lat: 37, radius: 10, color: '#ff5252', intensity: 0.15 }, // Korean peninsula
-  { lon: -100, lat: 35, radius: 20, color: '#00ebf0', intensity: 0.05 }, // US
-  { lon: 10, lat: 50, radius: 16, color: '#00ebf0', intensity: 0.06 },  // Europe
+  { lon: 55, lat: 25, radius: 18, color: '#ff8c00', intensity: 0.12 },  // Middle East
+  { lon: 37, lat: 55, radius: 14, color: '#ff8c00', intensity: 0.08 },  // Russia
+  { lon: 127, lat: 37, radius: 10, color: '#ff2244', intensity: 0.15 }, // Korean peninsula
+  { lon: -100, lat: 35, radius: 20, color: '#00f0ff', intensity: 0.05 }, // US
+  { lon: 10, lat: 50, radius: 16, color: '#00f0ff', intensity: 0.06 },  // Europe
 ];
 
 export default function WorldGlobe() {
@@ -99,7 +99,7 @@ export default function WorldGlobe() {
     ctx.fillRect(0, 0, w, h);
 
     // Scanline texture
-    ctx.strokeStyle = 'rgba(0, 235, 240,0.015)';
+    ctx.strokeStyle = 'rgba(0, 240, 255,0.015)';
     ctx.lineWidth = 0.5;
     for (let y = 0; y < h; y += 4) {
       ctx.beginPath();
@@ -112,9 +112,9 @@ export default function WorldGlobe() {
     // Two stacked radial falloffs read as a lit atmosphere bleeding into a dark
     // surround, so the sphere has visible volume instead of flat line-art.
     const atmoGrad = ctx.createRadialGradient(cx, cy, r * 0.78, cx, cy, r * 1.55);
-    atmoGrad.addColorStop(0, 'rgba(0, 235, 255, 0.30)');
-    atmoGrad.addColorStop(0.28, 'rgba(0, 235, 240, 0.13)');
-    atmoGrad.addColorStop(0.62, 'rgba(0, 235, 240, 0.045)');
+    atmoGrad.addColorStop(0, 'rgba(0, 240, 255, 0.30)');
+    atmoGrad.addColorStop(0.28, 'rgba(0, 240, 255, 0.13)');
+    atmoGrad.addColorStop(0.62, 'rgba(0, 240, 255, 0.045)');
     atmoGrad.addColorStop(1, 'transparent');
     ctx.fillStyle = atmoGrad;
     ctx.beginPath();
@@ -144,7 +144,7 @@ export default function WorldGlobe() {
 
     // Globe border — bright ring with its own bloom
     ctx.save();
-    ctx.shadowColor = 'rgba(0, 235, 255, 0.7)';
+    ctx.shadowColor = 'rgba(0, 240, 255, 0.7)';
     ctx.shadowBlur = 10;
     ctx.strokeStyle = 'rgba(120, 245, 255, 0.5)';
     ctx.lineWidth = 1.4;
@@ -154,7 +154,7 @@ export default function WorldGlobe() {
     ctx.restore();
 
     // Secondary ring
-    ctx.strokeStyle = 'rgba(0, 235, 240,0.08)';
+    ctx.strokeStyle = 'rgba(0, 240, 255,0.08)';
     ctx.lineWidth = 0.5;
     ctx.setLineDash([3, 5]);
     ctx.beginPath();
@@ -164,7 +164,7 @@ export default function WorldGlobe() {
 
     // ── Graticule (lat/lon grid) ──
     const graticule = geoGraticule10();
-    ctx.strokeStyle = 'rgba(0, 235, 240, 0.14)';
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.14)';
     ctx.lineWidth = 0.4;
     ctx.beginPath();
     path.context(ctx)(graticule);
@@ -179,7 +179,7 @@ export default function WorldGlobe() {
     // Real landmass is the single strongest "this is a satellite display" cue,
     // so it gets real contrast: a lit teal continent mass with a glowing coast.
     ctx.fillStyle = 'rgba(40, 96, 110, 0.92)';
-    ctx.shadowColor = 'rgba(0, 235, 240, 0.35)';
+    ctx.shadowColor = 'rgba(0, 240, 255, 0.35)';
     ctx.shadowBlur = 9;
     ctx.fill();
     ctx.shadowBlur = 0;
@@ -221,10 +221,10 @@ export default function WorldGlobe() {
     ctx.arc(cx, cy, r * 0.995, 0, Math.PI * 2);
     ctx.clip();
     const swGrad = ctx.createConicGradient(sweepAngle - sweepTrailing, cx, cy);
-    swGrad.addColorStop(0, 'rgba(0, 235, 240, 0)');
-    swGrad.addColorStop(sweepTrailing / (Math.PI * 2), 'rgba(0, 235, 240, 0.035)');
-    swGrad.addColorStop(sweepTrailing / (Math.PI * 2) + 0.002, 'rgba(0, 235, 240, 0)');
-    swGrad.addColorStop(1, 'rgba(0, 235, 240, 0)');
+    swGrad.addColorStop(0, 'rgba(0, 240, 255, 0)');
+    swGrad.addColorStop(sweepTrailing / (Math.PI * 2), 'rgba(0, 240, 255, 0.035)');
+    swGrad.addColorStop(sweepTrailing / (Math.PI * 2) + 0.002, 'rgba(0, 240, 255, 0)');
+    swGrad.addColorStop(1, 'rgba(0, 240, 255, 0)');
     ctx.fillStyle = swGrad;
     ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
     // Leading edge line
@@ -238,7 +238,7 @@ export default function WorldGlobe() {
 
     // Soft outer glow ring around the whole radar face
     ctx.save();
-    ctx.shadowColor = 'rgba(0, 235, 240, 0.85)';
+    ctx.shadowColor = 'rgba(0, 240, 255, 0.85)';
     ctx.shadowBlur = 26;
     ctx.strokeStyle = 'rgba(130, 248, 255, 0.6)';
     ctx.lineWidth = 2;
@@ -250,7 +250,7 @@ export default function WorldGlobe() {
     // Instrument frame: a dashed range ring plus a HUD tick bezel, so the face
     // reads as a mounted satellite sensor rather than a drawn circle.
     ctx.save();
-    ctx.strokeStyle = 'rgba(0, 235, 240, 0.22)';
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.22)';
     ctx.lineWidth = 0.7;
     ctx.setLineDash([2, 4]);
     ctx.beginPath();
@@ -262,7 +262,7 @@ export default function WorldGlobe() {
       const major = i % 5 === 0;
       const inner = r + 14;
       const outer = r + (major ? 26 : 20);
-      ctx.strokeStyle = major ? 'rgba(0, 235, 240, 0.42)' : 'rgba(0, 235, 240, 0.22)';
+      ctx.strokeStyle = major ? 'rgba(0, 240, 255, 0.42)' : 'rgba(0, 240, 255, 0.22)';
       ctx.lineWidth = major ? 1.1 : 0.7;
       ctx.beginPath();
       ctx.moveTo(cx + Math.cos(ang) * inner, cy + Math.sin(ang) * inner);
@@ -342,7 +342,7 @@ export default function WorldGlobe() {
 
     // ── Inner highlight ──
     const hlGrad = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.3, 0, cx, cy, r);
-    hlGrad.addColorStop(0, 'rgba(0, 235, 240,0.06)');
+    hlGrad.addColorStop(0, 'rgba(0, 240, 255,0.06)');
     hlGrad.addColorStop(0.5, 'transparent');
     hlGrad.addColorStop(1, 'transparent');
     ctx.fillStyle = hlGrad;
@@ -360,7 +360,7 @@ export default function WorldGlobe() {
     ctx.fill();
 
     // ── HUD corner brackets ──
-    ctx.strokeStyle = 'rgba(0, 235, 240,0.2)';
+    ctx.strokeStyle = 'rgba(0, 240, 255,0.2)';
     ctx.lineWidth = 1;
     const bSize = 8;
     // Top-left
@@ -371,15 +371,15 @@ export default function WorldGlobe() {
     ctx.beginPath(); ctx.moveTo(6, h - 6 - bSize); ctx.lineTo(6, h - 6); ctx.lineTo(6 + bSize, h - 6); ctx.stroke();
     // Bottom-right
     ctx.beginPath(); ctx.moveTo(w - 6 - bSize, h - 6); ctx.lineTo(w - 6, h - 6); ctx.lineTo(w - 6, h - 6 - bSize); ctx.stroke();    // ── HUD labels ──
-    ctx.fillStyle = 'rgba(0, 235, 240,0.35)';
+    ctx.fillStyle = 'rgba(0, 240, 255,0.35)';
     ctx.font = '6px "JetBrains Mono", monospace';
     ctx.textAlign = 'left';
     ctx.fillText('SAT-LINK RADAR', 10, 16);
-    ctx.fillStyle = 'rgba(0, 235, 240,0.2)';
+    ctx.fillStyle = 'rgba(0, 240, 255,0.2)';
     ctx.font = '5px "JetBrains Mono", monospace';
     ctx.fillText(`ZOOM ${(zoom * 100).toFixed(0)}%`, 10, 24);
     ctx.textAlign = 'right';
-    ctx.fillStyle = 'rgba(0, 235, 240,0.25)';
+    ctx.fillStyle = 'rgba(0, 240, 255,0.25)';
     ctx.fillText(`${MARKERS.length} STATIONS`, w - 10, 16);
     const activeCount = MARKERS.filter(m => m.status === 'active').length;
     ctx.fillText(`${activeCount} ONLINE`, w - 10, 24);
@@ -464,18 +464,18 @@ export default function WorldGlobe() {
         <button onClick={() => handleZoom(0.2)} style={{
           width: 22, height: 22, borderRadius: 3,
           background: 'linear-gradient(180deg, rgba(30,44,54,.95), rgba(9,16,22,.95))',
-          border: '1px solid rgba(0, 235, 240,0.22)', color: 'rgba(140,240,255,0.85)',
+          border: '1px solid rgba(0, 240, 255,0.22)', color: 'rgba(140,240,255,0.85)',
           fontFamily: 'var(--mono)', fontSize: 11, cursor: 'pointer', display: 'grid', placeItems: 'center',
-          boxShadow: '0 1px 4px rgba(0,0,0,.55), inset 0 1px 0 rgba(180,240,255,.14), 0 0 10px rgba(0, 235, 240,.05)',
-          textShadow: '0 0 6px rgba(0, 235, 240,.5)',
+          boxShadow: '0 1px 4px rgba(0,0,0,.55), inset 0 1px 0 rgba(180,240,255,.14), 0 0 10px rgba(0, 240, 255,.05)',
+          textShadow: '0 0 6px rgba(0, 240, 255,.5)',
         }} title="Zoom in">+</button>
         <button onClick={() => handleZoom(-0.2)} style={{
           width: 22, height: 22, borderRadius: 3,
           background: 'linear-gradient(180deg, rgba(30,44,54,.95), rgba(9,16,22,.95))',
-          border: '1px solid rgba(0, 235, 240,0.22)', color: 'rgba(140,240,255,0.85)',
+          border: '1px solid rgba(0, 240, 255,0.22)', color: 'rgba(140,240,255,0.85)',
           fontFamily: 'var(--mono)', fontSize: 11, cursor: 'pointer', display: 'grid', placeItems: 'center',
-          boxShadow: '0 1px 4px rgba(0,0,0,.55), inset 0 1px 0 rgba(180,240,255,.14), 0 0 10px rgba(0, 235, 240,.05)',
-          textShadow: '0 0 6px rgba(0, 235, 240,.5)',
+          boxShadow: '0 1px 4px rgba(0,0,0,.55), inset 0 1px 0 rgba(180,240,255,.14), 0 0 10px rgba(0, 240, 255,.05)',
+          textShadow: '0 0 6px rgba(0, 240, 255,.5)',
         }} title="Zoom out">−</button>
       </div>
     </div>
