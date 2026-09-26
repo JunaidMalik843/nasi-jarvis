@@ -538,22 +538,17 @@ function App() {
   // finishes faster than the hop still shows the routed agent working first.
   const delegationRef = useRef({ routed: false, done: false });
 
-// The Stonic reference uses one fixed instrument palette. Keep the saved theme
-// preference for compatibility, but never override the exact reference colors.
+// The palette lives in ONE place: the "NASI THEME TOKENS" block at the top of
+// styles.css. This used to re-declare the accents as inline custom properties,
+// which silently outranked the stylesheet and had already drifted from it
+// (--cyan-dim here was #00a8c8 while the token said #00b8cc). The saved theme
+// preference stays in settings for compatibility, but nothing overrides the
+// design system colors from JS.
 useEffect(() => {
-  const root = document.documentElement;
-  const body = document.body;
-  root.style.setProperty('--cyan', '#00f0ff');
-  root.style.setProperty('--cyan-dim', '#00a8c8');
-  root.style.setProperty('--emerald', '#00ff88');
-  root.style.setProperty('--amber', '#ff8c00');
-  root.style.setProperty('--crimson', '#ff2244');
-  root.style.setProperty('--line', 'rgba(0, 240, 255, 0.15)');
-  root.style.setProperty('--line-2', 'rgba(0, 240, 255, 0.34)');
-  root.style.setProperty('--line-3', 'rgba(0, 240, 255, 0.48)');
-  root.style.setProperty('--glow-cyan', 'rgba(0, 240, 255, 0.6)');
-  body.style.background = '#0a0e17';
-  return () => { body.style.background = '#0a0e17'; };
+  // Clear any inline overrides a previous session may have left on <html>.
+  ['--cyan', '--cyan-dim', '--emerald', '--amber', '--crimson', '--line', '--line-2', '--line-3', '--glow-cyan']
+    .forEach((prop) => document.documentElement.style.removeProperty(prop));
+  document.body.style.removeProperty('background');
 }, []);
   const [settingsDraft, setSettingsDraft] = useState<NasiSettings>(settings);
   const [settingsSaved, setSettingsSaved] = useState(false);

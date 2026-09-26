@@ -575,15 +575,6 @@
    Loaded last, so these win on equal specificity.
    ═══════════════════════════════════════════════════════════════ */
 
-:root {
-  /* Card edge follows the live accent. Thin (1px) but nearly opaque: the edge
-     stays crisp and bright, and the drop-shadow filter below does the softening
-     — instead of a thick, washed-out semi-transparent line. */
-  --card-border: rgba(0, 240, 255, 0.15);
-  --cyan-blend: #00f0ff;
-  --glow-cyan-blend: #00f0ff;
-}
-
 /* ── Cards: crisp edge + REAL outer depth ──
    Every one of these cards uses clip-path, which clips box-shadow — so each
    outer shadow declared on them was invisible and the panels read flat. A
@@ -721,14 +712,10 @@
 /* ═══════════════════════════════════════════════════════════════
    PREMIUM STONIC ATMOSPHERE — luminous surfaces, moving HUD edges
    Loaded last so these intentional emphasis rules win over the base skin.
+   Accent values are NOT redeclared here — they come from the theme tokens
+   in styles.css. This block previously set --crimson to #ff5e62, which
+   silently overrode the design system's #ff2244.
    ═══════════════════════════════════════════════════════════════ */
-:root {
-  --cyan: #00f0ff;
-  --cyan-dim: #12bcc2;
-  --emerald: #00ff88;
-  --amber: #ff8c00;
-  --crimson: #ff5e62;
-}
 
 /* Full-viewport particle field: deliberately behind the dashboard grid, not
    limited to the orb, with a slow parallax drift for depth without distraction. */
