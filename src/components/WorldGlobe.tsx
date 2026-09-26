@@ -1,11 +1,12 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
-import { geoOrthographic, geoGraticule10, geoPath, geoInterpolate } from 'd3-geo';
+import { geoOrthographic, geoGraticule, geoGraticule10, geoPath, geoInterpolate } from 'd3-geo';
 import { feature } from 'topojson-client';
 import topo from 'world-atlas/countries-110m.json';
 import { subscribe } from '../lib/animLoop';
 
-// Real continent outlines (110m Natural Earth via world-atlas) — gives the
-// radar a faint satellite texture instead of a bare wireframe sphere.
+// Real continent outlines (110m Natural Earth via world-atlas) — drawn as
+// wireframe coastlines, so the sphere reads as a cyan vector globe rather
+// than a filled satellite/heatmap texture.
 const LAND: GeoJSON.FeatureCollection = feature(
   topo as unknown as Parameters<typeof feature>[0],
   (topo as unknown as { objects: { countries: never } }).objects.countries,
@@ -33,13 +34,16 @@ const MARKERS: Marker[] = [
   { name: 'Moscow', lon: 37.6, lat: 55.7, color: '#ff8c00', status: 'warning', label: 'MONITORING' },
 ];
 
-// Heat zones — regions with activity overlays
-const HEAT_ZONES: { lon: number; lat: number; radius: number; color: string; intensity: number }[] = [
-  { lon: 55, lat: 25, radius: 18, color: '#ff8c00', intensity: 0.12 },  // Middle East
-  { lon: 37, lat: 55, radius: 14, color: '#ff8c00', intensity: 0.08 },  // Russia
-  { lon: 127, lat: 37, radius: 10, color: '#ff2244', intensity: 0.15 }, // Korean peninsula
-  { lon: -100, lat: 35, radius: 20, color: '#00f0ff', intensity: 0.05 }, // US
-  { lon: 10, lat: 50, radius: 16, color: '#00f0ff', intensity: 0.06 },  // Europe
+// Connection arcs — the glowing links between nodes that make this a network
+// view rather than a plain globe. Referenced by marker name.
+const CONNECTIONS: [string, string][] = [
+  ['London', 'NYC'],
+  ['London', 'Dubai'],
+  ['NYC', 'São Paulo'],
+  ['Dubai', 'Singapore'],
+  ['Singapore', 'Tokyo'],
+  ['Singapore', 'Sydney'],
+  ['Dubai', 'Moscow'],
 ];
 
 export default function WorldGlobe() {
@@ -163,53 +167,68 @@ export default function WorldGlobe() {
     ctx.setLineDash([]);
 
     // ── Graticule (lat/lon grid) ──
-    const graticule = geoGraticule10();
-    ctx.strokeStyle = 'rgba(0, 240, 255, 0.14)';
+    // Two densities: 10° for structure, 30° for the vector-globe read.
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.16)';
     ctx.lineWidth = 0.4;
     ctx.beginPath();
-    path.context(ctx)(graticule);
+    path.context(ctx)(geoGraticule10());
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.07)';
+    ctx.lineWidth = 0.3;
+    ctx.beginPath();
+    path.context(ctx)(geoGraticule().step([30, 30])());
     ctx.stroke();
 
-    // ── Continent landmass (satellite texture) ──
-    // Subtle two-pass fill+stroke reads as real geography under the scanlines
-    // while staying far too dim to break the black theme.
+    // ── Continent coastlines (wireframe) ──
+    // Stroke only — a filled landmass turns this into a satellite/heatmap
+    // read. A faint interior wash keeps the sphere from looking hollow while
+    // the cyan coast carries the geography.
     ctx.save();
     ctx.beginPath();
     path.context(ctx)(LAND);
-    // Real landmass is the single strongest "this is a satellite display" cue,
-    // so it gets real contrast: a lit teal continent mass with a glowing coast.
-    ctx.fillStyle = 'rgba(40, 96, 110, 0.92)';
-    ctx.shadowColor = 'rgba(0, 240, 255, 0.35)';
-    ctx.shadowBlur = 9;
+    ctx.fillStyle = 'rgba(0, 240, 255, 0.035)';
     ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.strokeStyle = 'rgba(140, 250, 255, 0.5)';
-    ctx.lineWidth = 0.55;
+    ctx.shadowColor = 'rgba(0, 240, 255, 0.45)';
+    ctx.shadowBlur = 6;
+    ctx.strokeStyle = 'rgba(140, 250, 255, 0.55)';
+    ctx.lineWidth = 0.6;
     ctx.stroke();
     ctx.restore();
 
-    // ── Heat zones ──
+    // ── Connection arcs ──
+    // Sampled along the great-circle-ish path between two nodes; the arc is
+    // lifted toward the limb so it reads as a link over the sphere.
     const t = Date.now() / 1000;
-    HEAT_ZONES.forEach(zone => {
-      const projected = projection([zone.lon, zone.lat]);
-      if (!projected) return;
-      const [px, py] = projected;
-      const dx = px - cx;
-      const dy = py - cy;
-      if (dx * dx + dy * dy > r * r) return;
+    const byName = new Map(MARKERS.map(m => [m.name, m]));
+    ctx.save();
+    ctx.lineWidth = 1;
+    CONNECTIONS.forEach(([from, to], i) => {
+      const a = byName.get(from), b = byName.get(to);
+      if (!a || !b) return;
+      const pa = projection([a.lon, a.lat]);
+      const pb = projection([b.lon, b.lat]);
+      if (!pa || !pb) return;
+      const mx = (pa[0] + pb[0]) / 2, my = (pa[1] + pb[1]) / 2;
+      // Lift the control point away from the globe centre for a domed arc.
+      const dx = mx - cx, dy = my - cy;
+      const len = Math.hypot(dx, dy) || 1;
+      const lift = Math.min(r * 0.28, len * 0.35);
+      const qx = mx + (dx / len) * lift, qy = my + (dy / len) * lift;
 
-      const pulse = 1 + Math.sin(t * 1.5) * 0.15;
-      const zoneR = zone.radius * zoom * pulse;
-      const grad = ctx.createRadialGradient(px, py, 0, px, py, zoneR);
-      const [cr, cg, cb] = hexToRgb(zone.color);
-      grad.addColorStop(0, `rgba(${cr},${cg},${cb},${zone.intensity * 1.5})`);
-      grad.addColorStop(0.5, `rgba(${cr},${cg},${cb},${zone.intensity * 0.6})`);
-      grad.addColorStop(1, 'transparent');
-      ctx.fillStyle = grad;
+      // Animated dash offset makes traffic read as flowing along the link.
+      const flow = (t * 14 + i * 9) % 26;
+      ctx.setLineDash([6, 20]);
+      ctx.lineDashOffset = -flow;
+      ctx.shadowColor = 'rgba(0, 240, 255, 0.5)';
+      ctx.shadowBlur = 4;
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.45)';
       ctx.beginPath();
-      ctx.arc(px, py, zoneR, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.moveTo(pa[0], pa[1]);
+      ctx.quadraticCurveTo(qx, qy, pb[0], pb[1]);
+      ctx.stroke();
+      ctx.setLineDash([]);
     });
+    ctx.restore();
 
     // ── Markers ──
     // Radar sweep geometry (shared with marker highlighting below):
