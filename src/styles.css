@@ -4,56 +4,94 @@
    ═══════════════════════════════════════════════════════════════ */
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
 
+/* ═══════════════════════════════════════════════════════════════
+   NASI THEME TOKENS
+   The single source of truth for the whole interface. Change a value
+   here and it propagates everywhere — including polish.css, which layers
+   motion on top of these rather than redefining them.
+   ═══════════════════════════════════════════════════════════════ */
 :root {
-  --bg: #0a0e17;
-  --bg-2: #0d1117;
-  /* Page depth: a very subtle top-to-bottom gradient (lighter at the top,
-     fully black by the lower half) so the environment reads as a lit space
-     instead of one flat fill. Applied on .nasi-app below. */
-  --page-grad: linear-gradient(180deg, #0a0e17 0%, #0d1117 100%);
-  --surface: #050506;
-  --surface-2: #070808;
-  /* Warm charcoal-teal surfaces (#0a1214 family): darker and more saturated
-     than the previous cool blue-grey, so cards sit in the black background
-     as tinted panes rather than grey rectangles. */
-  --panel: rgba(10, 14, 23, 0.85);
-  --panel-2: rgba(10, 14, 23, 0.85);
-  --card-bg: rgba(10, 14, 23, 0.85);
-  --line: rgba(0, 240, 255, 0.15);
-  --line-2: rgba(0, 240, 255, 0.34);
-  --line-3: rgba(0, 240, 255, 0.48);
-  /* Thin (1px) but nearly opaque — the glow does the softening. polish.css
-     re-declares this as a theme-aware color-mix on the live accent. */
-  --card-border: rgba(0, 240, 255, 0.15);
-  /* Warm off-white / pale-cyan text — readable on the dark teal cards without
-     the cold blue cast of the previous #d6e6f4. */
+  /* ── Surfaces ────────────────────────────────────────────────
+     Deep space navy, never pure black: a flat #000 reads as a dead
+     panel, while #0a0e17 keeps the cyan accents something to sit on. */
+  --bg-base: #0a0e17;
+  --bg-deep: #0d1117;
+  --bg-grad: linear-gradient(180deg, #0a0e17 0%, #0d1117 100%);
+  /* Glassmorphic card — translucent so the page gradient and scanlines
+     read through it, with a backdrop blur doing the frosting. */
+  --glass: rgba(10, 14, 23, 0.85);
+  --glass-blur: 12px;
+  --glass-inset: rgba(13, 17, 23, 0.72);
+
+  /* ── Borders & glow ─────────────────────────────────────────
+     Stonic's subtle cyan edge, lifted with an outer glow so every panel
+     and control separates from the background without a heavy fill. */
+  --border-subtle: rgba(0, 240, 255, 0.15);
+  --border-strong: rgba(0, 240, 255, 0.34);
+  --border-focus: rgba(0, 240, 255, 0.48);
+  --glow-border: 0 0 10px rgba(0, 240, 255, 0.10);
+  --glow-border-hover: 0 0 18px rgba(0, 240, 255, 0.20);
+  --glow-accent: 0 0 12px rgba(0, 240, 255, 0.35);
+  --glow-cyan: rgba(0, 240, 255, 0.6);
+  /* Hot centre of a glow — a near-white bloom stacked inside the coloured
+     halo so light reads as "hot core, cool edge", not a flat tint. */
+  --glow-core: rgba(226, 255, 252, 0.85);
+
+  /* ── Accents ───────────────────────────────────────────────── */
+  --cyan: #00f0ff;
+  --cyan-dim: #00b8cc;
+  --amber: #ff8c00;
+  --emerald: #00ff88;
+  --crimson: #ff2244;
+  --cyan-blend: #00f0ff;
+  --glow-cyan-blend: #00f0ff;
+
+  /* ── Status ────────────────────────────────────────────────── */
+  --status-online: var(--emerald);
+  --status-idle: #0f7a4d;
+  --status-error: var(--crimson);
+
+  /* ── Text ──────────────────────────────────────────────────── */
   --text: #e0e6ed;
   --text-2: #8892a0;
   --text-3: #6d9296;
   --text-4: #33505a;
-  /* ── Canonical accent palette ──
-     ONE cyan and ONE green/amber/red across the whole product. The status
-     values are also written by the theme switcher in main.tsx; these are the
-     CSS defaults so they exist before/without JS. */
-  --cyan: #00f0ff;
-  --cyan-dim: #00a8c8;
-  --emerald: #00ff88;
-  --amber: #ff8c00;
-  --crimson: #ff2244;
-  /* Hot centre of every glow — a near-white warm bloom stacked inside the
-     coloured halo so light sources read as "hot core, cool edge" rather than
-     a flat single-colour tint. */
-  --glow-core: rgba(226, 255, 252, .85);
-  /* Electric teal-cyan: the base accent already carries the green undertone,
-     so the blend only nudges it warmer rather than doing the whole job. */
-  --cyan-blend: color-mix(in srgb, var(--cyan) 90%, #2fffd0 10%);
-  --glow-cyan: rgba(0, 240, 255, .6);
-  --glow-cyan-blend: #00f0ff;
+
+  /* ── Type ──────────────────────────────────────────────────── */
   --font: 'JetBrains Mono', 'Fira Code', 'DM Mono', 'IBM Plex Mono', 'Courier New', monospace;
-  --mono: 'JetBrains Mono', 'Fira Code', 'DM Mono', 'IBM Plex Mono', 'Courier New', monospace;
+  --mono: var(--font);
   /* UI copy uses Inter; terminal/code surfaces keep the mono stack. */
   --font-ui: 'Inter', 'JetBrains Mono', system-ui, -apple-system, sans-serif;
-  --t: 250ms cubic-bezier(.4, 0, .2, 1);
+  --fs-label: 10px;
+  --ls-label: 2.5px;
+
+  /* ── Geometry ──────────────────────────────────────────────── */
+  --grid-command: minmax(0, 25fr) minmax(0, 45fr) minmax(0, 30fr);
+  --gap-col: 12px;
+  --gap-panel: 10px;
+  --nav-h: 32px;
+  --radius-card: 2px;
+  --radius-pill: 999px;
+
+  /* ── Motion ────────────────────────────────────────────────── */
+  --t: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --t-fast: 160ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ── Legacy aliases ──────────────────────────────────────────
+     Names used across the existing stylesheets. They resolve to the
+     tokens above so there is exactly one place to edit a value. */
+  --bg: var(--bg-base);
+  --bg-2: var(--bg-deep);
+  --page-grad: var(--bg-grad);
+  --surface: #050506;
+  --surface-2: #070808;
+  --panel: var(--glass);
+  --panel-2: var(--glass);
+  --card-bg: var(--glass);
+  --card-border: var(--border-subtle);
+  --line: var(--border-subtle);
+  --line-2: var(--border-strong);
+  --line-3: var(--border-focus);
 }
 
 *, *::before, *::after { box-sizing: border-box; }

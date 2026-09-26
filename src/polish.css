@@ -839,50 +839,22 @@
 
 /* ═══════════════════════════════════════════════════════════════
    NASI DESIGN SYSTEM — final value layer
-   Deep space navy #0a0e17 → #0d1117, neon cyan #00f0ff, amber
-   #ff8c00, electric green #00ff88, crimson #ff2244, 25/45/30
-   columns, glassmorphic cards. Loaded last so every earlier
-   approximation is replaced directly.
+   Every colour, size and gap below resolves to a token declared once in
+   styles.css (see "NASI THEME TOKENS"). This layer only decides WHERE
+   those tokens apply, so the theme can be retuned from a single block.
    ═══════════════════════════════════════════════════════════════ */
-:root {
-  --bg: #0a0e17;
-  --bg-2: #0d1117;
-  --page-grad: linear-gradient(180deg, #0a0e17 0%, #0d1117 100%);
-  /* Glassmorphism: translucent deep-space navy + backdrop blur. */
-  --panel: rgba(10, 14, 23, 0.85);
-  --panel-2: rgba(10, 14, 23, 0.85);
-  --card-bg: rgba(10, 14, 23, 0.85);
-  --card-border: rgba(0, 240, 255, 0.15);
-  --line: rgba(0, 240, 255, 0.15);
-  --cyan: #00f0ff;
-  --cyan-dim: #00b8cc;
-  --emerald: #00ff88;
-  --amber: #ff8c00;
-  --crimson: #ff2244;
-  --text: #e0e6ed;
-  --text-2: #8892a0;
-  --glow-cyan: rgba(0, 240, 255, 0.6);
-  --cyan-blend: #00f0ff;
-  --glow-cyan-blend: #00f0ff;
-  --font: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Consolas, monospace;
-  --mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Consolas, monospace;
-  /* UI copy uses Inter; terminal/code surfaces keep the mono stack. */
-  --font-ui: 'Inter', 'JetBrains Mono', system-ui, -apple-system, sans-serif;
-  --card-glow: 0 0 10px rgba(0, 240, 255, 0.1);
-}
-
-html, body, #root { background: #0a0e17; }
+html, body, #root { background: var(--bg-base); }
 .nasi-app {
-  grid-template-rows: 32px 1fr auto;
+  grid-template-rows: var(--nav-h) 1fr auto;
   background: var(--page-grad);
 }
 .nasi-app::after {
   background: radial-gradient(ellipse 74% 62% at 50% 44%, rgba(10, 14, 23, 0) 28%, rgba(4, 7, 12, .5) 72%, rgba(0, 0, 0, .94) 100%);
 }
-.nasi-topbar { height: 32px; min-height: 32px; }
+.nasi-topbar { height: var(--nav-h); min-height: var(--nav-h); }
 .nasi-command-center {
-  grid-template-columns: minmax(0, 25fr) minmax(0, 45fr) minmax(0, 30fr);
-  gap: 12px;
+  grid-template-columns: var(--grid-command);
+  gap: var(--gap-col);
   padding: 0;
 }
 .nasi-left-panel,
@@ -890,11 +862,11 @@ html, body, #root { background: #0a0e17; }
 .nasi-core-card,
 .nasi-agent-town {
   margin: 0;
-  border: 1px solid rgba(0, 240, 255, 0.15);
-  background: rgba(10, 14, 23, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 0 10px rgba(0, 240, 255, 0.1);
+  border: 1px solid var(--border-subtle);
+  background: var(--glass);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  box-shadow: var(--glow-border);
 }
 .nasi-left-panel,
 .nasi-console-panel { height: 100%; }
@@ -929,19 +901,38 @@ html, body, #root { background: #0a0e17; }
 
 /* Exact node accents, including presentation attributes on the measured SVG.
    MEMORY cyan · SKILLS green · SOUL amber · SETTING white. */
-.nasi-routing-node[data-node-id="MEMORY"] { --node-color: #00f0ff !important; }
-.nasi-routing-node[data-node-id="SKILLS"] { --node-color: #00ff88 !important; }
-.nasi-routing-node[data-node-id="SOUL"] { --node-color: #ff8c00 !important; }
-.nasi-routing-node[data-node-id="SETTING"] { --node-color: #e0e6ed !important; }
-.nasi-route-group[data-route-id="MEMORY"] { stroke: #00f0ff !important; }
-.nasi-route-group[data-route-id="SETTING"] { stroke: #e0e6ed !important; }
-.nasi-route-group[data-route-id="SKILLS"] { stroke: #00ff88 !important; }
-.nasi-route-group[data-route-id="SOUL"] { stroke: #ff8c00 !important; }
+.nasi-routing-node[data-node-id="MEMORY"] { --node-color: var(--cyan) !important; }
+.nasi-routing-node[data-node-id="SKILLS"] { --node-color: var(--emerald) !important; }
+.nasi-routing-node[data-node-id="SOUL"] { --node-color: var(--amber) !important; }
+.nasi-routing-node[data-node-id="SETTING"] { --node-color: var(--text) !important; }
+.nasi-route-group[data-route-id="MEMORY"] { stroke: var(--cyan) !important; }
+.nasi-route-group[data-route-id="SETTING"] { stroke: var(--text) !important; }
+.nasi-route-group[data-route-id="SKILLS"] { stroke: var(--emerald) !important; }
+.nasi-route-group[data-route-id="SOUL"] { stroke: var(--amber) !important; }
 .nasi-theme-chip:first-child {
   border-color: rgba(0, 240, 255, .6) !important;
   box-shadow: 0 0 10px rgba(0, 240, 255, .25) !important;
 }
-.nasi-agent-connection-status > span:first-child.active { background: #00ff88 !important; }
+.nasi-agent-connection-status > span:first-child.active { background: var(--emerald) !important; }
+
+/* ── Interactive surfaces: subtle cyan edge glow ──
+   Stonic's hairline borders only separate on a flat fill; adding the
+   glow token lifts every control off the background. */
+.nasi-routing-node,
+.nasi-roster-pill,
+.nasi-dept-pill,
+.nasi-settings-chip,
+.nasi-modal-btn {
+  box-shadow: var(--glow-border);
+  transition: box-shadow var(--t-fast);
+}
+.nasi-routing-node:hover,
+.nasi-roster-pill:hover,
+.nasi-dept-pill:hover,
+.nasi-settings-chip:hover,
+.nasi-modal-btn:hover {
+  box-shadow: var(--glow-border-hover);
+}
 
 /* Exact core footprint and glow. */
 .nasi-core-wrapper { width: 200px; height: 200px; }
@@ -951,7 +942,7 @@ html, body, #root { background: #0a0e17; }
   filter: none !important;
   box-shadow: 0 0 60px rgba(0,240,255,0.12), 0 0 120px rgba(0,240,255,0.04);
 }
-.nasi-core-area { gap: 10px; }
+.nasi-core-area { gap: var(--gap-panel); }
 
 /* Routing lines: 1.5px straight segments only. */
 .nasi-route-base,
